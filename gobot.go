@@ -5,13 +5,15 @@ import (
 )
 
 func main() {
-	var c = flag.String("who", "", "Check char, add to DB if needed, update last_seen.")
-	var i = flag.String("import", "", "Parse file for identify stats, import to DB.")
+	var char = flag.String("char", "", "Check char, add to DB if needed, update last_seen.")
+	var lvl = flag.Int("lvl", 0, "Check char level, update DB.")
+	var file = flag.String("import", "", "Parse file for identify stats, import to DB.")
 	flag.Parse()
-	if *c != "" {
-		Who(*c)
+
+	if *char != "" && *lvl != 0 {
+		Who(*lvl, *char)
 	}
-	if *i != "" {
-		ID(*i)
+	if *file != "" {
+		ID(*file)
 	}
 }

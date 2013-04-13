@@ -32,6 +32,9 @@ func Who(lvl int, name string) {
 		fmt.Printf("who %s\n", name)
 		return
 	} else {
+		// if char does exist, tell the DB the time they were spotted and
+		// update their level 
+		// todo: also class change for necro->lich
 		tx, err := db.Begin()
 		if err != nil {
 			fmt.Println(err)

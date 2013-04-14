@@ -17,8 +17,7 @@ func Who(lvl int, name string) {
 	defer db.Close()
 
 	// check if character exists in DB
-	stmt, err := db.Prepare("SELECT account_name, char_name FROM chars " +
-		"WHERE LOWER(char_name) = LOWER(?)")
+	stmt, err := db.Prepare("SELECT account_name, char_name FROM chars WHERE LOWER(char_name) = LOWER(?)")
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -40,8 +39,7 @@ func Who(lvl int, name string) {
 			fmt.Println(err)
 			return
 		}
-		stmt, err := tx.Prepare("UPDATE chars SET char_level = ?, last_seen = ? " +
-			"WHERE account_name = ? AND char_name = ?")
+		stmt, err := tx.Prepare("UPDATE chars SET char_level = ?, last_seen = ? WHERE account_name = ? AND char_name = ?")
 		if err != nil {
 			fmt.Println(err)
 			return

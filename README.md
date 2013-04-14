@@ -21,6 +21,9 @@ SQLite3 package: go get github.com/mattn/go-sqlite3
 Initialize DB:
 
 `sqlite3 toril.db
+
 PRAGMA foreign_keys = ON;
+
 .read init_db.sql
+
 .read dump.sql`

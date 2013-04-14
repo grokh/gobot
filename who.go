@@ -5,22 +5,21 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"time"
+	"log"
 )
 
 func Who(lvl int, name string) {
 	date := time.Now()
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	defer db.Close()
 
 	// check if character exists in DB
 	stmt, err := db.Prepare("SELECT account_name, char_name FROM chars WHERE LOWER(char_name) = LOWER(?)")
 	if err != nil {
-		fmt.Println(err)
-		return
+		log.Fatal(err)
 	}
 	defer stmt.Close()
 	var acc string
@@ -36,20 +35,17 @@ func Who(lvl int, name string) {
 		// todo: also class change for necro->lich
 		tx, err := db.Begin()
 		if err != nil {
-			fmt.Println(err)
-			return
+			log.Fatal(err)
 		}
 		stmt, err := tx.Prepare("UPDATE chars SET char_level = ?, last_seen = ? WHERE account_name = ? AND char_name = ?")
 		if err != nil {
-			fmt.Println(err)
-			return
+			log.Fatal(err)
 		}
 		defer stmt.Close()
 
 		_, err = stmt.Exec(lvl, date, acc, char)
 		if err != nil {
-			fmt.Println(err)
-			return
+			log.Fatal(err)
 		}
 		tx.Commit()
 	}

@@ -15,7 +15,7 @@ func main() {
 	var cmd = flag.String("cmd", "", "Command from tell. Ex: stat")
 	var oper = flag.String("oper", "", "Operant from tell, to be operated on by cmd. Ex: \"a longsword\"")
 	flag.Parse()
-	*acct += *class + *race + *time + *cmd + *oper
+	*acct += *class + *race + *cmd + *oper
 
 	if *char != "" && *lvl != 0 {
 		Who(*lvl, *char)

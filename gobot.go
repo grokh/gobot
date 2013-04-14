@@ -24,7 +24,7 @@ func main() {
 	*cmd += *oper
 
 	// only run one command at a time
-	if *char != "" && *lvl > 0 && *class != "" && *race != "" && *acct != "" {
+	if *char != "" && 50 >= *lvl && *lvl > 0 && *class != "" && *race != "" && *acct != "" {
 		WhoChar(*char, *lvl, *class, *race, *acct)
 	} else if *char != "" && 50 >= *lvl && *lvl > 0 {
 		Who(*char, *lvl)

@@ -129,7 +129,7 @@ CREATE TABLE items(
 	,long_stats VARCHAR(900)
 	,full_stats TEXT
 	,comments TEXT
-	,last_id date
+	,last_id DATE
 );
 CREATE INDEX idx_item_name ON items (item_name);
 CREATE VIRTUAL TABLE item_search USING fts3(

@@ -17,11 +17,9 @@ func main() {
 	// for time.go Uptime(curup)
 	var time = flag.String("time", "", "Parse uptime for boot tracking. Ex: 58:10:26")
 	// for tell.go
-	var cmd = flag.String("cmd", "", "Command from tell. Ex: stat")
-	var oper = flag.String("oper", "", "Operant from tell, to be operated on by cmd. Ex: \"a longsword\"")
+	var tell = flag.String("tell", "", "Tell with command and maybe operant. Ex: stat a longsword")
 
 	flag.Parse()
-	*cmd += *oper
 
 	// only run one command at a time
 	if *char != "" && 50 >= *lvl && *lvl > 0 && *class != "" && *race != "" && *acct != "" {
@@ -32,5 +30,7 @@ func main() {
 		Identify(*file)
 	} else if *time != "" {
 		Uptime(*time)
+	} else if *char != "" && *tell != "" {
+		ReplyTo(*char, *tell)
 	}
 }

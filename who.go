@@ -53,23 +53,65 @@ func Who(char string, lvl int) {
 }
 
 func WhoChar(char string, lvl int, class string, race string, acct string) {
-        date := time.Now()
-        db, err := sql.Open("sqlite3", "toril.db")
-        if err != nil {
-                log.Fatal(err)
-        }
-        defer db.Close()
+	date := time.Now()
+	db, err := sql.Open("sqlite3", "toril.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
 
-        // check if character exists in DB
-        stmt, err := db.Prepare("SELECT account_name, char_name FROM chars WHERE LOWER(char_name) = LOWER(?)")
-        if err != nil {
-                log.Fatal(err)
-        }
-        defer stmt.Close()
-        var acc string
-        var name string
-        err = stmt.QueryRow(char).Scan(&acc, &name)
-        if err != nil {
+	// check if character exists in DB
+	stmt, err := db.Prepare("SELECT account_name, char_name FROM chars WHERE LOWER(char_name) = LOWER(?)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+	var acc string
+	var name string
+	err = stmt.QueryRow(char).Scan(&acc, &name)
+	if err != nil {
 		// if no char, check if account exists in DB, create char
+		stmt, err = db.Prepare("SELECT account_name FROM accounts WHERE LOWER(account_name) = LOWER(?)")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stmt.Close()
+
+		err = stmt.QueryRow(char).Scan(&acc)
+		if err != nil { // if no acct, create acccount
+			tx, err := db.Begin()
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			stmt, err := tx.Prepare("INSERT INTO accounts (account_name) VALUES(?)")
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer stmt.Close()
+
+			_, err = stmt.Exec(acct)
+			if err != nil {
+				log.Fatal(err)
+			}
+			tx.Commit()
+		}
+		// create character
+		tx, err := db.Begin()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		stmt, err := tx.Prepare("INSERT INTO chars VALUES(%s, %s, %s, %s, %s, %s, 't')")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stmt.Close()
+
+		_, err = stmt.Exec(acct, char, class, race, lvl, date)
+		if err != nil {
+			log.Fatal(err)
+		}
+		tx.Commit()
 	}
 }

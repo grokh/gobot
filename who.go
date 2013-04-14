@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
-	"time"
 	"log"
+	"time"
 )
 
 func Who(lvl int, name string) {

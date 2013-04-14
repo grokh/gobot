@@ -67,19 +67,19 @@ func Uptime(curup string) {
 	} else {
 		// it's still the current boot, so update current uptime
 		tx, err := db.Begin()
-                if err != nil {
+		if err != nil {
 			log.Fatal(err)
-                }
-                stmt, err := tx.Prepare("UPDATE boots SET uptime = ? WHERE boot_id = ?")
-                if err != nil {
-                        log.Fatal(err)
-                }
-                defer stmt.Close()
+		}
+		stmt, err := tx.Prepare("UPDATE boots SET uptime = ? WHERE boot_id = ?")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stmt.Close()
 
-                _, err = stmt.Exec(curup, oldid)
-                if err != nil {
-                        log.Fatal(err)
-                }
-                tx.Commit()
+		_, err = stmt.Exec(curup, oldid)
+		if err != nil {
+			log.Fatal(err)
+		}
+		tx.Commit()
 	}
 }

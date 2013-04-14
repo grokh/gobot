@@ -5,25 +5,13 @@ import (
 	"net/smtp"
 )
 
-func Notify() {
-	from := "example@gmail.com"
-	to := "example@gmail.com"
-	body := "This is the email body."
-	srv := "smtp.gmail.com:587"
-	pwd := "blahblah"
-	auth := smtp.PlainAuth(
-		"",
-		from,
-		pwd,
-		srv,
-	)
-	err := smtp.SendMail(
-		srv,
-		auth,
-		from,
-		[]string{to},
-		[]byte(body),
-	)
+func Notify(from string, to []string, pwd string) {
+	sub := "Subject: TorilMUD reboot/crash:\r\n\r\n"
+	body := "Katumi detected a new TorilMUD boot."
+	msg := []byte(sub + body)
+	server := "smtp.gmail.com:587"
+	auth := smtp.PlainAuth("", from, pwd, server)
+	err := smtp.SendMail(server, auth, from, to, msg)
 	if err != nil {
 		log.Fatal(err)
 	}

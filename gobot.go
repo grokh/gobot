@@ -21,6 +21,9 @@ func main() {
 		Who(*lvl, *char)
 	}
 	if *file != "" {
-		ID(*file)
+		Identify(*file)
+	}
+	if *time != "" {
+		Uptime(*time)
 	}
 }

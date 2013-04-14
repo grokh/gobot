@@ -1,5 +1,5 @@
 package main
 
-func ID(filename string) {
+func Identify(filename string) {
 
 }

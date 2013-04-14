@@ -194,26 +194,3 @@ CREATE TABLE item_attribs(
 	,attrib_value INTEGER NOT NULL
 	,PRIMARY KEY (item_id, attrib_abbr)
 );
-
-CREATE TABLE legacy (
-	id INTEGER PRIMARY KEY,
-	varName TEXT, varKeywords TEXT, varZone TEXT, varLoad TEXT, varQuest TEXT, varNoID TEXT,
-	varType TEXT, varWorn TEXT, varWt TEXT, varHolds TEXT, varValue TEXT, intAC INTEGER,
-	varArmor TEXT, varPages TEXT, varHP TEXT, varDice TEXT, varWType TEXT, varWClass TEXT,
-	varCRange TEXT, varCBonus TEXT, intHit INTEGER, intDam INTEGER, varSpell TEXT,
-	varBreath TEXT, varPara TEXT, varPetri TEXT, varRod TEXT, varStr TEXT, varAgi TEXT,
-	varDex TEXT, varCon TEXT, varPow TEXT, varInt TEXT, varWis TEXT, varCha TEXT,
-	varMaxstr TEXT, varMaxagi TEXT, varMaxdex TEXT, varMaxcon TEXT, varMaxpow TEXT,
-	varMaxint TEXT, varMaxwis TEXT, varMaxcha TEXT, varLuck TEXT, varKarma TEXT, varMana TEXT,
-	varMove TEXT, varAge TEXT, varWeight TEXT, varHeight TEXT, varMR TEXT, varSFEle TEXT,
-	varSFEnc TEXT, varSFHeal TEXT, varSFIll TEXT, varSFInv TEXT, varSFNature TEXT,
-	varSFNec TEXT, varSFProt TEXT, varSFPsi TEXT, varSFSpirit TEXT, varSFSum TEXT,
-	varSFTele TEXT, varPsp TEXT, varQuality TEXT, varStutter TEXT, varMin TEXT,
-	varPoison TEXT, varLevel TEXT, varApplications TEXT, varCharge TEXT, varMaxcharge TEXT,
-	varWlevel TEXT, varWspell TEXT, varRes TEXT, varCRes TEXT, varEnchant TEXT,
-	varEffects TEXT, varCrit TEXT, varBonus TEXT, varCeffects TEXT, varUnarmd TEXT,
-	varSlash TEXT, varBludgn TEXT, varPierce TEXT, varRange TEXT, varSpells TEXT,
-	varSonic TEXT, varPos TEXT, varNeg TEXT, varPsi TEXT, varMental TEXT, varGoods TEXT,
-	varEvils TEXT, varLaw TEXT, varChaos TEXT, varForce TEXT, varFire TEXT, varCold TEXT,
-	varElect TEXT, varAcid TEXT, varPois TEXT, varAflags TEXT, varIflags TEXT, varDate TEXT
-);

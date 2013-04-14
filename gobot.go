@@ -15,15 +15,15 @@ func main() {
 	var cmd = flag.String("cmd", "", "Command from tell. Ex: stat")
 	var oper = flag.String("oper", "", "Operant from tell, to be operated on by cmd. Ex: \"a longsword\"")
 	flag.Parse()
-	*acct += *class + *race + *cmd + *oper
+	*cmd += *oper
 
-	if *char != "" && *lvl != 0 {
-		Who(*lvl, *char)
-	}
-	if *file != "" {
+	if *char != "" && *lvl != 0 && *class != "" && *race != "" && *acct != "" {
+		WhoChar(*char, *lvl, *class, *race, *acct)
+	} else if *char != "" && *lvl != 0 {
+		Who(*char, *lvl)
+	} else if *file != "" {
 		Identify(*file)
-	}
-	if *time != "" {
+	} else if *time != "" {
 		Uptime(*time)
 	}
 }

@@ -74,7 +74,7 @@
 }
 
 
-#nop Who Check Expects: Name Class Level Race Account
+#nop Who Check
 #act {^[ %d %.%.%.] %w %*(%*)} {
 	#script {answer} {./gobot -char %5 -lvl %1};
 	#foreach {$answer} {cmd} {

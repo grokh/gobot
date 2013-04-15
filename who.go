@@ -9,7 +9,13 @@ import (
 )
 
 func Who(char string, lvl int) {
-	date := time.Now()
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		log.Fatal(err)
+	}
+	date := time.Now().In(loc)
+	// debugging
+	fmt.Printf("Time: %v\n", date)
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
 		log.Fatal(err)

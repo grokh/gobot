@@ -16,8 +16,8 @@ func main() {
 	var file = flag.String("import", "", "Parse file for identify stats, import to DB. Ex: newstats.txt")
 	// for time.go Uptime(curup)
 	var time = flag.String("time", "", "Parse uptime for boot tracking. Ex: 58:10:26")
-	// for tell.go
-	var tell = flag.String("tell", "", "Tell with command and maybe operant. Ex: stat a longsword")
+	// for tell.go ReplyTo(char, tell)
+	var tell = flag.String("tell", "", "Tell with command and maybe operant. Ex: \"stat a longsword\"")
 
 	flag.Parse()
 

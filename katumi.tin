@@ -63,7 +63,7 @@
 
 	#var {chat} {%2};
 	#replace {chat} {"} {'};
-	#script {answer} {./gobot -char "%1" -cmd "$chat"};
+	#script {answer} {./gobot -char "%1" -tell "$chat"};
 	#foreach {$answer} {cmd} {
 		#if {"$cmd" != "%d"} {$cmd};
 	};

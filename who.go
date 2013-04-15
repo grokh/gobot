@@ -9,7 +9,14 @@ import (
 )
 
 func Who(char string, lvl int) {
-	date := time.Now()
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		log.Fatal(err)
+	}
+	date := time.Now().In(loc)
+	// debugging
+	fmt.Printf("Time: %v\n", date)
+
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
 		log.Fatal(err)
@@ -22,13 +29,16 @@ func Who(char string, lvl int) {
 		log.Fatal(err)
 	}
 	defer stmt.Close()
+
 	var acc string
 	var name string
 	err = stmt.QueryRow(char).Scan(&acc, &name)
-	if err != nil {
+	if err != nil { // change to if err == actual NoData err
 		// if char doesn't exist, 'who char'
 		fmt.Printf("who %s\n", char)
 		return
+	} else if err != nil {
+		log.Fatal(err)
 	} else {
 		// if char does exist, tell the DB the time they were spotted and
 		// update their level 
@@ -69,7 +79,7 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 	var acc string
 	var name string
 	err = stmt.QueryRow(char).Scan(&acc, &name)
-	if err != nil {
+	if err != nil { // chaange to err == right err
 		// if no char, check if account exists in DB, create char
 		stmt, err = db.Prepare("SELECT account_name FROM accounts WHERE LOWER(account_name) = LOWER(?)")
 		if err != nil {
@@ -78,7 +88,8 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 		defer stmt.Close()
 
 		err = stmt.QueryRow(char).Scan(&acc)
-		if err != nil { // if no acct, create acccount
+		if err != nil { // change to err == right err
+			//if no acct, create acccount
 			tx, err := db.Begin()
 			if err != nil {
 				log.Fatal(err)
@@ -95,6 +106,8 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 				log.Fatal(err)
 			}
 			tx.Commit()
+		} else if err != nil {
+			log.Fatal(err)
 		}
 		// create character
 		tx, err := db.Begin()
@@ -113,5 +126,7 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 			log.Fatal(err)
 		}
 		tx.Commit()
+	} else if err != nil {
+		log.Fatal(err)
 	}
 }

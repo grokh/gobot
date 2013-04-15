@@ -22,15 +22,16 @@ func main() {
 	flag.Parse()
 
 	// only run one command at a time
-	if *char != "" && 50 >= *lvl && *lvl > 0 && *class != "" && *race != "" && *acct != "" {
+	switch {
+	case *char != "" && 50 >= *lvl && *lvl > 0 && *class != "" && *race != "" && *acct != "":
 		WhoChar(*char, *lvl, *class, *race, *acct)
-	} else if *char != "" && 50 >= *lvl && *lvl > 0 {
+	case *char != "" && 50 >= *lvl && *lvl > 0:
 		Who(*char, *lvl)
-	} else if *file != "" {
+	case *file != "":
 		Identify(*file)
-	} else if *time != "" {
+	case *time != "":
 		Uptime(*time)
-	} else if *char != "" && *tell != "" {
+	case *char != "" && *tell != "":
 		ReplyTo(*char, *tell)
 	}
 }

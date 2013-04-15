@@ -23,7 +23,8 @@ PRAGMA foreign_keys = ON;
 
 To build on Mac OS X:
 
-* Install Homebrew
+* Install Homebrew: http://mxcl.github.io/homebrew/
+
 ```
 brew install pkgconfig
 brew install sqlite

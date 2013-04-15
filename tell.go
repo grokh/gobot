@@ -43,44 +43,46 @@ func ReplyTo(char string, tell string) {
 	fmt.Printf("Cmd : %s\n", cmd)
 	fmt.Printf("Oper: %s\n", oper)
 
-	if cmd == "?" {
+	switch {
+	case cmd == "?":
 		Reply(char, info)
-	} else if cmd == "help" {
-		if oper == "" {
+	case cmd == "help":
+		switch {
+		case oper == "":
 			Reply(char, info)
-		} else if oper == "?" {
+		case oper == "?":
 			txt = "Syntax: tell katumi ? -- " +
 				"Katumi provides a full listing of valid commands."
 			Reply(char, txt)
-		} else if oper == "hidden?" {
+		case oper == "hidden?":
 			txt = "Syntax: tell katumi hidden? -- " +
 				"Katumi sends a tell in reply " +
 				"if she can see you. If you receive no reply, you are hidden. " +
 				"Katumi has permanent detect invis to ensure that won't cause " +
 				"issues."
 			Reply(char, txt)
-		} else if oper == "who" {
+		case oper == "who":
 			txt = "Syntax: tell katumi who <acct/char> -- " +
 				"Example: tell katumi who rynshana -- " +
 				"Katumi provides the account name along with a list of every " +
 				"known alt of the named character as a reply. Also works with " +
 				"account names."
 			Reply(char, txt)
-		} else if oper == "char" {
+		case oper == "char":
 			txt = "Syntax: tell katumi char <char> -- " +
 				"Example: tell katumi char rynshana -- " +
 				"Katumi provides the account name along with full information " +
 				"on the named character as a reply, " +
 				"to include level, class, race, and date/time last seen."
 			Reply(char, txt)
-		} else if oper == "find" {
+		case oper == "find":
 			txt = "Syntax: tell katumi find <acct/char> -- " +
 				"Example: tell katumi find rynshana -- " +
 				"Katumi provides the account name along with the last known " +
 				"sighting of any of that character's alts. If they have an alt online, " +
 				"the time will measure in seconds. Also works with account names."
 			Reply(char, txt)
-		} else if oper == "clist" {
+		case oper == "clist":
 			txt = "Syntax: tell katumi clist <acct/char> -- " +
 				"Example: tell katumi clist rynshana -- " +
 				"Katumi provides a full " +
@@ -88,7 +90,7 @@ func ReplyTo(char string, tell string) {
 				"class, level, and date/time last seen, matching the format of " +
 				"the 'char' command. Also works with account names."
 			Reply(char, txt)
-		} else if oper == "class" {
+		case oper == "class":
 			txt = "Syntax: tell katumi class <class> -- " +
 				"Example: tell katumi class enchanter -- " +
 				"Katumi provides a " +
@@ -96,7 +98,7 @@ func ReplyTo(char string, tell string) {
 				"are currently online, letting group leaders find useful " +
 				"alts from the 'who' list."
 			Reply(char, txt)
-		} else if oper == "delalt" {
+		case oper == "delalt":
 			txt = "Syntax: tell katumi delalt <char> -- " +
 				"Example: tell katumi delalt rynshana -- " +
 				"Katumi no longer " +
@@ -104,7 +106,7 @@ func ReplyTo(char string, tell string) {
 				"'who', and 'find' commands. Only works for characters " +
 				"attached to the same account requesting the removal."
 			Reply(char, txt)
-		} else if oper == "addalt" {
+		case oper == "addalt":
 			txt = "Syntax: tell katumi addalt <char> -- " +
 				"Example: tell katumi addalt rynshana -- " +
 				"Katumi begins " +
@@ -113,7 +115,7 @@ func ReplyTo(char string, tell string) {
 				"'clist', 'who', and 'find' commands. Only works for chars " +
 				"attached to the same account."
 			Reply(char, txt)
-		} else if oper == "lr" {
+		case oper == "lr":
 			txt = "Syntax: tell katumi lr -- " +
 				"Katumi provides a list of load " +
 				"reports for the current boot. This could be rares or quests " +
@@ -127,7 +129,7 @@ func ReplyTo(char string, tell string) {
 				"a rare, global load, or complete a quest or the like, report " +
 				"it along with a location so other players will know!"
 			Reply(char, txt)
-		} else if oper == "lrdel" {
+		case oper == "lrdel":
 			txt = "Syntax: tell katumi lrdel <num> -- " +
 				"Example: tell katumi lrdel 3 -- " +
 				"Katumi removes the " +
@@ -135,7 +137,7 @@ func ReplyTo(char string, tell string) {
 				"or a rare killed, or a report found to be inaccurate. Please " +
 				"do not abuse this command - this service helps everyone."
 			Reply(char, txt)
-		} else if oper == "stat" {
+		case oper == "stat":
 			txt = "Syntax: tell katumi stat <item> -- " +
 				"Example: tell katumi stat isha cloak -- " +
 				"Katumi provides stat info for the item named. " +
@@ -143,7 +145,7 @@ func ReplyTo(char string, tell string) {
 				"The name search is fairly forgiving. Please send new stats " +
 				"in an mwrite to katumi or email to kristi.michaels@gmail.com"
 			Reply(char, txt)
-		} else if oper == "astat" {
+		case oper == "astat":
 			txt = "Syntax: tell katumi astat <item> -- " +
 				"Example tell katumi astat destruction sword -- " +
 				"Katumi provides full " +
@@ -152,7 +154,7 @@ func ReplyTo(char string, tell string) {
 				"are a little buggy right now since I haven't put much time " +
 				"into it."
 			Reply(char, txt)
-		} else if oper == "fstat" {
+		case oper == "fstat":
 			txt = "Syntax: tell katumi fstat <stat> <sym> <num>" +
 				"[, <stat2> <sym2> <num2>][, resist <resist>] -- " +
 				"Example: tell katumi fstat maxagi > 0, resist fire -- " +
@@ -163,21 +165,22 @@ func ReplyTo(char string, tell string) {
 				" Resists check for a positive value. " +
 				"Other options will be added later."
 			Reply(char, txt)
-		} else {
+		default:
 			txt = NotFound("help file", oper)
 			Reply(char, txt)
 		}
-	} else if cmd == "stat" {
+	case cmd == "stat" && oper != "":
 		FindItem(oper, "short_stats")
-	} else if cmd == "astat" {
+	case cmd == "astat" && oper != "":
 		FindItem(oper, "long_stats")
-	} else if cmd == "fstat" {
+	case cmd == "fstat" && oper != "":
 		opers := strings.Split(oper, ", ")
 		query := "SELECT short_stats FROM items"
 		var args []interface{}
 		for _, ops := range opers {
 			fop := strings.Fields(ops)
-			if len(fop) == 3 {
+			switch {
+			case len(fop) == 3:
 				fop[0] = strings.ToLower(fop[0])
 				comp := fop[1]
 				if strings.ContainsAny(comp, "=<>") {
@@ -191,7 +194,7 @@ func ReplyTo(char string, tell string) {
 						"AND attrib_abbr = ? AND attrib_value " + comp + " ?)"
 					args = append(args, fop[0], fop[2])
 				}
-			} else if len(fop) == 2 {
+			case len(fop) == 2:
 				if strings.ToLower(fop[0]) == "resist" {
 					res := strings.ToLower(fop[1])
 					if !strings.Contains(query, "WHERE") {
@@ -248,7 +251,25 @@ func ReplyTo(char string, tell string) {
 		} else {
 			Reply(char, syntax)
 		}
-	} else {
+	case cmd == "who" && oper != "":
+		fmt.Println()
+	case cmd == "clist" && oper != "":
+		fmt.Println()
+	case cmd == "char" && oper != "":
+		fmt.Println()
+	case cmd == "find" && oper != "":
+		fmt.Println()
+	case cmd == "class" && oper != "":
+		fmt.Println()
+	case cmd == "delalt" && oper != "":
+		fmt.Println()
+	case cmd == "addalt" && oper != "":
+		fmt.Println()
+	case cmd == "lr":
+		fmt.Println()
+	case cmd == "lrdel" && oper != "":
+		fmt.Println()
+	default:
 		Reply(char, syntax)
 	}
 }

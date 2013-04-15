@@ -218,7 +218,7 @@ func ReplyTo(char string, tell string) {
 			defer db.Close()
 
 			// debugging
-			//fmt.Printf("Query: %s\n", query)
+			//fmt.Printf("Query : %s\n", query)
 			//fmt.Printf("Params: %s\n", args)
 
 			stmt, err := db.Prepare(query)

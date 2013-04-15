@@ -6,7 +6,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"strings"
-	//"time"
+	"time"
 )
 
 func NotFound(four string, oper string) string {
@@ -256,7 +256,37 @@ func ReplyTo(char string, tell string) {
 	case cmd == "clist" && oper != "":
 		fmt.Println()
 	case cmd == "char" && oper != "":
-		fmt.Println()
+		db, err := sql.Open("sqlite3", "toril.db")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+
+		query := "SELECT char_level, class_name, char_name, char_race, " +
+			"account_name, last_seen FROM chars WHERE vis = 't' " +
+			"AND LOWER(char_name) = LOWER(?)"
+		stmt, err := db.Prepare(query)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stmt.Close()
+
+		var lvl string
+		var class string
+		var name string
+		var race string
+		var acc string
+		var seen time.Time
+		err = stmt.QueryRow(oper).Scan(&lvl, &class, &name, &race, &acc, &seen)
+		if err == sql.ErrNoRows {
+			Reply(char, NotFound("character", oper))
+		} else if err != nil {
+			log.Fatal(err)
+		} else {
+			date := seen.Format("2006-01-02 15:04:05")
+			txt = "[" + lvl + " " + class + "] " + name + " (" + race + ") (@" + acc + ") seen " + date
+			Reply(char, txt)
+		}
 	case cmd == "find" && oper != "":
 		fmt.Println()
 	case cmd == "class" && oper != "":

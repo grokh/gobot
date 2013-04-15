@@ -33,7 +33,7 @@ func Who(char string, lvl int) {
 	var acc string
 	var name string
 	err = stmt.QueryRow(char).Scan(&acc, &name)
-	if err != nil { // change to if err == actual NoData err
+	if err == sql.ErrNoRows {
 		// if char doesn't exist, 'who char'
 		fmt.Printf("who %s\n", char)
 		return
@@ -42,8 +42,8 @@ func Who(char string, lvl int) {
 	} else {
 		// if char does exist, tell the DB the time they were spotted and
 		// update their level 
-		// todo: also check class change for necro->lich
-		// todo: also check for account name change
+		// TODO: also check class change for necro->lich
+		// TODO: also check for account name change
 		tx, err := db.Begin()
 		if err != nil {
 			log.Fatal(err)
@@ -79,7 +79,7 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 	var acc string
 	var name string
 	err = stmt.QueryRow(char).Scan(&acc, &name)
-	if err != nil { // chaange to err == right err
+	if err == sql.ErrNoRows {
 		// if no char, check if account exists in DB, create char
 		stmt, err = db.Prepare("SELECT account_name FROM accounts WHERE LOWER(account_name) = LOWER(?)")
 		if err != nil {
@@ -88,7 +88,7 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 		defer stmt.Close()
 
 		err = stmt.QueryRow(char).Scan(&acc)
-		if err != nil { // change to err == right err
+		if err == sql.ErrNoRows { // change to err == right err
 			//if no acct, create acccount
 			tx, err := db.Begin()
 			if err != nil {

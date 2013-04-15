@@ -16,21 +16,22 @@ func main() {
 	var file = flag.String("import", "", "Parse file for identify stats, import to DB. Ex: newstats.txt")
 	// for time.go Uptime(curup)
 	var time = flag.String("time", "", "Parse uptime for boot tracking. Ex: 58:10:26")
-	// for tell.go
-	var tell = flag.String("tell", "", "Tell with command and maybe operant. Ex: stat a longsword")
+	// for tell.go ReplyTo(char, tell)
+	var tell = flag.String("tell", "", "Tell with command and maybe operant. Ex: \"stat a longsword\"")
 
 	flag.Parse()
 
 	// only run one command at a time
-	if *char != "" && 50 >= *lvl && *lvl > 0 && *class != "" && *race != "" && *acct != "" {
+	switch {
+	case *char != "" && 50 >= *lvl && *lvl > 0 && *class != "" && *race != "" && *acct != "":
 		WhoChar(*char, *lvl, *class, *race, *acct)
-	} else if *char != "" && 50 >= *lvl && *lvl > 0 {
+	case *char != "" && 50 >= *lvl && *lvl > 0:
 		Who(*char, *lvl)
-	} else if *file != "" {
+	case *file != "":
 		Identify(*file)
-	} else if *time != "" {
+	case *time != "":
 		Uptime(*time)
-	} else if *char != "" && *tell != "" {
+	case *char != "" && *tell != "":
 		ReplyTo(*char, *tell)
 	}
 }

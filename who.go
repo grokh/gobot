@@ -31,7 +31,9 @@ func Who(char string, lvl int) {
 
 	// TODO: switch to update first, who on particular err
 	// check if character exists in DB
-	stmt, err := db.Prepare("SELECT account_name, char_name FROM chars WHERE LOWER(char_name) = LOWER(?)")
+	query := "SELECT account_name, char_name FROM chars "+
+	"WHERE LOWER(char_name) = LOWER(?)"
+	stmt, err := db.Prepare(query)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -40,7 +42,7 @@ func Who(char string, lvl int) {
 	var acc string
 	var name string
 	err = stmt.QueryRow(char).Scan(&acc, &name)
-	if err != nil { // change to if err == actual NoData err
+	if err == sql.ErrNoRows {
 		// if char doesn't exist, 'who char'
 		fmt.Printf("who %s\n", char)
 		return
@@ -49,13 +51,15 @@ func Who(char string, lvl int) {
 	} else {
 		// if char does exist, tell the DB the time they were spotted and
 		// update their level 
-		// todo: also check class change for necro->lich
-		// todo: also check for account name change
+		// TODO: also check class change for necro->lich
+		// TODO: also check for account name change
 		tx, err := db.Begin()
 		if err != nil {
 			log.Fatal(err)
 		}
-		stmt, err := tx.Prepare("UPDATE chars SET char_level = ?, last_seen = ? WHERE account_name = ? AND char_name = ?")
+		query = "UPDATE chars SET char_level = ?, last_seen = ? "+
+		"WHERE account_name = ? AND char_name = ?"
+		stmt, err := tx.Prepare(query)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -78,7 +82,9 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 	defer db.Close()
 
 	// check if character exists in DB
-	stmt, err := db.Prepare("SELECT account_name, char_name FROM chars WHERE LOWER(char_name) = LOWER(?)")
+	query := "SELECT account_name, char_name FROM chars "+
+	"WHERE LOWER(char_name) = LOWER(?)"
+	stmt, err := db.Prepare(query)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -86,23 +92,26 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 	var acc string
 	var name string
 	err = stmt.QueryRow(char).Scan(&acc, &name)
-	if err != nil { // chaange to err == right err
+	if err == sql.ErrNoRows {
 		// if no char, check if account exists in DB, create char
-		stmt, err = db.Prepare("SELECT account_name FROM accounts WHERE LOWER(account_name) = LOWER(?)")
+		query = "SELECT account_name FROM accounts "+
+		"WHERE LOWER(account_name) = LOWER(?)"
+		stmt, err = db.Prepare(query)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer stmt.Close()
 
 		err = stmt.QueryRow(char).Scan(&acc)
-		if err != nil { // change to err == right err
+		if err == sql.ErrNoRows {
 			//if no acct, create acccount
 			tx, err := db.Begin()
 			if err != nil {
 				log.Fatal(err)
 			}
 
-			stmt, err := tx.Prepare("INSERT INTO accounts (account_name) VALUES(?)")
+			query = "INSERT INTO accounts (account_name) VALUES(?)"
+			stmt, err := tx.Prepare(query)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -122,7 +131,8 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 			log.Fatal(err)
 		}
 
-		stmt, err := tx.Prepare("INSERT INTO chars VALUES(%s, %s, %s, %s, %s, %s, 't')")
+		query = "INSERT INTO chars VALUES(%s, %s, %s, %s, %s, %s, 't')"
+		stmt, err := tx.Prepare(query)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -458,9 +458,8 @@ func ReplyTo(char string, tell string) {
 			for rows.Next() {
 				var name string
 				var report string
-				var rptTime time.Time
-				err = rows.Scan(&name, &report, &rptTime)
-				date := rptTime.Format("2006-01-02 05:12:19")
+				var date string
+				err = rows.Scan(&name, &report, &date)
 				txt = fmt.Sprintf(
 					"%d: %s [%s at %s]",
 					counter, report, name, date,
@@ -521,20 +520,20 @@ func ReplyTo(char string, tell string) {
 		}
 		defer rows.Close()
 
-		var curboot string
-		var rtime time.Time
-		var report string
 		num, err := strconv.Atoi(oper)
 		if err != nil {
 			Reply(char, syntax)
 			return
 		}
+		var curboot string
+		var rtime time.Time
+		var report string
 		counter := 1
 		for rows.Next() {
 			var boot string
 			var date time.Time
 			var text string
-			err = rows.Scan(&boot, &date, text)
+			err = rows.Scan(&boot, &date, &text)
 			if counter == num {
 				curboot = boot
 				rtime = date

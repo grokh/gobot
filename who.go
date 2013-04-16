@@ -6,10 +6,12 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"time"
+	"strings"
 )
 
 func WhoBatch(batch string) {
-	_ := batch
+	who := strings.Split(batch, "|")
+	// regex for who line :/
 }
 
 func Who(char string, lvl int) {

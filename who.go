@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+func WhoBatch(batch string) {
+	_ := batch
+}
+
 func Who(char string, lvl int) {
 	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {
@@ -23,6 +27,7 @@ func Who(char string, lvl int) {
 	}
 	defer db.Close()
 
+	// TODO: switch to update first, who on particular err
 	// check if character exists in DB
 	stmt, err := db.Prepare("SELECT account_name, char_name FROM chars WHERE LOWER(char_name) = LOWER(?)")
 	if err != nil {

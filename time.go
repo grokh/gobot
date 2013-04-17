@@ -15,6 +15,10 @@ func Uptime(curup string) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
@@ -48,7 +52,7 @@ func Uptime(curup string) {
 			log.Fatal(err)
 		}
 
-		boottime := time.Now().Add(-curtime)
+		boottime := time.Now().In(loc).Add(-curtime)
 		stmt, err = db.Prepare("INSERT INTO boots (boot_time, uptime) VALUES(?, ?)")
 		if err != nil {
 			log.Fatal(err)

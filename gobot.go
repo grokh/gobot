@@ -2,6 +2,8 @@ package main
 
 import (
 	"flag"
+	"log"
+	"os/exec"
 )
 
 func main() {
@@ -20,6 +22,8 @@ func main() {
 	var tell = flag.String("tell", "", "Tell with command and maybe operant. Ex: \"stat a longsword\"")
 	// for who.go WhoBatch(ppl)
 	var who = flag.String("who", "", "Batched who output. Ex: [ 1 Ctr] Rarac  (Orc)|[ 2 War] Xatus  (Troll)")
+	// run database backup
+	var bak = flag.Bool("backup", false, "Backup the toril.db database.")
 
 	flag.Parse()
 
@@ -37,5 +41,11 @@ func main() {
 		ReplyTo(*char, *tell)
 	case *who != "":
 		WhoBatch(*who)
+	case *bak:
+		cmd1 := exec.Command("sh", "-c", "echo '.dump' | sqlite3 toril.db | gzip -c >toril.db.`date +\"%Y-%m-%d\"`.gz")
+		err := cmd1.Run()
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }

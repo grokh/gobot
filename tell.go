@@ -254,8 +254,12 @@ func ReplyTo(char string, tell string) {
 			Reply(char, syntax)
 		}
 	case cmd == "who" && oper != "":
+		// do with one sql, char= OR acc=
+		// order by lvl, name
 		//fmt.Println()
 	case cmd == "clist" && oper != "":
+		// do with one sql, char= OR acc=
+		// order by lvl, name
 		//fmt.Println()
 	case cmd == "char" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
@@ -294,6 +298,7 @@ func ReplyTo(char string, tell string) {
 			Reply(char, txt)
 		}
 	case cmd == "find" && oper != "":
+		// do with one sql, char= OR acc=
 		//fmt.Println()
 	case cmd == "class" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")

@@ -300,7 +300,7 @@ func ReplyTo(char string, tell string) {
 		defer db.Close()
 
 		query := "SELECT char_level, class_name, char_name, char_race, " +
-			"account_name, STRFTIME('%Y-%m-%d %H:%M:%S', last_seen) " +
+			"account_name, DATETIME(last_seen) " +
 			"FROM chars WHERE vis = 't' " +
 			"AND (account_name = " +
 			"(SELECT account_name FROM chars " +
@@ -343,7 +343,7 @@ func ReplyTo(char string, tell string) {
 		defer db.Close()
 
 		query := "SELECT char_level, class_name, char_name, char_race, " +
-			"account_name, STRFTIME('%Y-%m-%d %H:%M:%S', last_seen) " +
+			"account_name, DATETIME(last_seen) " +
 			"FROM chars WHERE vis = 't' " +
 			"AND LOWER(char_name) = LOWER(?)"
 		stmt, err := db.Prepare(query)
@@ -372,8 +372,64 @@ func ReplyTo(char string, tell string) {
 			Reply(char, txt)
 		}
 	case cmd == "find" && oper != "":
-		// do with one sql, char= OR acc=
-		//fmt.Println()
+		db, err := sql.Open("sqlite3", "toril.db")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+
+		query := "SELECT account_name, char_name, " +
+			"(STRFTIME('%s','now','localtime') - STRFTIME('%s',last_seen)) seconds " +
+			"FROM chars WHERE vis = 't' " +
+			"AND (account_name = " +
+			"(SELECT account_name FROM chars " +
+			"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
+			"OR LOWER(account_name) = LOWER(?)) " +
+			"ORDER BY last_seen DESC LIMIT 1"
+		stmt, err := db.Prepare(query)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stmt.Close()
+
+		var seconds int
+		err = stmt.QueryRow(oper, oper).Scan(&Char.acct, &Char.name, &seconds)
+		if err == sql.ErrNoRows {
+			txt = NotFound("character or account", oper)
+			Reply(char, txt)
+		} else if err != nil {
+			log.Fatal(err)
+		} else {
+			var seen string
+			online := false
+			secs := time.Duration(seconds) * time.Second
+			if secs.Hours() >= 24 && secs.Hours() < 48 {
+				seen = "1 day"
+			} else if secs.Hours() >= 48 {
+				days := int(secs.Hours()) / 24
+				seen = fmt.Sprintf("%d days", days)
+			} else if secs.Seconds() > 3600 {
+				hours := int(secs.Seconds()) / 3600
+				minutes := int(secs.Seconds()) % 3600
+				seen = fmt.Sprintf("%dh%dm", hours, minutes)
+			} else if secs.Seconds() > 60 {
+				minutes := int(secs.Seconds()) / 60
+				seconds = int(secs.Seconds()) % 60
+				seen = fmt.Sprintf("%dm%ds", minutes, seconds)
+			} else if secs.Seconds() <= 60 {
+				seen = fmt.Sprintf("%ds", int(secs.Seconds()))
+				online = true
+			} else {
+				log.Fatalf("Error: seconds were %d", secs.Seconds())
+			}
+			// Char.seen = secs.String() // easier :/
+			if !online {
+				txt = fmt.Sprintf("@%s last seen %s ago as %s", Char.acct, seen, Char.name)
+			} else {
+				txt = fmt.Sprintf("@%s is online as %s", Char.acct, Char.name)
+			}
+			Reply(char, txt)
+		}
 	case cmd == "class" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
 		if err != nil {
@@ -525,7 +581,7 @@ func ReplyTo(char string, tell string) {
 
 		if oper == "" {
 			query := "SELECT char_name, report_text, " +
-				"STRFTIME('%Y-%m-%d %H:%M:%S', report_time) " +
+				"DATETIME(report_time) " +
 				"FROM loads WHERE boot_id = " +
 				"(SELECT MAX(boot_id) FROM boots)" +
 				"AND deleted = 'f'"

@@ -254,13 +254,87 @@ func ReplyTo(char string, tell string) {
 			Reply(char, syntax)
 		}
 	case cmd == "who" && oper != "":
-		// do with one sql, char= OR acc=
-		// order by lvl, name
-		//fmt.Println()
+		db, err := sql.Open("sqlite3", "toril.db")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+
+		query := "SELECT account_name, char_name " +
+			"FROM chars WHERE vis = 't' " +
+			"AND (account_name = " +
+			"(SELECT account_name FROM chars " +
+			"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
+			"OR LOWER(account_name) = LOWER(?)) " +
+			"ORDER BY char_level DESC, char_name ASC"
+
+		rows, err := db.Query(query, oper, oper)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			var name string
+			var acct string
+			rows.Scan(&acct, &name)
+			if strings.Contains(txt, "@") {
+				txt += ", " + name
+			} else {
+				txt = "@" + acct
+			}
+		}
+		rows.Close()
+
+		if strings.Contains(txt, "@") {
+			Reply(char, txt)
+		} else {
+			txt = NotFound("character or account", oper)
+			Reply(char, txt)
+		}
 	case cmd == "clist" && oper != "":
-		// do with one sql, char= OR acc=
-		// order by lvl, name
-		//fmt.Println()
+		db, err := sql.Open("sqlite3", "toril.db")
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer db.Close()
+
+		query := "SELECT char_level, class_name, char_name, char_race, " +
+			"account_name, STRFTIME('%Y-%m-%d %H:%M:%S', last_seen) " +
+			"FROM chars WHERE vis = 't' " +
+			"AND (account_name = " +
+			"(SELECT account_name FROM chars " +
+			"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
+			"OR LOWER(account_name) = LOWER(?)) " +
+			"ORDER BY char_level DESC, char_name ASC"
+
+		rows, err := db.Query(query, oper, oper)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer rows.Close()
+
+		var replied bool
+		for rows.Next() {
+			var name string
+			var class string
+			var race string
+			var lvl string
+			var acct string
+			var seen string
+			rows.Scan(&lvl, &class, &name, &race, &acct, &seen)
+			txt = fmt.Sprintf(
+				"[%s %s] %s (%s) (@%s) seen %s",
+				lvl, class, name, race, acct, seen,
+			)
+			Reply(char, txt)
+			replied = true
+		}
+		rows.Close()
+		if !replied {
+			txt = NotFound("character or account", oper)
+			Reply(char, txt)
+		}
 	case cmd == "char" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
 		if err != nil {
@@ -269,7 +343,8 @@ func ReplyTo(char string, tell string) {
 		defer db.Close()
 
 		query := "SELECT char_level, class_name, char_name, char_race, " +
-			"account_name, last_seen FROM chars WHERE vis = 't' " +
+			"account_name, STRFTIME('%Y-%m-%d %H:%M:%S', last_seen) " +
+			"FROM chars WHERE vis = 't' " +
 			"AND LOWER(char_name) = LOWER(?)"
 		stmt, err := db.Prepare(query)
 		if err != nil {
@@ -281,19 +356,18 @@ func ReplyTo(char string, tell string) {
 		var class string
 		var name string
 		var race string
-		var acc string
-		var seen time.Time
-		err = stmt.QueryRow(oper).Scan(&lvl, &class, &name, &race, &acc, &seen)
+		var acct string
+		var seen string
+		err = stmt.QueryRow(oper).Scan(&lvl, &class, &name, &race, &acct, &seen)
 		if err == sql.ErrNoRows {
 			txt = NotFound("character", oper)
 			Reply(char, txt)
 		} else if err != nil {
 			log.Fatal(err)
 		} else {
-			date := seen.Format("2006-01-02 15:04:05")
 			txt = fmt.Sprintf(
 				"[%s %s] %s (%s) (@%s) seen %s",
-				lvl, class, name, race, acc, date,
+				lvl, class, name, race, acct, seen,
 			)
 			Reply(char, txt)
 		}

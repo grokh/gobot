@@ -4,7 +4,14 @@ import (
 	"flag"
 	"log"
 	"os/exec"
+	"time"
 )
+
+type Char struct {
+	class, name, race, acct string
+	lvl                     int
+	seen                    time.Time
+}
 
 func main() {
 	// for who.go Who(char, lvl)
@@ -42,8 +49,8 @@ func main() {
 	case *who != "":
 		WhoBatch(*who)
 	case *bak:
-		cmd1 := exec.Command("sh", "-c", "echo '.dump' | sqlite3 toril.db | gzip -c >toril.db.`date +\"%Y-%m-%d\"`.gz")
-		err := cmd1.Run()
+		cmd := exec.Command("sh", "-c", "echo '.dump' | sqlite3 toril.db | gzip -c >toril.db.`date +\"%Y-%m-%d\"`.gz")
+		err := cmd.Run()
 		if err != nil {
 			log.Fatal(err)
 		}

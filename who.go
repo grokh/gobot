@@ -5,13 +5,72 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
-	"time"
+	"regexp"
 	"strings"
+	"time"
 )
 
 func WhoBatch(batch string) {
-	who := strings.Split(batch, "|")
-	// regex for who line :/
+	ppl := strings.Split(batch, "|")
+	// [43 War] Topellel ~ Hairy Toes ~ Riders of Faerun (Halfling) (AFK) (RP)
+	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	db, err := sql.Open("sqlite3", "toril.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// TODO: also check class change for necro->lich
+	// TODO: also check for account name change
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal(err)
+	}
+	query := "UPDATE chars SET char_level = ?, last_seen = ? " +
+		"WHERE char_name = ?"
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	date := time.Now()
+	var lvl string
+	var name string
+	for _, who := range ppl {
+		char := re.FindAllStringSubmatch(who, -1)
+		//fmt.Printf("Match: %v\n", char)
+		/*
+			for _, val1 := range char {
+				for idx2, val2 := range val1 {
+					fmt.Printf("idx2: %d, val2: %v\n", idx2, val2)
+				}
+			}
+		*/
+		if len(char[0]) == 5 {
+			lvl = char[0][1]
+			name = char[0][3]
+			res, err := stmt.Exec(lvl, date, name)
+			if err != nil {
+				log.Fatal(err)
+			} else {
+				affected, err := res.RowsAffected()
+				if err != nil {
+					log.Fatal(err)
+				} else {
+					if affected != 1 {
+						fmt.Printf("who %s\n", name)
+					}
+				}
+			}
+		}
+	}
+
+	tx.Commit()
 }
 
 func Who(char string, lvl int) {
@@ -20,8 +79,7 @@ func Who(char string, lvl int) {
 		log.Fatal(err)
 	}
 	date := time.Now().In(loc)
-	// debugging
-	fmt.Printf("Time: %v\n", date)
+	//fmt.Printf("Time: %v\n", date)
 
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
@@ -29,10 +87,9 @@ func Who(char string, lvl int) {
 	}
 	defer db.Close()
 
-	// TODO: switch to update first, who on particular err
 	// check if character exists in DB
-	query := "SELECT account_name, char_name FROM chars "+
-	"WHERE LOWER(char_name) = LOWER(?)"
+	query := "SELECT account_name, char_name FROM chars " +
+		"WHERE LOWER(char_name) = LOWER(?)"
 	stmt, err := db.Prepare(query)
 	if err != nil {
 		log.Fatal(err)
@@ -57,8 +114,8 @@ func Who(char string, lvl int) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		query = "UPDATE chars SET char_level = ?, last_seen = ? "+
-		"WHERE account_name = ? AND char_name = ?"
+		query = "UPDATE chars SET char_level = ?, last_seen = ? " +
+			"WHERE account_name = ? AND char_name = ?"
 		stmt, err := tx.Prepare(query)
 		if err != nil {
 			log.Fatal(err)
@@ -82,8 +139,8 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 	defer db.Close()
 
 	// check if character exists in DB
-	query := "SELECT account_name, char_name FROM chars "+
-	"WHERE LOWER(char_name) = LOWER(?)"
+	query := "SELECT account_name, char_name FROM chars " +
+		"WHERE LOWER(char_name) = LOWER(?)"
 	stmt, err := db.Prepare(query)
 	if err != nil {
 		log.Fatal(err)
@@ -94,8 +151,8 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 	err = stmt.QueryRow(char).Scan(&acc, &name)
 	if err == sql.ErrNoRows {
 		// if no char, check if account exists in DB, create char
-		query = "SELECT account_name FROM accounts "+
-		"WHERE LOWER(account_name) = LOWER(?)"
+		query = "SELECT account_name FROM accounts " +
+			"WHERE LOWER(account_name) = LOWER(?)"
 		stmt, err = db.Prepare(query)
 		if err != nil {
 			log.Fatal(err)

@@ -302,7 +302,11 @@ func ReplyTo(char string, tell string) {
 		}
 		defer db.Close()
 
-		date := time.Now().Add(-time.Minute)
+		loc, err := time.LoadLocation("America/New_York")
+		if err != nil {
+			log.Fatal(err)
+		}
+		date := time.Now().In(loc).Add(-time.Minute)
 		query := "SELECT char_name, class_name, char_race, char_level, account_name " +
 			"FROM chars WHERE LOWER(class_name) = LOWER(?) AND vis = 't' " +
 			"AND account_name IN " +
@@ -482,8 +486,12 @@ func ReplyTo(char string, tell string) {
 			if err != nil {
 				log.Fatal(err)
 			}
+			loc, err := time.LoadLocation("America/New_York")
+			if err != nil {
+				log.Fatal(err)
+			}
 
-			date := time.Now()
+			date := time.Now().In(loc)
 			query := "INSERT INTO loads " +
 				"VALUES((SELECT MAX(boot_id) FROM boots), ?, ?, ?, 'f')"
 

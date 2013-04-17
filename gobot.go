@@ -18,6 +18,8 @@ func main() {
 	var time = flag.String("time", "", "Parse uptime for boot tracking. Ex: 58:10:26")
 	// for tell.go ReplyTo(char, tell)
 	var tell = flag.String("tell", "", "Tell with command and maybe operant. Ex: \"stat a longsword\"")
+	// for who.go WhoBatch(ppl)
+	var who = flag.String("who", "", "Batched who output. Ex: [ 1 Ctr] Rarac  (Orc)|[ 2 War] Xatus  (Troll)")
 
 	flag.Parse()
 
@@ -33,5 +35,7 @@ func main() {
 		Uptime(*time)
 	case *char != "" && *tell != "":
 		ReplyTo(*char, *tell)
+	case *who != "":
+		WhoBatch(*who)
 	}
 }

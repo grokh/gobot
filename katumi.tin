@@ -74,20 +74,29 @@
 }
 
 
-#nop Who Check
-#act {^[ %d %.%.%.] %w %*(%*)} {
-	#script {answer} {./gobot -char %5 -lvl %1};
-	#foreach {$answer} {cmd} {
-		#if {"$cmd" != "%d"} {$cmd};
+#nop Batch Who Check
+#alias {parsewho} {#script {who} {./gobot "$ppl"}}
+#act {^-=-=-=-=-=-=-=-=-=-=-=-=-$} {
+	#var {ppl} {};
+	#var {who} {};
+	#act {%%0} {
+		#if {"%%0" == "There are %* mortal(s) on."} {
+			#unact {%%%0};
+			#replace {ppl} { (AFK)} {};
+			#replace {ppl} { (RP)} {};
+			#replace {ppl} {(inv) } {};
+			#replace {ppl} {(In Dark)} {};
+			#replace {ppl} {(Daylight)} {};
+			parsewho;
+			#foreach {$who} {cmd} {
+				#if {"$cmd" != "%d"} {$cmd};
+			};
+			#var {who} {};
+		} {
+			#var {ppl} {$ppl|%%0};
+		};
 	};
 }
-#act {^[%.%. %.%.%.] %w %*(%*)} {
-	#script {answer} {./gobot -char %6 -lvl %1%2};
-	#foreach {$answer} {cmd} {
-		#if {"$cmd" != "%d"} {$cmd};
-	};
-}
-
 
 #nop Individual Checks
 #act {^[ %d %+] %w %*(%*) (@%*)} {

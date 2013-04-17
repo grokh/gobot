@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type Char struct {
+var Char struct {
 	class, name, race, acct string
 	lvl                     int
 	seen                    time.Time

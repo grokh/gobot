@@ -12,7 +12,6 @@ import (
 
 func WhoBatch(batch string) {
 	ppl := strings.Split(batch, "|")
-	// [43 War] Topellel ~ Hairy Toes ~ Riders of Faerun (Halfling) (AFK) (RP)
 	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
 	if err != nil {
 		log.Fatal(err)
@@ -43,14 +42,6 @@ func WhoBatch(batch string) {
 	var name string
 	for _, who := range ppl {
 		char := re.FindAllStringSubmatch(who, -1)
-		//fmt.Printf("Match: %v\n", char)
-		/*
-			for _, val1 := range char {
-				for idx2, val2 := range val1 {
-					fmt.Printf("idx2: %d, val2: %v\n", idx2, val2)
-				}
-			}
-		*/
 		if len(char[0]) == 5 {
 			lvl = char[0][1]
 			name = char[0][3]
@@ -108,8 +99,6 @@ func Who(char string, lvl int) {
 	} else {
 		// if char does exist, tell the DB the time they were spotted and
 		// update their level 
-		// TODO: also check class change for necro->lich
-		// TODO: also check for account name change
 		tx, err := db.Begin()
 		if err != nil {
 			log.Fatal(err)

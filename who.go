@@ -37,7 +37,11 @@ func WhoBatch(batch string) {
 	}
 	defer stmt.Close()
 
-	date := time.Now()
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		log.Fatal(err)
+	}
+	date := time.Now().In(loc)
 	var lvl string
 	var name string
 	for _, who := range ppl {
@@ -120,7 +124,11 @@ func Who(char string, lvl int) {
 }
 
 func WhoChar(char string, lvl int, class string, race string, acct string) {
-	date := time.Now()
+	loc, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		log.Fatal(err)
+	}
+	date := time.Now().In(loc)
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
 		log.Fatal(err)

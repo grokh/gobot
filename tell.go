@@ -494,7 +494,7 @@ func ReplyTo(char string, tell string) {
 				seen = fmt.Sprintf("%d days", days)
 			} else if secs.Seconds() > 3600 {
 				hours := int(secs.Seconds()) / 3600
-				minutes := int(secs.Seconds()) % 3600
+				minutes := (int(secs.Seconds()) % 3600)/60
 				seen = fmt.Sprintf("%dh%dm", hours, minutes)
 			} else if secs.Seconds() > 60 {
 				minutes := int(secs.Seconds()) / 60

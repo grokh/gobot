@@ -160,7 +160,7 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 		}
 		defer stmt.Close()
 
-		err = stmt.QueryRow(char).Scan(&acc)
+		err = stmt.QueryRow(acct).Scan(&acc)
 		if err == sql.ErrNoRows {
 			//if no acct, create acccount
 			tx, err := db.Begin()
@@ -189,7 +189,8 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 			log.Fatal(err)
 		}
 
-		query = "INSERT INTO chars VALUES(%s, %s, %s, %s, %s, %s, 't')"
+		class = strings.Trim(class, " ")
+		query = "INSERT INTO chars VALUES(?, ?, ?, ?, ?, ?, 't')"
 		stmt, err := tx.Prepare(query)
 		if err != nil {
 			log.Fatal(err)

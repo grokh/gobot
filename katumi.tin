@@ -62,7 +62,9 @@
 	#line log {logs/tells.log} {$time - %0};
 
 	#var {chat} {%2};
+	#nop Prevent script hacking;
 	#replace {chat} {"} {'};
+	#nop Remove account labeling;
 	#replace {chat} {@} {};
 	#script {answer} {./gobot -char "%1" -tell "$chat"};
 	#foreach {$answer} {cmd} {

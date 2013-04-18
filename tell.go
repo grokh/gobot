@@ -288,7 +288,7 @@ func ReplyTo(char string, tell string) {
 						"WHERE i.item_id = r.item_id " +
 						"AND resist_abbr = ? AND resist_value > 0)"
 					args = append(args, res)
-				} else if strings.ToLower(fop[1]) == "slot" {
+				} else if strings.ToLower(fop[0]) == "slot" {
 					slot := strings.ToLower(fop[1])
 					if !strings.Contains(query, "WHERE") {
 						query += " WHERE item_id IN"

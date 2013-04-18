@@ -135,8 +135,8 @@ func ReplyTo(char string, tell string) {
 	}
 
 	// debugging
-	fmt.Printf("Cmd : %s\n", cmd)
-	fmt.Printf("Oper: %s\n", oper)
+	//fmt.Printf("Cmd : %s\n", cmd)
+	//fmt.Printf("Oper: %s\n", oper)
 
 	switch {
 	case cmd == "?":

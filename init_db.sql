@@ -132,10 +132,6 @@ CREATE TABLE items(
 	,last_id DATE
 );
 CREATE INDEX idx_item_name ON items (item_name);
-CREATE VIRTUAL TABLE item_search USING fts3(
-	item_id
-	,item_text
-);
 CREATE TABLE item_procs(
 	item_id INTEGER REFERENCES items(item_id)
 	,proc_name TEXT NOT NULL

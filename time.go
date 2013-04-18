@@ -64,9 +64,9 @@ func Uptime(curup string) {
 			log.Fatal(err)
 		}
 		tx.Commit()
-		// SendBootEmail needs to be created in tokens.go
-		// It should define and send the three variables
-		// required by/to email.Notify(from, to, pwd)
+		// make sure you have a tokens.txt file containing
+		// gmail account on first line, pwd on second,
+		// and each additional line containing the target emails
 		SendBootEmail()
 	} else {
 		// it's still the current boot, so update current uptime

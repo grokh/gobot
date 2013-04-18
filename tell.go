@@ -18,8 +18,102 @@ func Reply(char string, msg string) {
 	fmt.Printf("t %s %s\n", char, msg)
 }
 
-func FindItem(item string, length string) string {
-	return item + length
+func FindItem(oper string, length string) string {
+	db, err := sql.Open("sqlite3", "toril.db")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	var stats string
+
+	// query items table for exact item name
+	item := oper
+	query := "SELECT " + length + " FROM items " +
+		"WHERE item_name = ? LIMIT 1"
+
+	stmt, err := db.Prepare(query)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+
+	err = stmt.QueryRow(item).Scan(&stats)
+	if err == sql.ErrNoRows {
+		// if no exact match on item name, check LIKE
+		item = "%" + oper + "%"
+		query = "SELECT " + length + " FROM items " +
+			"WHERE LOWER(item_name) LIKE LOWER(?) LIMIT 1"
+
+		stmt2, err := db.Prepare(query)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer stmt2.Close()
+
+		err = stmt2.QueryRow(item).Scan(&stats)
+		if err == sql.ErrNoRows {
+			// if no match on ILIKE, check with %'s in place of spaces
+			item = " " + oper + " "
+			item = strings.Replace(item, " ", "%", -1)
+			query = "SELECT " + length + " FROM items " +
+				"WHERE LOWER(item_name) LIKE LOWER(?) LIMIT 1"
+
+			stmt3, err := db.Prepare(query)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer stmt3.Close()
+
+			err = stmt3.QueryRow(item).Scan(&stats)
+			if err == sql.ErrNoRows {
+				// if no match on %'s, check general strings in any order
+				words := strings.Fields(oper)
+				var args []interface{}
+				query = "SELECT " + length + " FROM " +
+					"items WHERE "
+				for _, word := range words {
+					query += "LOWER(item_name) LIKE LOWER(?) AND "
+					args = append(args, "%"+word+"%")
+				}
+				query = strings.TrimRight(query, "AND ")
+
+				stmt4, err := db.Prepare(query)
+				if err != nil {
+					log.Fatal(err)
+				}
+				defer stmt4.Close()
+
+				err = stmt4.QueryRow(args...).Scan(&stats)
+				/* mattn/go-sqlite3 crashes when accessing FTS3 tables
+				query = "SELECT " + length + " FROM " +
+					"items WHERE item_id = " +
+					"(SELECT item_id FROM item_search " +
+					"WHERE item_text MATCH ?) " +
+					"LIMIT 1"
+
+				stmt4, err := db.Prepare(query)
+				if err != nil {
+					log.Fatal(err)
+				}
+				defer stmt4.Close()
+
+				err = stmt4.QueryRow(oper).Scan(&stats)
+				*/
+				if err == sql.ErrNoRows {
+					stats = NotFound("item", oper)
+				} else if err != nil {
+					log.Fatal(err)
+				}
+			} else if err != nil {
+				log.Fatal(err)
+			}
+		} else if err != nil {
+			log.Fatal(err)
+		}
+	} else if err != nil {
+		log.Fatal(err)
+	}
+	return stats
 }
 
 func ReplyTo(char string, tell string) {
@@ -171,9 +265,11 @@ func ReplyTo(char string, tell string) {
 			Reply(char, txt)
 		}
 	case cmd == "stat" && oper != "":
-		FindItem(oper, "short_stats")
+		txt = FindItem(oper, "short_stats")
+		Reply(char, txt)
 	case cmd == "astat" && oper != "":
-		FindItem(oper, "long_stats")
+		txt = FindItem(oper, "long_stats")
+		Reply(char, txt)
 	case cmd == "fstat" && oper != "":
 		opers := strings.Split(oper, ", ")
 		query := "SELECT short_stats FROM items"
@@ -352,13 +448,8 @@ func ReplyTo(char string, tell string) {
 		}
 		defer stmt.Close()
 
-		var lvl string
-		var class string
-		var name string
-		var race string
-		var acct string
 		var seen string
-		err = stmt.QueryRow(oper).Scan(&lvl, &class, &name, &race, &acct, &seen)
+		err = stmt.QueryRow(oper).Scan(&Char.lvl, &Char.class, &Char.name, &Char.race, &Char.acct, &seen)
 		if err == sql.ErrNoRows {
 			txt = NotFound("character", oper)
 			Reply(char, txt)
@@ -366,8 +457,8 @@ func ReplyTo(char string, tell string) {
 			log.Fatal(err)
 		} else {
 			txt = fmt.Sprintf(
-				"[%s %s] %s (%s) (@%s) seen %s",
-				lvl, class, name, race, acct, seen,
+				"[%d %s] %s (%s) (@%s) seen %s",
+				Char.lvl, Char.class, Char.name, Char.race, Char.acct, seen,
 			)
 			Reply(char, txt)
 		}

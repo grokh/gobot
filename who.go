@@ -11,6 +11,7 @@ import (
 )
 
 func WhoBatch(batch string) {
+	batch = strings.Trim(batch, "| ")
 	ppl := strings.Split(batch, "|")
 	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]-]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
 	if err != nil {

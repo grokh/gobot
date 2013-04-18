@@ -38,8 +38,8 @@ func main() {
 	switch {
 	case *char != "" && 50 >= *lvl && *lvl > 0 && *class != "" && *race != "" && *acct != "":
 		WhoChar(*char, *lvl, *class, *race, *acct)
-	case *char != "" && 50 >= *lvl && *lvl > 0:
-		Who(*char, *lvl)
+	//case *char != "" && 50 >= *lvl && *lvl > 0:
+		//Who(*char, *lvl)
 	case *file != "":
 		Identify(*file)
 	case *time != "":

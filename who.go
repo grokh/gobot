@@ -72,6 +72,7 @@ func WhoBatch(batch string) {
 	tx.Commit()
 }
 
+/*
 func Who(char string, lvl int) {
 	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {
@@ -126,6 +127,7 @@ func Who(char string, lvl int) {
 		tx.Commit()
 	}
 }
+*/
 
 func WhoChar(char string, lvl int, class string, race string, acct string) {
 	loc, err := time.LoadLocation("America/New_York")

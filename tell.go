@@ -371,13 +371,11 @@ func ReplyTo(char string, tell string) {
 		defer rows.Close()
 
 		for rows.Next() {
-			var name string
-			var acct string
-			rows.Scan(&acct, &name)
+			rows.Scan(&Char.acct, &Char.name)
 			if strings.Contains(txt, "@") {
-				txt += ", " + name
+				txt += ", " + Char.name
 			} else {
-				txt = "@" + acct
+				txt = "@" + Char.acct
 			}
 		}
 		rows.Close()
@@ -412,15 +410,10 @@ func ReplyTo(char string, tell string) {
 
 		var replied bool
 		for rows.Next() {
-			var name string
-			var class string
-			var race string
-			var lvl string
-			var acct string
 			var seen string
-			rows.Scan(&lvl, &class, &name, &race, &acct, &seen)
+			rows.Scan(&Char.lvl, &Char.class, &Char.name, &Char.race, &Char.acct, &seen)
 			txt = fmt.Sprintf(
-				"[%s %s] %s (%s) (@%s) seen %s",
+				"[%d %s] %s (%s) (@%s) seen %s",
 				lvl, class, name, race, acct, seen,
 			)
 			Reply(char, txt)
@@ -549,15 +542,10 @@ func ReplyTo(char string, tell string) {
 
 		var replied bool
 		for rows.Next() {
-			var name string
-			var class string
-			var race string
-			var lvl string
-			var acct string
-			rows.Scan(&name, &class, &race, &lvl, &acct)
+			rows.Scan(&Char.name, &Char.class, &Char.race, &Char.lvl, &Char.acct)
 			txt = fmt.Sprintf(
-				"[%s %s] %s (%s) (@%s)",
-				lvl, class, name, race, acct,
+				"[%d %s] %s (%s) (@%s)",
+				Char.lvl, Char.class, Char.name, Char.race, Char.acct,
 			)
 			Reply(char, txt)
 			replied = true
@@ -585,9 +573,7 @@ func ReplyTo(char string, tell string) {
 		}
 		defer stmt.Close()
 
-		var acct string
-		var name string
-		err = stmt.QueryRow(oper, char).Scan(&acct, &name)
+		err = stmt.QueryRow(oper, char).Scan(&Char.acct, &Char.name)
 		if err == sql.ErrNoRows {
 			txt = NotFound("character or account", oper)
 			Reply(char, txt)
@@ -633,9 +619,7 @@ func ReplyTo(char string, tell string) {
 		}
 		defer stmt.Close()
 
-		var acct string
-		var name string
-		err = stmt.QueryRow(oper, char).Scan(&acct, &name)
+		err = stmt.QueryRow(oper, char).Scan(&Char.acct, &Char.name)
 		if err == sql.ErrNoRows {
 			txt = NotFound("character or account", oper)
 			Reply(char, txt)
@@ -686,13 +670,12 @@ func ReplyTo(char string, tell string) {
 			var replied bool
 			counter := 1
 			for rows.Next() {
-				var name string
 				var report string
 				var date string
-				err = rows.Scan(&name, &report, &date)
+				err = rows.Scan(&Char.name, &report, &date)
 				txt = fmt.Sprintf(
 					"%d: %s [%s at %s]",
-					counter, report, name, date,
+					counter, report, Char.name, date,
 				)
 				Reply(char, txt)
 				counter++

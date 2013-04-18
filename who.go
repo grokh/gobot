@@ -12,7 +12,7 @@ import (
 
 func WhoBatch(batch string) {
 	ppl := strings.Split(batch, "|")
-	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
+	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]-]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,19 +46,22 @@ func WhoBatch(batch string) {
 	var name string
 	for _, who := range ppl {
 		char := re.FindAllStringSubmatch(who, -1)
-		if len(char[0]) == 5 {
-			lvl = char[0][1]
-			name = char[0][3]
-			res, err := stmt.Exec(lvl, date, name)
-			if err != nil {
-				log.Fatal(err)
-			} else {
-				affected, err := res.RowsAffected()
+		fmt.Println(char)
+		if len(char) > 0 {
+			if len(char[0]) == 5 {
+				lvl = char[0][1]
+				name = char[0][3]
+				res, err := stmt.Exec(lvl, date, name)
 				if err != nil {
 					log.Fatal(err)
 				} else {
-					if affected != 1 {
-						fmt.Printf("who %s\n", name)
+					affected, err := res.RowsAffected()
+					if err != nil {
+						log.Fatal(err)
+					} else {
+						if affected != 1 {
+							fmt.Printf("who %s\n", name)
+						}
 					}
 				}
 			}

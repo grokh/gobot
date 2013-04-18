@@ -52,7 +52,7 @@ func FindItem(oper string, length string) string {
 
 		err = stmt2.QueryRow(item).Scan(&stats)
 		if err == sql.ErrNoRows {
-			// if no match on ILIKE, check with %'s in place of spaces
+			// if no match on LIKE, check with %'s in place of spaces
 			item = " " + oper + " "
 			item = strings.Replace(item, " ", "%", -1)
 			query = "SELECT " + length + " FROM items " +
@@ -84,21 +84,6 @@ func FindItem(oper string, length string) string {
 				defer stmt4.Close()
 
 				err = stmt4.QueryRow(args...).Scan(&stats)
-				/* mattn/go-sqlite3 crashes when accessing FTS3 tables
-				query = "SELECT " + length + " FROM " +
-					"items WHERE item_id = " +
-					"(SELECT item_id FROM item_search " +
-					"WHERE item_text MATCH ?) " +
-					"LIMIT 1"
-
-				stmt4, err := db.Prepare(query)
-				if err != nil {
-					log.Fatal(err)
-				}
-				defer stmt4.Close()
-
-				err = stmt4.QueryRow(oper).Scan(&stats)
-				*/
 				if err == sql.ErrNoRows {
 					stats = NotFound("item", oper)
 				} else if err != nil {
@@ -303,6 +288,17 @@ func ReplyTo(char string, tell string) {
 						"WHERE i.item_id = r.item_id " +
 						"AND resist_abbr = ? AND resist_value > 0)"
 					args = append(args, res)
+				} else if strings.ToLower(fop[1]) == "slot" {
+					slot := strings.ToLower(fop[1])
+					if !strings.Contains(query, "WHERE") {
+						query += " WHERE item_id IN"
+					} else {
+						query += " AND item_id IN"
+					}
+					query += " (SELECT i.item_id FROM items i, item_slots s " +
+						"WHERE i.item_id = s.item_id " +
+						"AND LOWER(slot_abbr) LIKE LOWER(?)"
+					args = append(args, slot)
 				}
 			}
 		}

@@ -72,63 +72,6 @@ func WhoBatch(batch string) {
 	tx.Commit()
 }
 
-/*
-func Who(char string, lvl int) {
-	loc, err := time.LoadLocation("America/New_York")
-	if err != nil {
-		log.Fatal(err)
-	}
-	date := time.Now().In(loc)
-	//fmt.Printf("Time: %v\n", date)
-
-	db, err := sql.Open("sqlite3", "toril.db")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
-	// check if character exists in DB
-	query := "SELECT account_name, char_name FROM chars " +
-		"WHERE LOWER(char_name) = LOWER(?)"
-	stmt, err := db.Prepare(query)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer stmt.Close()
-
-	var acc string
-	var name string
-	err = stmt.QueryRow(char).Scan(&acc, &name)
-	if err == sql.ErrNoRows {
-		// if char doesn't exist, 'who char'
-		fmt.Printf("who %s\n", char)
-		return
-	} else if err != nil {
-		log.Fatal(err)
-	} else {
-		// if char does exist, tell the DB the time they were spotted and
-		// update their level 
-		tx, err := db.Begin()
-		if err != nil {
-			log.Fatal(err)
-		}
-		query = "UPDATE chars SET char_level = ?, last_seen = ? " +
-			"WHERE account_name = ? AND char_name = ?"
-		stmt, err := tx.Prepare(query)
-		if err != nil {
-			log.Fatal(err)
-		}
-		defer stmt.Close()
-
-		_, err = stmt.Exec(lvl, date, acc, name)
-		if err != nil {
-			log.Fatal(err)
-		}
-		tx.Commit()
-	}
-}
-*/
-
 func WhoChar(char string, lvl int, class string, race string, acct string) {
 	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {

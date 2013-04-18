@@ -459,7 +459,7 @@ func ReplyTo(char string, tell string) {
 		defer db.Close()
 
 		query := "SELECT account_name, char_name, " +
-			"(STRFTIME('%s','now','localtime') - STRFTIME('%s',last_seen)) seconds " +
+			"(STRFTIME('%s','now') - STRFTIME('%s',last_seen)) seconds " +
 			"FROM chars WHERE vis = 't' " +
 			"AND (account_name = " +
 			"(SELECT account_name FROM chars " +
@@ -496,7 +496,7 @@ func ReplyTo(char string, tell string) {
 				minutes := int(secs.Seconds()) / 60
 				seconds = int(secs.Seconds()) % 60
 				seen = fmt.Sprintf("%dm%ds", minutes, seconds)
-			} else if secs.Seconds() <= 60 {
+			} else if secs.Seconds() <= 60 && secs.Seconds() >= 0 {
 				seen = fmt.Sprintf("%ds", int(secs.Seconds()))
 				online = true
 			} else {

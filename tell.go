@@ -15,7 +15,7 @@ func NotFound(four string, oper string) string {
 }
 
 func Reply(char string, msg string) {
-	if len(msg) >= 300 {
+	if len(msg) > 300 {
 		msg1 := msg[:300]
 		msg2 := msg[300:]
 		fmt.Printf("t %s %s\n", char, msg1)

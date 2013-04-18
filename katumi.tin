@@ -55,6 +55,7 @@
 #event {PROGRAM START} {login}
 #event {SESSION DISCONNECTED} {login}
 #event {SESSION TIMED OUT} {login}
+#event {TIME 04:00} {#system ./gobot -bak}
 
 
 #act {^%w tells you '%2'$} {

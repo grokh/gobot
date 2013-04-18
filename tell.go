@@ -414,7 +414,7 @@ func ReplyTo(char string, tell string) {
 			rows.Scan(&Char.lvl, &Char.class, &Char.name, &Char.race, &Char.acct, &seen)
 			txt = fmt.Sprintf(
 				"[%d %s] %s (%s) (@%s) seen %s",
-				lvl, class, name, race, acct, seen,
+				Char.lvl, Char.class, Char.name, Char.race, Char.acct, seen,
 			)
 			Reply(char, txt)
 			replied = true

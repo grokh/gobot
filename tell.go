@@ -297,7 +297,7 @@ func ReplyTo(char string, tell string) {
 					}
 					query += " (SELECT i.item_id FROM items i, item_slots s " +
 						"WHERE i.item_id = s.item_id " +
-						"AND LOWER(slot_abbr) LIKE LOWER(?)"
+						"AND LOWER(slot_abbr) LIKE LOWER(?))"
 					args = append(args, slot)
 				}
 			}

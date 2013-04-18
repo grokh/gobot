@@ -76,7 +76,7 @@
 
 
 #nop Batch Who Check
-#alias {parsewho} {#script {who} {./gobot "$ppl"}}
+#alias {parsewho} {#script {who} {./gobot -who "$ppl"}}
 #act {^-=-=-=-=-=-=-=-=-=-=-=-=-$} {
 	#var {ppl} {};
 	#var {who} {};

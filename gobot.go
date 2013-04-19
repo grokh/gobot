@@ -15,7 +15,7 @@ var Char struct {
 }
 
 func main() {
-	f, _ := os.Open("gobot.log")
+	f, _ := os.Open("bot.log")
 	log.SetOutput(f)
 
 	// for who.go WhoChar(char, lvl, class, race, acct)

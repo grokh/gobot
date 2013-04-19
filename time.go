@@ -4,15 +4,11 @@ import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
-	"os"
 	"strings"
 	"time"
 )
 
 func Uptime(curup string) {
-	f, _ := os.Open("gobot.log")
-	log.SetOutput(f)
-
 	split := strings.Split(curup, ":")
 	curboot := split[0] + "h" + split[1] + "m" + split[2] + "s"
 	curtime, err := time.ParseDuration(curboot)

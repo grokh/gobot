@@ -9,9 +9,7 @@ import (
 
 func SendBootEmail() {
 	content, err := ioutil.ReadFile("tokens.txt")
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	lines := strings.Split(string(content), "\n")
 
 	from := lines[0]
@@ -26,7 +24,5 @@ func SendBootEmail() {
 	log.Printf("Email: %s\n", body)
 	auth := smtp.PlainAuth("", from, pwd, server)
 	err = smtp.SendMail(server+tls, auth, from, to, msg)
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 }

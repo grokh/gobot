@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
-	"log"
 	//"strings"
 )
 
@@ -25,62 +24,46 @@ var Item struct {
 
 func ShortStats() {
 	db, err := sql.Open("sqlite3", "toril.db")
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	defer db.Close()
 
 	query := "SELECT item_id FROM items"
 
 	stmt, err := db.Prepare(query)
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	defer stmt.Close()
 
 	rows, err := stmt.Query()
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	defer rows.Close()
 
 	for rows.Next() {
 		err = rows.Scan(&Item.id)
 	}
 	err = rows.Err()
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	rows.Close()
 }
 
 func LongStats() {
 	db, err := sql.Open("sqlite3", "toril.db")
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	defer db.Close()
 
 	query := "SELECT item_id FROM items"
 
 	stmt, err := db.Prepare(query)
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	defer stmt.Close()
 
 	rows, err := stmt.Query()
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	defer rows.Close()
 
 	for rows.Next() {
 		err = rows.Scan(&Item.id)
 	}
 	err = rows.Err()
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	rows.Close()
 }

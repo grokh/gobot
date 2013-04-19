@@ -11,7 +11,7 @@ import (
 )
 
 func NotFound(four string, oper string) string {
-	log.Printf("%s 404: %s\n", four, oper)
+	log.Printf("404: %s: %s\n", four, oper)
 	return "404 " + four + " not found: " + oper
 }
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
-	"os"
+//	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -27,9 +27,6 @@ func Reply(char string, msg string) {
 }
 
 func FindItem(oper string, length string) string {
-	f, _ := os.Open("gobot.log")
-	log.SetOutput(f)
-
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
 		log.Fatal(err)
@@ -113,9 +110,6 @@ func FindItem(oper string, length string) string {
 }
 
 func ReplyTo(char string, tell string) {
-	f, _ := os.Open("gobot.log")
-	log.SetOutput(f)
-
 	info := "I am a Helper Bot (Beta). " +
 		"Valid commands: ?, help <cmd>, hidden?, who <char>, char <char>, " +
 		"clist <char>, find <char>, class <class>, delalt <char>, addalt <char>, " +
@@ -134,8 +128,8 @@ func ReplyTo(char string, tell string) {
 	}
 
 	// debugging
-	//fmt.Printf("Cmd : %s\n", cmd)
-	//fmt.Printf("Oper: %s\n", oper)
+	log.Printf("Cmd : %s\n", cmd)
+	log.Printf("Oper: %s\n", oper)
 
 	switch {
 	case cmd == "?":

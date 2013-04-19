@@ -4,14 +4,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/smtp"
-	"os"
 	"strings"
 )
 
 func SendBootEmail() {
-	f, _ := os.Open("gobot.log")
-	log.SetOutput(f)
-
 	content, err := ioutil.ReadFile("tokens.txt")
 	if err != nil {
 		log.Fatal(err)

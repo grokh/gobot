@@ -26,7 +26,9 @@ func Uptime(curup string) {
 	}
 	defer db.Close()
 
-	stmt, err := db.Prepare("SELECT boot_id, uptime FROM boots WHERE boot_time = (SELECT MAX(boot_time) FROM boots)")
+	query := "SELECT boot_id, uptime FROM boots " +
+		"WHERE boot_time = (SELECT MAX(boot_time) FROM boots)"
+	stmt, err := db.Prepare(query)
 	if err != nil {
 		log.Fatal(err)
 	}

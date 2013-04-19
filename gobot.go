@@ -35,7 +35,8 @@ func main() {
 		"Character account for initial import. Ex: Krimic")
 	// for who.go WhoBatch(ppl)
 	var who = flag.String("who", "",
-		"Batched who output. Ex: [ 1 Ctr] Rarac  (Orc)|[ 2 War] Xatus  (Troll)")
+		"Batched who output. "+
+			"Ex: \"[10 Ctr] Rarac  (Orc)|[ 2 War] Xatus  (Troll)\"")
 	// for identify.go Identify(filename)
 	var file = flag.String("import", "",
 		"Parse file for identify stats, import to DB. Ex: newstats.txt")
@@ -69,7 +70,7 @@ func main() {
 	case *backup:
 		cmd := exec.Command("sh", "-c",
 			"echo '.dump' | sqlite3 toril.db | "+
-			"gzip -c >toril.db.`date +\"%Y-%m-%d\"`.gz")
+				"gzip -c >toril.db.`date +\"%Y-%m-%d\"`.gz")
 		err := cmd.Run()
 		if err != nil {
 			log.Fatal(err)

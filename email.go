@@ -23,6 +23,7 @@ func SendBootEmail() {
 	msg := []byte(sub + body)
 	server := "smtp.gmail.com"
 	tls := ":587"
+	log.Printf("Email: %s\n", body)
 	auth := smtp.PlainAuth("", from, pwd, server)
 	err = smtp.SendMail(server+tls, auth, from, to, msg)
 	if err != nil {

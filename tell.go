@@ -11,7 +11,7 @@ import (
 )
 
 func NotFound(four string, oper string) string {
-	log.Printf("%s 404: %s", four, oper)
+	log.Printf("%s 404: %s\n", four, oper)
 	return "404 " + four + " not found: " + oper
 }
 
@@ -319,8 +319,8 @@ func ReplyTo(char string, tell string) {
 			defer db.Close()
 
 			// debugging
-			//fmt.Printf("Query : %s\n", query)
-			//fmt.Printf("Params: %s\n", args)
+			//log.Printf("Query : %s\n", query)
+			//log.Printf("Params: %s\n", args)
 
 			stmt, err := db.Prepare(query)
 			if err != nil {
@@ -509,7 +509,7 @@ func ReplyTo(char string, tell string) {
 				seen = fmt.Sprintf("%ds", int(secs.Seconds()))
 				online = true
 			} else {
-				log.Printf("Find Error: seconds were %d", secs.Seconds())
+				log.Printf("Find Error: seconds were %d\n", secs.Seconds())
 			}
 			// Char.seen = secs.String() // easier :/
 			if !online {
@@ -598,7 +598,7 @@ func ReplyTo(char string, tell string) {
 			}
 			defer stmt.Close()
 
-			log.Printf("Delalt: %s", oper)
+			log.Printf("Delalt: %s\n", oper)
 			_, err = stmt.Exec(oper)
 			if err != nil {
 				log.Fatal(err)

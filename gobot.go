@@ -60,17 +60,21 @@ func main() {
 
 	// only run one command at a time
 	switch {
+	case *time != "":
+		Uptime(*time)
+	case *who != "":
+		WhoBatch(*who)
+	case *char != "" && *tell != "":
+		ReplyTo(*char, *tell)
 	case *char != "" && 50 >= *lvl && *lvl > 0 &&
 		*class != "" && *race != "" && *acct != "":
 		WhoChar(*char, *lvl, *class, *race, *acct)
+	case *short_stats:
+		ShortStats()
+	case *long_stats:
+		LongStats()
 	case *file != "":
 		Identify(*file)
-	case *time != "":
-		Uptime(*time)
-	case *char != "" && *tell != "":
-		ReplyTo(*char, *tell)
-	case *who != "":
-		WhoBatch(*who)
 	case *backup:
 		cmd := exec.Command("sh", "-c",
 			"echo '.dump' | sqlite3 toril.db | "+
@@ -85,9 +89,5 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-	case *short_stats:
-		ShortStats()
-	case *long_stats:
-		LongStats()
 	}
 }

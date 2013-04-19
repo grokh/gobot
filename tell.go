@@ -28,9 +28,7 @@ func Reply(char string, msg string) {
 
 func FindItem(oper string, length string) string {
 	db, err := sql.Open("sqlite3", "toril.db")
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	defer db.Close()
 	var stats string
 
@@ -40,9 +38,7 @@ func FindItem(oper string, length string) string {
 		"WHERE item_name = ? LIMIT 1"
 
 	stmt, err := db.Prepare(query)
-	if err != nil {
-		log.Fatal(err)
-	}
+	ChkErr(err)
 	defer stmt.Close()
 
 	err = stmt.QueryRow(item).Scan(&stats)
@@ -53,9 +49,7 @@ func FindItem(oper string, length string) string {
 			"WHERE LOWER(item_name) LIKE LOWER(?) LIMIT 1"
 
 		stmt2, err := db.Prepare(query)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer stmt2.Close()
 
 		err = stmt2.QueryRow(item).Scan(&stats)
@@ -67,9 +61,7 @@ func FindItem(oper string, length string) string {
 				"WHERE LOWER(item_name) LIKE LOWER(?) LIMIT 1"
 
 			stmt3, err := db.Prepare(query)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer stmt3.Close()
 
 			err = stmt3.QueryRow(item).Scan(&stats)
@@ -86,9 +78,7 @@ func FindItem(oper string, length string) string {
 				query = strings.TrimRight(query, "AND ")
 
 				stmt4, err := db.Prepare(query)
-				if err != nil {
-					log.Fatal(err)
-				}
+				ChkErr(err)
 				defer stmt4.Close()
 
 				err = stmt4.QueryRow(args...).Scan(&stats)
@@ -319,9 +309,7 @@ func ReplyTo(char string, tell string) {
 		query += " LIMIT 10;"
 		if strings.Contains(query, "WHERE") {
 			db, err := sql.Open("sqlite3", "toril.db")
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer db.Close()
 
 			// debugging
@@ -329,15 +317,11 @@ func ReplyTo(char string, tell string) {
 			//log.Printf("Params: %s\n", args)
 
 			stmt, err := db.Prepare(query)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer stmt.Close()
 
 			rows, err := stmt.Query(args...)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer rows.Close()
 
 			var replied bool
@@ -352,18 +336,14 @@ func ReplyTo(char string, tell string) {
 				Reply(char, txt)
 			}
 			err = rows.Err()
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			rows.Close()
 		} else {
 			Reply(char, syntax)
 		}
 	case cmd == "who" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		query := "SELECT account_name, char_name " +
@@ -375,9 +355,7 @@ func ReplyTo(char string, tell string) {
 			"ORDER BY char_level DESC, char_name ASC"
 
 		rows, err := db.Query(query, oper, oper)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer rows.Close()
 
 		for rows.Next() {
@@ -399,9 +377,7 @@ func ReplyTo(char string, tell string) {
 		}
 	case cmd == "clist" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		query := "SELECT char_level, class_name, char_name, char_race, " +
@@ -414,9 +390,7 @@ func ReplyTo(char string, tell string) {
 			"ORDER BY char_level DESC, char_name ASC"
 
 		rows, err := db.Query(query, oper, oper)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer rows.Close()
 
 		var replied bool
@@ -438,9 +412,7 @@ func ReplyTo(char string, tell string) {
 		}
 	case cmd == "char" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		query := "SELECT char_level, class_name, char_name, char_race, " +
@@ -448,9 +420,7 @@ func ReplyTo(char string, tell string) {
 			"FROM chars WHERE vis = 't' " +
 			"AND LOWER(char_name) = LOWER(?)"
 		stmt, err := db.Prepare(query)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer stmt.Close()
 
 		var seen string
@@ -470,9 +440,7 @@ func ReplyTo(char string, tell string) {
 		}
 	case cmd == "find" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		query := "SELECT account_name, char_name, " +
@@ -484,9 +452,7 @@ func ReplyTo(char string, tell string) {
 			"OR LOWER(account_name) = LOWER(?)) " +
 			"ORDER BY last_seen DESC LIMIT 1"
 		stmt, err := db.Prepare(query)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer stmt.Close()
 
 		var seconds int
@@ -533,15 +499,11 @@ func ReplyTo(char string, tell string) {
 		}
 	case cmd == "class" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		loc, err := time.LoadLocation("America/New_York")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		date := time.Now().In(loc).Add(-time.Minute)
 		query := "SELECT char_name, class_name, char_race, " +
 			"char_level, account_name " +
@@ -554,9 +516,7 @@ func ReplyTo(char string, tell string) {
 			"ORDER BY char_level DESC"
 
 		rows, err := db.Query(query, oper, date)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer rows.Close()
 
 		var replied bool
@@ -576,9 +536,7 @@ func ReplyTo(char string, tell string) {
 		}
 	case cmd == "delalt" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		query := "SELECT account_name, char_name FROM chars " +
@@ -587,9 +545,7 @@ func ReplyTo(char string, tell string) {
 			"(SELECT account_name FROM chars WHERE char_name = ?)"
 
 		stmt, err := db.Prepare(query)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer stmt.Close()
 
 		err = stmt.QueryRow(oper, char).Scan(&Char.acct, &Char.name)
@@ -603,19 +559,13 @@ func ReplyTo(char string, tell string) {
 				"WHERE LOWER(char_name) = LOWER(?)"
 
 			tx, err := db.Begin()
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			stmt, err := tx.Prepare(query)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer stmt.Close()
 
 			_, err = stmt.Exec(oper)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			tx.Commit()
 			log.Printf("Delalt: %s\n", oper)
 			txt = fmt.Sprintf("Removed character from your alt list:: %s", oper)
@@ -623,9 +573,7 @@ func ReplyTo(char string, tell string) {
 		}
 	case cmd == "addalt" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		query := "SELECT account_name, char_name FROM chars " +
@@ -634,9 +582,7 @@ func ReplyTo(char string, tell string) {
 			"(SELECT account_name FROM chars WHERE char_name = ?)"
 
 		stmt, err := db.Prepare(query)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer stmt.Close()
 
 		err = stmt.QueryRow(oper, char).Scan(&Char.acct, &Char.name)
@@ -650,28 +596,20 @@ func ReplyTo(char string, tell string) {
 				"WHERE LOWER(char_name) = LOWER(?)"
 
 			tx, err := db.Begin()
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			stmt, err := tx.Prepare(query)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer stmt.Close()
 
 			_, err = stmt.Exec(oper)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			tx.Commit()
 			txt = fmt.Sprintf("Re-added character to your alt list:: %s", oper)
 			Reply(char, txt)
 		}
 	case cmd == "lr":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		if oper == "" {
@@ -682,9 +620,7 @@ func ReplyTo(char string, tell string) {
 				"AND deleted = 'f'"
 
 			rows, err := db.Query(query)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer rows.Close()
 
 			var replied bool
@@ -702,9 +638,7 @@ func ReplyTo(char string, tell string) {
 				replied = true
 			}
 			err = rows.Err()
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			if !replied {
 				txt = "No loads reported for current boot."
 				Reply(char, txt)
@@ -712,28 +646,20 @@ func ReplyTo(char string, tell string) {
 			rows.Close()
 		} else if strings.Contains(oper, " ") {
 			tx, err := db.Begin()
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			loc, err := time.LoadLocation("America/New_York")
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 
 			date := time.Now().In(loc)
 			query := "INSERT INTO loads " +
 				"VALUES((SELECT MAX(boot_id) FROM boots), ?, ?, ?, 'f')"
 
 			stmt, err := tx.Prepare(query)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer stmt.Close()
 
 			_, err = stmt.Exec(date, oper, char)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			tx.Commit()
 			txt = fmt.Sprintf("Load reported: %s", oper)
 			Reply(char, txt)
@@ -742,9 +668,7 @@ func ReplyTo(char string, tell string) {
 		}
 	case cmd == "lrdel" && oper != "":
 		db, err := sql.Open("sqlite3", "toril.db")
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer db.Close()
 
 		query := "SELECT boot_id, report_time, report_text FROM loads " +
@@ -752,9 +676,7 @@ func ReplyTo(char string, tell string) {
 			"AND boot_id = (SELECT MAX(boot_id) FROM boots)"
 
 		rows, err := db.Query(query)
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		defer rows.Close()
 
 		num, err := strconv.Atoi(oper)
@@ -779,27 +701,19 @@ func ReplyTo(char string, tell string) {
 			counter++
 		}
 		err = rows.Err()
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 		if counter > 1 {
 			query = "UPDATE loads SET deleted = 't' " +
 				"WHERE boot_id = ? AND report_time = ?"
 
 			tx, err := db.Begin()
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			stmt, err := tx.Prepare(query)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			defer stmt.Close()
 
 			_, err = stmt.Exec(curboot, rtime)
-			if err != nil {
-				log.Fatal(err)
-			}
+			ChkErr(err)
 			tx.Commit()
 			txt = fmt.Sprintf("Load deleted: %s", report)
 			Reply(char, txt)

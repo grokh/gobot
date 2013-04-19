@@ -14,12 +14,16 @@ var Char struct {
 	seen                    time.Time
 }
 
-func main() {
-	f, err := os.OpenFile("bot.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
-	defer f.Close()
+func ChkErr(err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func main() {
+	f, err := os.OpenFile("bot.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
+	defer f.Close()
+	ChkErr(err)
 	log.SetOutput(f)
 
 	// for who.go WhoChar(char, lvl, class, race, acct)
@@ -80,14 +84,10 @@ func main() {
 			"echo '.dump' | sqlite3 toril.db | "+
 				"gzip -c >toril.db.`date +\"%Y-%m-%d\"`.gz")
 		err := cmd.Run()
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 	case *restore != "":
 		cmd := exec.Command("sh", "-c", "zcat "+*restore+" | sqlite3 toril.db")
 		err := cmd.Run()
-		if err != nil {
-			log.Fatal(err)
-		}
+		ChkErr(err)
 	}
 }

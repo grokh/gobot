@@ -11,6 +11,7 @@ import (
 )
 
 func NotFound(four string, oper string) string {
+	log.Printf("%s 404: %s", four, oper)
 	return "404 " + four + " not found: " + oper
 }
 
@@ -508,7 +509,7 @@ func ReplyTo(char string, tell string) {
 				seen = fmt.Sprintf("%ds", int(secs.Seconds()))
 				online = true
 			} else {
-				log.Fatalf("Error: seconds were %d", secs.Seconds())
+				log.Printf("Find Error: seconds were %d", secs.Seconds())
 			}
 			// Char.seen = secs.String() // easier :/
 			if !online {
@@ -597,6 +598,7 @@ func ReplyTo(char string, tell string) {
 			}
 			defer stmt.Close()
 
+			log.Printf("Delalt: %s", oper)
 			_, err = stmt.Exec(oper)
 			if err != nil {
 				log.Fatal(err)

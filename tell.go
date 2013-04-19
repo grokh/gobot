@@ -5,6 +5,7 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -26,6 +27,9 @@ func Reply(char string, msg string) {
 }
 
 func FindItem(oper string, length string) string {
+	f, _ := os.Open("gobot.log")
+	log.SetOutput(f)
+
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
 		log.Fatal(err)
@@ -109,6 +113,9 @@ func FindItem(oper string, length string) string {
 }
 
 func ReplyTo(char string, tell string) {
+	f, _ := os.Open("gobot.log")
+	log.SetOutput(f)
+
 	info := "I am a Helper Bot (Beta). " +
 		"Valid commands: ?, help <cmd>, hidden?, who <char>, char <char>, " +
 		"clist <char>, find <char>, class <class>, delalt <char>, addalt <char>, " +
@@ -243,12 +250,12 @@ func ReplyTo(char string, tell string) {
 			Reply(char, txt)
 		case oper == "fstat":
 			txt = "Syntax: tell katumi fstat <stat> <sym> <num>" +
-				"[, <stat2> <sym2> <num2>][, resist <resist>] -- " +
-				"Example: tell katumi fstat maxagi > 0, resist fire -- " +
+				"[, <stat2> <sym2> <num2>][, resist <resist>][, slot <slot>] -- " +
+				"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- " +
 				"Katumi provides up to 10 results which match the parameters."
 			Reply(char, txt)
 			txt = "Type attribs as they appear in stats: str, maxstr, svsp," +
-				" sf_illu, fire, unarm, etc. Valid comparisons are >, <, and =." +
+				" sf_illu, fire, unarm, ear, on_body, etc. Valid comparisons are >, <, and =." +
 				" Resists check for a positive value. " +
 				"Other options will be added later."
 			Reply(char, txt)

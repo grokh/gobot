@@ -1,5 +1,4 @@
-#nop TorilMUD, Helper Bot, Last Changed 2013-04-14 by Rynshana
-
+#nop TorilMUD Helper Bot
 
 #CONFIG		{AUTO TAB}		{5000}
 #CONFIG		{BUFFER SIZE}		{65000}
@@ -9,7 +8,8 @@
 #CONFIG		{COMMAND ECHO}		{ON}
 #CONFIG		{HISTORY SIZE}		{2500}
 #CONFIG		{LOG}			{RAW}
-#nop Without packet patch, some text disappears. With a high value, the prompt gets overwritten
+#nop Without packet patch, some text disappears.
+#nop With a high value, the prompt gets overwritten.
 #CONFIG		{PACKET PATCH}		{0.05}
 #CONFIG		{REPEAT ENTER}		{ON}
 #CONFIG		{REPEAT CHAR}		{!}

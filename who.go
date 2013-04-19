@@ -145,7 +145,7 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 
 		log.Printf(
 			"New char: [%d %s] %s (%s) (@%s) seen %s",
-			lvl, class, name, race, acct, date,
+			lvl, class, char, race, acct, date,
 		)
 		_, err = stmt.Exec(acct, char, class, race, lvl, date)
 		if err != nil {

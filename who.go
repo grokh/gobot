@@ -120,6 +120,7 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 			}
 			defer stmt.Close()
 
+			log.Printf("New acct: @%s", acct)
 			_, err = stmt.Exec(acct)
 			if err != nil {
 				log.Fatal(err)
@@ -142,6 +143,10 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 		}
 		defer stmt.Close()
 
+		log.Printf(
+			"New char: [%d %s] %s (%s) (@%s) seen %s",
+			lvl, class, name, race, acct, date,
+		)
 		_, err = stmt.Exec(acct, char, class, race, lvl, date)
 		if err != nil {
 			log.Fatal(err)

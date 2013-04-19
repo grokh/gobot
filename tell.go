@@ -111,9 +111,12 @@ func FindItem(oper string, length string) string {
 
 func ReplyTo(char string, tell string) {
 	info := "I am a Helper Bot (Beta). " +
-		"Valid commands: ?, help <cmd>, hidden?, who <char>, char <char>, " +
-		"clist <char>, find <char>, class <class>, delalt <char>, addalt <char>, " +
-		"lr, lr <report>, stat <item>, astat <item>, fstat <att> <comp> <val>. " +
+		"Valid commands: ?, help <cmd>, hidden?, "+
+		"who <char>, char <char>, " +
+		"clist <char>, find <char>, class <class>, "+
+		"delalt <char>, addalt <char>, " +
+		"lr, lr <report>, "+
+		"stat <item>, astat <item>, fstat <att> <comp> <val>. " +
 		"For further information, tell katumi help <cmd>"
 	// By default, replies will use 'invalid syntax', requiring reassignment
 	syntax := "Invalid syntax. For valid syntax: tell katumi ?, " +
@@ -167,8 +170,10 @@ func ReplyTo(char string, tell string) {
 			txt = "Syntax: tell katumi find <acct/char> -- " +
 				"Example: tell katumi find rynshana -- " +
 				"Katumi provides the account name along with the last known " +
-				"sighting of any of that character's alts. If they have an alt online, " +
-				"the time will measure in seconds. Also works with account names."
+				"sighting of any of that character's alts. "+
+				"If they have an alt online, " +
+				"the time will measure in seconds. "+
+				"Also works with account names."
 			Reply(char, txt)
 		case oper == "clist":
 			txt = "Syntax: tell katumi clist <acct/char> -- " +
@@ -248,9 +253,10 @@ func ReplyTo(char string, tell string) {
 				"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- " +
 				"Katumi provides up to 10 results which match the parameters."
 			Reply(char, txt)
-			txt = "Type attribs as they appear in stats: str, maxstr, svsp," +
-				" sf_illu, fire, unarm, ear, on_body, etc. Valid comparisons are >, <, and =." +
-				" Resists check for a positive value. " +
+			txt = "Type attribs as they appear in stats: str, maxstr, svsp, " +
+				"sf_illu, fire, unarm, ear, on_body, etc. "+
+				"Valid comparisons are >, <, and =. " +
+				"Resists check for a positive value. " +
 				"Other options will be added later."
 			Reply(char, txt)
 		default:
@@ -416,7 +422,8 @@ func ReplyTo(char string, tell string) {
 		var replied bool
 		for rows.Next() {
 			var seen string
-			rows.Scan(&Char.lvl, &Char.class, &Char.name, &Char.race, &Char.acct, &seen)
+			rows.Scan(&Char.lvl, &Char.class, &Char.name,
+				&Char.race, &Char.acct, &seen)
 			txt = fmt.Sprintf(
 				"[%d %s] %s (%s) (@%s) seen %s",
 				Char.lvl, Char.class, Char.name, Char.race, Char.acct, seen,
@@ -447,7 +454,8 @@ func ReplyTo(char string, tell string) {
 		defer stmt.Close()
 
 		var seen string
-		err = stmt.QueryRow(oper).Scan(&Char.lvl, &Char.class, &Char.name, &Char.race, &Char.acct, &seen)
+		err = stmt.QueryRow(oper).Scan(
+			&Char.lvl, &Char.class, &Char.name, &Char.race, &Char.acct, &seen)
 		if err == sql.ErrNoRows {
 			txt = NotFound("character", oper)
 			Reply(char, txt)
@@ -509,13 +517,17 @@ func ReplyTo(char string, tell string) {
 				seen = fmt.Sprintf("%ds", int(secs.Seconds()))
 				online = true
 			} else {
-				log.Printf("Find Error: seconds were %d\n", secs.Seconds())
+				log.Printf("'find' error: seconds were %d\n", secs.Seconds())
 			}
 			// Char.seen = secs.String() // easier :/
 			if !online {
-				txt = fmt.Sprintf("@%s last seen %s ago as %s", Char.acct, seen, Char.name)
+				txt = fmt.Sprintf(
+					"@%s last seen %s ago as %s",
+					Char.acct, seen, Char.name)
 			} else {
-				txt = fmt.Sprintf("@%s is online as %s", Char.acct, Char.name)
+				txt = fmt.Sprintf(
+					"@%s is online as %s",
+					Char.acct, Char.name)
 			}
 			Reply(char, txt)
 		}
@@ -531,8 +543,10 @@ func ReplyTo(char string, tell string) {
 			log.Fatal(err)
 		}
 		date := time.Now().In(loc).Add(-time.Minute)
-		query := "SELECT char_name, class_name, char_race, char_level, account_name " +
-			"FROM chars WHERE LOWER(class_name) = LOWER(?) AND vis = 't' " +
+		query := "SELECT char_name, class_name, char_race, "+
+			"char_level, account_name " +
+			"FROM chars WHERE LOWER(class_name) = LOWER(?) "+
+			"AND vis = 't' " +
 			"AND account_name IN " +
 			"(SELECT account_name FROM chars " +
 			"WHERE last_seen > ? " +
@@ -598,12 +612,12 @@ func ReplyTo(char string, tell string) {
 			}
 			defer stmt.Close()
 
-			log.Printf("Delalt: %s\n", oper)
 			_, err = stmt.Exec(oper)
 			if err != nil {
 				log.Fatal(err)
 			}
 			tx.Commit()
+			log.Printf("Delalt: %s\n", oper)
 			txt = fmt.Sprintf("Removed character from your alt list:: %s", oper)
 			Reply(char, txt)
 		}

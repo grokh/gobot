@@ -15,7 +15,7 @@ var Char struct {
 }
 
 func main() {
-	f, err := os.OpenFile("bot.log", os.O_APPEND|os.O_CREATE, 0640)
+	f, err := os.OpenFile("bot.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
 	if err != nil {
 		log.Fatal(err)
 	}

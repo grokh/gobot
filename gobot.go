@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log"
+	"os"
 	"os/exec"
 	"time"
 )
@@ -14,6 +15,9 @@ var Char struct {
 }
 
 func main() {
+	f, _ := os.Open("gobot.log")
+	log.SetOutput(f)
+
 	// for who.go WhoChar(char, lvl, class, race, acct)
 	var char = flag.String("char", "", "Character name for update or import. Ex: Rynshana")
 	var lvl = flag.Int("lvl", 0, "Character level for update or import. Ex: 50")

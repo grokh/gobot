@@ -379,7 +379,7 @@ func ReplyTo(char string, tell string) {
 				txt += ", " + Char.name
 			} else {
 				txt = "@" + Char.acct
-				txt += ": "+Char.name
+				txt += ": " + Char.name
 			}
 		}
 		rows.Close()

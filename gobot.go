@@ -15,7 +15,10 @@ var Char struct {
 }
 
 func main() {
-	f, _ := os.Open("bot.log")
+	f, err := os.OpenFile("bot.log", os.O_WRONLY|os.O_CREATE, 0640)
+	if err != nil {
+		log.Fatal(err)
+	}
 	log.SetOutput(f)
 
 	// for who.go WhoChar(char, lvl, class, race, acct)

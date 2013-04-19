@@ -46,11 +46,15 @@ func main() {
 	// for tell.go ReplyTo(char, tell)
 	var tell = flag.String("tell", "",
 		"Tell with command and maybe operant. Ex: \"stat a longsword\"")
-	// run database backup and restore
+	// run database backup, restore, and parsing
 	var backup = flag.Bool("bak", false,
 		"Backup the toril.db database.")
 	var restore = flag.String("res", "",
 		"Restore the toril.db database from backup file.")
+	var short_stats = flag.Bool("s", false,
+		"Run ShortStats() creation for item DB.")
+	var long_stats = flag.Bool("l", false,
+		"Run LongStats() creation for item DB.")
 
 	flag.Parse()
 
@@ -81,5 +85,9 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+	case *short_stats:
+		ShortStats()
+	case *long_stats:
+		LongStats()
 	}
 }

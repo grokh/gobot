@@ -5,12 +5,16 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 )
 
 func WhoBatch(batch string) {
+	f, _ := os.Open("gobot.log")
+	log.SetOutput(f)
+
 	batch = strings.Trim(batch, "| ")
 	ppl := strings.Split(batch, "|")
 	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]-]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
@@ -73,6 +77,9 @@ func WhoBatch(batch string) {
 }
 
 func WhoChar(char string, lvl int, class string, race string, acct string) {
+	f, _ := os.Open("gobot.log")
+	log.SetOutput(f)
+
 	loc, err := time.LoadLocation("America/New_York")
 	if err != nil {
 		log.Fatal(err)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
-//	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -128,8 +127,8 @@ func ReplyTo(char string, tell string) {
 	}
 
 	// debugging
-	log.Printf("Cmd : %s\n", cmd)
-	log.Printf("Oper: %s\n", oper)
+	//log.Printf("Cmd : %s\n", cmd)
+	//log.Printf("Oper: %s\n", oper)
 
 	switch {
 	case cmd == "?":

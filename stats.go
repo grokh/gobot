@@ -44,9 +44,9 @@ func ShortStats() {
 	for rows.Next() {
 		err = rows.Scan(&i.id)
 
-		query = "SELECT item_name, item_type, weight, c_value, "+
-                "from_zone, last_id "+
-                "FROM items WHERE item_id = ?"
+		query = "SELECT item_name, item_type, weight, c_value, " +
+			"from_zone, last_id " +
+			"FROM items WHERE item_id = ?"
 		stmt, err := db.Prepare(query)
 		ChkErr(err)
 		defer stmt.Close()

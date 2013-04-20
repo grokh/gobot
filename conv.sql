@@ -85,5 +85,5 @@ INSERT INTO items
 DROP TABLE items_backup;
 COMMIT;
 
---UPDATE items SET c_value = -1 WHERE c_value IS NULL;
---UPDATE items SET weight = -1 WHERE weight IS NULL;
+UPDATE items SET c_value = -1 WHERE c_value IS NULL;
+UPDATE items SET weight = -1 WHERE weight IS NULL;

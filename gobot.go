@@ -26,7 +26,8 @@ func main() {
 	ChkErr(err)
 	log.SetOutput(f)
 
-	// for who.go WhoChar(char, lvl, class, race, acct)
+	// for who.go WhoChar(char string, lvl int,
+	// class string, race string, acct string)
 	var char = flag.String("char", "",
 		"Character name for update or import. Ex: Rynshana")
 	var lvl = flag.Int("lvl", 0,
@@ -37,24 +38,24 @@ func main() {
 		"Character race for initial import. Ex: \"Moon Elf\"")
 	var acct = flag.String("acct", "",
 		"Character account for initial import. Ex: Krimic")
-	// for who.go WhoBatch(ppl)
+	// for who.go WhoBatch(ppl string)
 	var who = flag.String("who", "",
 		"Batched who output. "+
 			"Ex: \"[10 Ctr] Rarac  (Orc)|[ 2 War] Xatus  (Troll)\"")
-	// for identify.go Identify(filename)
+	// for identify.go Identify(filename string)
 	var file = flag.String("import", "",
 		"Parse file for identify stats, import to DB. Ex: newstats.txt")
-	// for time.go Uptime(curup)
+	// for time.go Uptime(curup string)
 	var time = flag.String("time", "",
 		"Parse uptime for boot tracking. Ex: 58:10:26")
-	// for tell.go ReplyTo(char, tell)
+	// for tell.go ReplyTo(char string, tell string)
 	var tell = flag.String("tell", "",
 		"Tell with command and maybe operant. Ex: \"stat a longsword\"")
 	// run database backup, restore, and parsing
 	var backup = flag.Bool("bak", false,
 		"Backup the toril.db database.")
 	var restore = flag.String("res", "",
-		"Restore the toril.db database from backup file.")
+		"Restore the toril.db database from backup file. Ex: toril.db.gz")
 	var short_stats = flag.Bool("s", false,
 		"Run ShortStats() creation for item DB.")
 	var long_stats = flag.Bool("l", false,

@@ -16,6 +16,8 @@ func NotFound(four string, oper string) string {
 }
 
 func Reply(char string, msg string) {
+	// very lazy, should actually split on 
+	// first blank space <300
 	if len(msg) > 300 {
 		msg1 := msg[:300]
 		msg2 := msg[300:]
@@ -46,7 +48,7 @@ func FindItem(oper string, length string) string {
 		// if no exact match on item name, check LIKE
 		item = "%" + oper + "%"
 		query = "SELECT " + length + " FROM items " +
-			"WHERE LOWER(item_name) LIKE LOWER(?) LIMIT 1"
+			"WHERE item_name LIKE ? LIMIT 1"
 
 		stmt2, err := db.Prepare(query)
 		ChkErr(err)
@@ -58,7 +60,7 @@ func FindItem(oper string, length string) string {
 			item = " " + oper + " "
 			item = strings.Replace(item, " ", "%", -1)
 			query = "SELECT " + length + " FROM items " +
-				"WHERE LOWER(item_name) LIKE LOWER(?) LIMIT 1"
+				"WHERE item_name LIKE ? LIMIT 1"
 
 			stmt3, err := db.Prepare(query)
 			ChkErr(err)
@@ -72,7 +74,7 @@ func FindItem(oper string, length string) string {
 				query = "SELECT " + length + " FROM " +
 					"items WHERE "
 				for _, word := range words {
-					query += "LOWER(item_name) LIKE LOWER(?) AND "
+					query += "item_name LIKE ? AND "
 					args = append(args, "%"+word+"%")
 				}
 				query = strings.TrimRight(query, "AND ")
@@ -244,7 +246,7 @@ func ReplyTo(char string, tell string) {
 				"Katumi provides up to 10 results which match the parameters."
 			Reply(char, txt)
 			txt = "Type attribs as they appear in stats: str, maxstr, svsp, " +
-				"sf_illu, fire, unarm, ear, on_body, etc. " +
+				"dam, sf_illu, fire, unarm, ear, on_body, etc. " +
 				"Valid comparisons are >, <, and =. " +
 				"Resists check for a positive value. " +
 				"Other options will be added later."
@@ -301,7 +303,7 @@ func ReplyTo(char string, tell string) {
 					}
 					query += " (SELECT i.item_id FROM items i, item_slots s " +
 						"WHERE i.item_id = s.item_id " +
-						"AND slot_abbr LIKE LOWER(?))"
+						"AND slot_abbr LIKE ?)"
 					args = append(args, slot)
 				}
 			}
@@ -359,7 +361,7 @@ func ReplyTo(char string, tell string) {
 		defer rows.Close()
 
 		for rows.Next() {
-			rows.Scan(&Char.acct, &Char.name)
+			err = rows.Scan(&Char.acct, &Char.name)
 			if strings.Contains(txt, "@") {
 				txt += ", " + Char.name
 			} else {
@@ -367,6 +369,8 @@ func ReplyTo(char string, tell string) {
 				txt += ": " + Char.name
 			}
 		}
+		err = rows.Err()
+		ChkErr(err)	
 		rows.Close()
 
 		if strings.Contains(txt, "@") {
@@ -396,7 +400,7 @@ func ReplyTo(char string, tell string) {
 		var replied bool
 		for rows.Next() {
 			var seen string
-			rows.Scan(&Char.lvl, &Char.class, &Char.name,
+			err = rows.Scan(&Char.lvl, &Char.class, &Char.name,
 				&Char.race, &Char.acct, &seen)
 			txt = fmt.Sprintf(
 				"[%d %s] %s (%s) (@%s) seen %s",
@@ -405,6 +409,8 @@ func ReplyTo(char string, tell string) {
 			Reply(char, txt)
 			replied = true
 		}
+		err = rows.Err()
+		ChkErr(err)
 		rows.Close()
 		if !replied {
 			txt = NotFound("character or account", oper)
@@ -521,7 +527,8 @@ func ReplyTo(char string, tell string) {
 
 		var replied bool
 		for rows.Next() {
-			rows.Scan(&Char.name, &Char.class, &Char.race, &Char.lvl, &Char.acct)
+			err = rows.Scan(&Char.name, &Char.class, &Char.race,
+				&Char.lvl, &Char.acct)
 			txt = fmt.Sprintf(
 				"[%d %s] %s (%s) (@%s)",
 				Char.lvl, Char.class, Char.name, Char.race, Char.acct,
@@ -529,6 +536,8 @@ func ReplyTo(char string, tell string) {
 			Reply(char, txt)
 			replied = true
 		}
+		err = rows.Err()
+		ChkErr(err)
 		rows.Close()
 		if !replied {
 			txt = NotFound("class", oper)
@@ -639,11 +648,11 @@ func ReplyTo(char string, tell string) {
 			}
 			err = rows.Err()
 			ChkErr(err)
+			rows.Close()
 			if !replied {
 				txt = "No loads reported for current boot."
 				Reply(char, txt)
 			}
-			rows.Close()
 		} else if strings.Contains(oper, " ") {
 			tx, err := db.Begin()
 			ChkErr(err)

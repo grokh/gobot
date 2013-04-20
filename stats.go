@@ -2,16 +2,20 @@ package main
 
 import (
 	"database/sql"
-	_ "github.com/mattn/go-sqlite3"
-	"log"
 	"fmt"
+	_ "github.com/mattn/go-sqlite3"
+	//"log"
 	"strings"
 )
 
 var i struct {
-	id, name, itype, zone, date, keys, s               string // base
-	tmp, txt, specs, procs, enchs, flags, restr, zones string // temp
-	tmp1, tmp2, tmp3, tmp4, wt, val                    int    // temp
+	id, name, itype, zone, date, keys, s     string // base
+	wt, val                                  int    // base
+	specs, procs, enchs, flags, restr, zones string // temp
+	tmp, tmpb, txt                           string // temp
+	tmp1, tmp2, tmp3, tmp4                   int    // temp
+	txt1, txt2, txt3, txt4, txt5             string // temp, special ordering
+	ids, stats                               []interface{}
 }
 
 func ShortStats() {
@@ -135,6 +139,7 @@ func ShortStats() {
 
 		// collect specials (i.specs, i.spec) and break them down by type
 		i.specs = " *"
+		i.txt1, i.txt2, i.txt3, i.txt4, i.txt5 = "", "", "", "", ""
 		query = "SELECT item_type, spec_abbr, spec_value " +
 			"FROM item_specials WHERE item_id = ? AND spec_abbr != 'ac'"
 		stmt7, err := db.Prepare(query)
@@ -145,29 +150,70 @@ func ShortStats() {
 		ChkErr(err)
 		defer rows7.Close()
 
-		for rows7.Next() { // this is all fucked up :(
-			err = rows7.Scan(&i.txt, &i.tmp, &i.tmp1)
-			// big switch/case for i.tmpb
-			//i.specs += " (" + i.txt + ")" // wait... this will get printed all the time!
-			switch {
-			case i.txt == "crystal" || i.txt == "spellbook" || i.txt == "comp_bag" || i.txt == "ammo":
-				i.specs += ""
-				//i.specs += " "+i.tmp+":"+string(i.tmp1)
-			case i.txt == "container":
-				i.specs += ""
-			case i.txt == "poison":
-				i.specs += ""
-			case i.txt == "scroll" || i.txt == "potion":
-				i.specs += ""
-			case i.txt == "staff" || i.txt == "wand":
-				i.specs += ""
-			case i.txt == "instrument":
-				i.specs += ""
-			case i.txt == "weapon":
-				i.specs += ""
+		for rows7.Next() {
+			err = rows7.Scan(&i.txt, &i.tmp, &i.tmpb)
+			if !strings.Contains(i.specs, "(") {
+				i.specs += " (" + strings.Title(i.txt) + ")"
 			}
-			i.specs += " " + strings.Title(i.tmp)
+			switch {
+			case i.txt == "crystal" || i.txt == "spellbook" ||
+				i.txt == "comp_bag" || i.txt == "ammo":
+				i.txt1 += " " + strings.Title(i.tmp) + ":" + i.tmpb
+			case i.txt == "container":
+				if i.tmp == "holds" {
+					i.txt1 += " Holds:" + i.tmpb
+				} else if i.tmp == "wtless" {
+					i.txt2 += " Wtless:" + i.tmpb
+				}
+			case i.txt == "poison":
+				if i.tmp == "level" {
+					i.txt1 += " Lvl:" + i.tmpb
+				} else if i.tmp == "type" {
+					i.txt2 += " Type:" + i.tmpb
+				} else if i.tmp == "apps" {
+					i.txt3 += " Apps:" + i.tmpb
+				}
+			case i.txt == "scroll" || i.txt == "potion":
+				if i.tmp == "level" {
+					i.txt1 += " Lvl:" + i.tmpb
+				} else if i.tmp == "spell1" {
+					i.txt2 += " " + i.tmpb
+				} else if i.tmp == "spell2" {
+					i.txt3 += " - " + i.tmpb
+				} else if i.tmp == "spell3" {
+					i.txt4 += " - " + i.tmpb
+				}
+			case i.txt == "staff" || i.txt == "wand":
+				if i.tmp == "level" {
+					i.txt1 += " Lvl:" + i.tmpb
+				} else if i.tmp == "spell" {
+					i.txt2 += " " + i.tmpb
+				} else if i.tmp == "charges" {
+					i.txt3 += " Charges:" + i.tmpb
+				}
+			case i.txt == "instrument":
+				if i.tmp == "quality" {
+					i.txt1 += " Quality:" + i.tmpb
+				} else if i.tmp == "stutter" {
+					i.txt2 += " Stuter:" + i.tmpb
+				} else if i.tmp == "min_level" {
+					i.txt3 += " Min_Level:" + i.tmpb
+				}
+			case i.txt == "weapon":
+				if i.tmp == "dice" {
+					i.txt1 += " Dice:" + i.tmpb
+				} else if i.tmp == "crit" {
+					i.txt2 += " Crit:" + i.tmpb + "%"
+				} else if i.tmp == "multi" {
+					i.txt3 += " Multi:" + i.tmpb + "x"
+				} else if i.tmp == "class" {
+					i.txt4 += " (Class: " + i.tmpb + ","
+				} else if i.tmp == "type" {
+					i.txt5 += " Type: " + i.tmpb + ")"
+				}
+			}
 		}
+		i.specs += i.txt1 + i.txt2 + i.txt3 + i.txt4 + i.txt5
 		if i.specs != " *" {
 			i.s += i.specs
 		}
@@ -308,25 +354,29 @@ func ShortStats() {
 		i.s += " * Zone: " + i.zone + " * Last ID: " + i.date
 
 		// debugging
-		log.Println(i.s)
+		//log.Println(i.s)
 
-		// put the short_stats into the database
-		// batch these for after rows close
-		/*
-			tx, err := db.Begin()
-			ChkErr(err)
-			stmt, err = tx.Prepare("UPDATE items SET short_stats = ? WHERE item_id = ?")
-			ChkErr(err)
-			defer stmt.Close()
-
-			_, err = stmt.Exec(i.s, i.id)
-			ChkErr(err)
-			tx.Commit()
-		*/
+		// save the short_stats and id for later use
+		i.ids = append(i.ids, i.id)
+		i.stats = append(i.stats, i.s)
 	}
 	err = rows.Err()
 	ChkErr(err)
 	rows.Close()
+
+	// put the batched short_stats into the database
+	tx, err := db.Begin()
+	ChkErr(err)
+	stmt, err = tx.Prepare("UPDATE items SET short_stats = ? WHERE item_id = ?")
+	ChkErr(err)
+	defer stmt.Close()
+	if len(i.ids) == len(i.stats) {
+		for n := 0; n < len(i.ids); n++ {
+			_, err = stmt.Exec(i.stats[n], i.ids[n])
+			ChkErr(err)
+		}
+	}
+	tx.Commit()
 }
 
 func LongStats() {

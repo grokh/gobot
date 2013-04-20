@@ -370,7 +370,7 @@ func ReplyTo(char string, tell string) {
 			}
 		}
 		err = rows.Err()
-		ChkErr(err)	
+		ChkErr(err)
 		rows.Close()
 
 		if strings.Contains(txt, "@") {

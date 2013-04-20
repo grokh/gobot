@@ -8,23 +8,8 @@ import (
 )
 
 var i struct {
-	id      string
-	name    string
-	itype   string
-	wt      string
-	val     string
-	zonext  string
-	date    string
-	slots   []string
-	specs   []string
-	attrs   []string
-	resi    []string
-	effects []string
-	enchs   []string
-	flags   []string
-	restr   []string
-	supps   []string
-	s       string
+	id, name, itype, wt, val, zone, zonext, date, s                string
+	slots, specs, attr, resis, effects, enchs, flags, restr, supps []string
 }
 
 func ShortStats() {
@@ -53,7 +38,7 @@ func ShortStats() {
 
 		err = stmt.QueryRow(i.id).Scan(
 			&i.name, &i.itype, &i.wt, &i.val,
-			&i.zonext, &i.date,
+			&i.zone, &i.date,
 		)
 		ChkErr(err)
 		log.Printf("Name: %s\n", i.name)

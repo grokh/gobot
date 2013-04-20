@@ -21,7 +21,7 @@ func ChkErr(err error) {
 }
 
 func main() {
-	f, err := os.OpenFile("bot.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
+	f, err := os.OpenFile("logs/bot.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
 	defer f.Close()
 	ChkErr(err)
 	log.SetOutput(f)
@@ -85,7 +85,7 @@ func main() {
 				"gzip -c >toril.db.`date +\"%Y-%m-%d\"`.gz")
 		err := cmd.Run()
 		ChkErr(err)
-	case *restore != "":
+	case *restore != "": // this doesn't work on Mac OS X
 		cmd := exec.Command("sh", "-c", "zcat "+*restore+" | sqlite3 toril.db")
 		err := cmd.Run()
 		ChkErr(err)

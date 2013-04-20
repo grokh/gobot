@@ -3,15 +3,18 @@ package main
 import (
 	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
+	"log"
 	//"strings"
 )
 
-var Item struct {
+var i struct {
 	id      string
 	name    string
 	itype   string
+	wt      string
+	val     string
 	zonext  string
-	last_id string
+	date    string
 	slots   []string
 	specs   []string
 	attrs   []string
@@ -20,6 +23,8 @@ var Item struct {
 	enchs   []string
 	flags   []string
 	restr   []string
+	supps   []string
+	s       string
 }
 
 func ShortStats() {
@@ -28,7 +33,6 @@ func ShortStats() {
 	defer db.Close()
 
 	query := "SELECT item_id FROM items"
-
 	stmt, err := db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
@@ -38,7 +42,21 @@ func ShortStats() {
 	defer rows.Close()
 
 	for rows.Next() {
-		err = rows.Scan(&Item.id)
+		err = rows.Scan(&i.id)
+
+		query = "SELECT item_name, item_type, weight, c_value, "+
+                "from_zone, last_id "+
+                "FROM items WHERE item_id = ?"
+		stmt, err := db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+
+		err = stmt.QueryRow(i.id).Scan(
+			&i.name, &i.itype, &i.wt, &i.val,
+			&i.zonext, &i.date,
+		)
+		ChkErr(err)
+		log.Printf("Name: %s\n", i.name)
 	}
 	err = rows.Err()
 	ChkErr(err)
@@ -51,7 +69,6 @@ func LongStats() {
 	defer db.Close()
 
 	query := "SELECT item_id FROM items"
-
 	stmt, err := db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
@@ -61,7 +78,7 @@ func LongStats() {
 	defer rows.Close()
 
 	for rows.Next() {
-		err = rows.Scan(&Item.id)
+		err = rows.Scan(&i.id)
 	}
 	err = rows.Err()
 	ChkErr(err)

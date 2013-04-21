@@ -56,10 +56,8 @@ func main() {
 		"Backup the toril.db database.")
 	var restore = flag.String("res", "",
 		"Restore the toril.db database from backup file. Ex: toril.db.gz")
-	var short_stats = flag.Bool("s", false,
-		"Run ShortStats() creation for item DB.")
-	var long_stats = flag.Bool("l", false,
-		"Run LongStats() creation for item DB.")
+	var stats = flag.Bool("s", false,
+		"Run FormatStats() creation for item DB.")
 
 	flag.Parse()
 
@@ -74,10 +72,8 @@ func main() {
 	case *char != "" && 50 >= *lvl && *lvl > 0 &&
 		*class != "" && *race != "" && *acct != "":
 		WhoChar(*char, *lvl, *class, *race, *acct)
-	case *short_stats:
-		ShortStats()
-	case *long_stats:
-		LongStats()
+	case *stats:
+		FormatStats()
 	case *file != "":
 		Identify(*file)
 	case *backup:

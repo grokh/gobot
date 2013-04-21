@@ -65,6 +65,10 @@ func ShortStats() {
 			err = rows2.Scan(&i.tmp)
 			i.s += " (" + strings.Title(i.tmp) + ")"
 		}
+		err = rows2.Err()
+		ChkErr(err)
+		rows2.Close()
+		stmt2.Close()
 
 		// collect armor class (i.spec, but only for armor)
 		query = "SELECT spec_value FROM item_specials " +
@@ -81,6 +85,10 @@ func ShortStats() {
 			err = rows3.Scan(&i.tmp1)
 			i.s += fmt.Sprintf(" AC:%d", i.tmp1)
 		}
+		err = rows3.Err()
+		ChkErr(err)
+		rows3.Close()
+		stmt3.Close()
 
 		// collect attributes (i.attrs, i.attr)
 		query = "SELECT attrib_abbr, attrib_value " +
@@ -97,6 +105,10 @@ func ShortStats() {
 			err = rows4.Scan(&i.tmp, &i.tmp1)
 			i.s += fmt.Sprintf(" %s:%d", strings.Title(i.tmp), i.tmp1)
 		}
+		err = rows4.Err()
+		ChkErr(err)
+		rows4.Close()
+		stmt4.Close()
 
 		// collect resistances (i.resis, i.res)
 		query = "SELECT resist_abbr, resist_value " +
@@ -113,6 +125,10 @@ func ShortStats() {
 			err = rows5.Scan(&i.tmp, &i.tmp1)
 			i.s += fmt.Sprintf(" %s:%d%%", strings.Title(i.tmp), i.tmp1)
 		}
+		err = rows5.Err()
+		ChkErr(err)
+		rows5.Close()
+		stmt5.Close()
 
 		// collect item effects (i.effs, i.eff)
 		query = "SELECT effect_abbr FROM item_effects WHERE item_id = ?"
@@ -137,6 +153,10 @@ func ShortStats() {
 				i.s += " " + strings.Title(i.tmp)
 			}
 		}
+		err = rows6.Err()
+		ChkErr(err)
+		rows6.Close()
+		stmt6.Close()
 
 		// collect specials (i.specs, i.spec) and break them down by type
 		i.specs = " *"
@@ -214,6 +234,10 @@ func ShortStats() {
 				}
 			}
 		}
+		err = rows7.Err()
+		ChkErr(err)
+		rows7.Close()
+		stmt7.Close()
 		i.specs += i.txt1 + i.txt2 + i.txt3 + i.txt4 + i.txt5
 		if i.specs != " *" {
 			i.s += i.specs
@@ -238,6 +262,10 @@ func ShortStats() {
 				i.procs += " - " + i.tmp
 			}
 		}
+		err = rows8.Err()
+		ChkErr(err)
+		rows8.Close()
+		stmt8.Close()
 		if i.procs != " *" {
 			i.s += i.procs
 		}
@@ -262,6 +290,10 @@ func ShortStats() {
 			i.enchs += fmt.Sprintf(" %s %d%% %d%% %d %d",
 				strings.Title(i.tmp), i.tmp1, i.tmp2, i.tmp3, i.tmp4)
 		}
+		err = rows9.Err()
+		ChkErr(err)
+		rows9.Close()
+		stmt9.Close()
 		if i.enchs != " *" {
 			i.s += i.enchs
 		}
@@ -290,6 +322,10 @@ func ShortStats() {
 				i.flags += " " + strings.Title(i.tmp)
 			}
 		}
+		err = rows10.Err()
+		ChkErr(err)
+		rows10.Close()
+		stmt10.Close()
 		if i.flags != " *" {
 			i.s += i.flags
 		}
@@ -309,6 +345,10 @@ func ShortStats() {
 			err = rows11.Scan(&i.tmp)
 			i.restr += " " + strings.Title(i.tmp)
 		}
+		err = rows11.Err()
+		ChkErr(err)
+		rows11.Close()
+		stmt11.Close()
 		if i.restr != " *" && i.flags == " *" {
 			i.s += i.restr
 		} else if i.restr != " *" && i.flags != " *" {
@@ -346,6 +386,10 @@ func ShortStats() {
 				i.itype += " " + i.tmp
 			}
 		}
+		err = rows12.Err()
+		ChkErr(err)
+		rows12.Close()
+		stmt12.Close()
 		if i.zones != "" {
 			i.zone += " (" + i.zones + ")"
 		}
@@ -429,6 +473,10 @@ func LongStats() {
 			err = rows2.Scan(&i.tmp)
 			i.s += " (" + i.tmp + ")"
 		}
+		err = rows2.Err()
+		ChkErr(err)
+		rows2.Close()
+		stmt2.Close()
 
 		// collect armor class (specials, but only for armor)
 		query = "SELECT spec_display, spec_value " +
@@ -447,6 +495,10 @@ func LongStats() {
 			err = rows3.Scan(&i.tmp, &i.tmp1)
 			i.s += fmt.Sprintf(" %s: %d", i.tmp, i.tmp1)
 		}
+		err = rows3.Err()
+		ChkErr(err)
+		rows3.Close()
+		stmt3.Close()
 
 		// collect attributes (i.attrs, i.attr)
 		query = "SELECT attrib_display, attrib_value " +
@@ -464,6 +516,10 @@ func LongStats() {
 			err = rows4.Scan(&i.tmp, &i.tmp1)
 			i.s += fmt.Sprintf(", %s: %d", i.tmp, i.tmp1)
 		}
+		err = rows4.Err()
+		ChkErr(err)
+		rows4.Close()
+		stmt4.Close()
 
 		// collect resistances (i.resis, i.res)
 		query = "SELECT resist_display, resist_value " +
@@ -481,6 +537,10 @@ func LongStats() {
 			err = rows5.Scan(&i.tmp, &i.tmp1)
 			i.s += fmt.Sprintf(", %s: %d%%", i.tmp, i.tmp1)
 		}
+		err = rows5.Err()
+		ChkErr(err)
+		rows5.Close()
+		stmt5.Close()
 
 		// collect item effects (i.effs, i.eff)
 		query = "SELECT effect_display " +
@@ -498,6 +558,10 @@ func LongStats() {
 			err = rows6.Scan(&i.tmp)
 			i.s += ", " + i.tmp
 		}
+		err = rows6.Err()
+		ChkErr(err)
+		rows6.Close()
+		stmt6.Close()
 
 		// collect specials (i.specs, i.spec) and break them down by type
 		i.specs = " *"
@@ -575,6 +639,10 @@ func LongStats() {
 				}
 			}
 		}
+		err = rows7.Err()
+		ChkErr(err)
+		rows7.Close()
+		stmt7.Close()
 		i.specs += i.txt1 + i.txt2 + i.txt3 + i.txt4 + i.txt5
 		if i.specs != " *" {
 			i.s += " (Item Type: " + strings.Title(i.itype) + ")" +
@@ -602,6 +670,10 @@ func LongStats() {
 				i.procs += " - " + i.tmp
 			}
 		}
+		err = rows8.Err()
+		ChkErr(err)
+		rows8.Close()
+		stmt8.Close()
 		if i.procs != " *" {
 			i.s += i.procs
 		}
@@ -626,6 +698,10 @@ func LongStats() {
 			i.enchs += fmt.Sprintf(" %s %d%% %d%% %d %d",
 				strings.Title(i.tmp), i.tmp1, i.tmp2, i.tmp3, i.tmp4)
 		}
+		err = rows9.Err()
+		ChkErr(err)
+		rows9.Close()
+		stmt9.Close()
 		if i.enchs != " *" {
 			i.s += i.enchs
 		}
@@ -647,6 +723,10 @@ func LongStats() {
 			err = rows10.Scan(&i.tmp)
 			i.flags += ", " + i.tmp
 		}
+		err = rows10.Err()
+		ChkErr(err)
+		rows10.Close()
+		stmt10.Close()
 		if i.flags != " *" {
 			i.s += i.flags
 		}
@@ -668,6 +748,10 @@ func LongStats() {
 			err = rows11.Scan(&i.tmp)
 			i.restr += " " + strings.Title(i.tmp)
 		}
+		err = rows11.Err()
+		ChkErr(err)
+		rows11.Close()
+		stmt11.Close()
 		if i.restr != " *" && i.flags == " *" {
 			i.s += i.restr
 		} else if i.restr != " *" && i.flags != " *" {
@@ -709,6 +793,10 @@ func LongStats() {
 				i.itype += ", " + i.tmp
 			}
 		}
+		err = rows12.Err()
+		ChkErr(err)
+		rows12.Close()
+		stmt12.Close()
 		if i.zones != "" {
 			i.zone += " (" + i.zones + ")"
 		}

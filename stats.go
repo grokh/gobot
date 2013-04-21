@@ -3,9 +3,9 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	_ "github.com/mattn/go-sqlite3"
 	//"log"
-	"github.com/dustin/go-humanize"
 	"strings"
 )
 
@@ -333,7 +333,7 @@ func ShortStats() {
 			i.itype += fmt.Sprintf(" Wt:%d", i.wt)
 		}
 		if i.val != -1 {
-			i.itype += fmt.Sprintf(" Val:%d", i.val)
+			i.itype += fmt.Sprintf(" Val:%d", humanize.Comma(int64(i.val)))
 		}
 
 		// construct the zone and last id

@@ -373,7 +373,7 @@ func ShortStats() {
 			i.itype += fmt.Sprintf(" Wt:%d", i.wt)
 		}
 		if i.val != -1 {
-			i.itype += fmt.Sprintf(" Val:%d", humanize.Comma(int64(i.val)))
+			i.itype += fmt.Sprintf(" Val:%s", humanize.Comma(int64(i.val)))
 		}
 
 		// construct the zone and last id

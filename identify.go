@@ -10,14 +10,15 @@ func Identify(filename string) {
 	ChkErr(err)
 
 	// do full text processing like moving stuff onto the same line
-	// split into items on double newline
+
+
 	items := strings.Split(string(content), "\n\n")
 
 	for _, item := range items {
-		// split onto separate lines for regex checking
 		lines := strings.Split(item, "\n")
 
 		for _, line := range lines {
+			// use regex to capture useful info
 			_ = line
 		}
 	}

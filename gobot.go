@@ -79,7 +79,7 @@ func main() {
 	case *backup:
 		cmd := exec.Command("sh", "-c",
 			"echo '.dump' | sqlite3 toril.db | "+
-				"gzip -c >toril.db.`date +\"%Y-%m-%d\"`.gz")
+				"gzip -c >bak/toril.db.`date +\"%Y-%m-%d\"`.gz")
 		err := cmd.Run()
 		ChkErr(err)
 	case *restore != "": // this doesn't work on Mac OS X

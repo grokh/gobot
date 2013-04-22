@@ -6,8 +6,8 @@ import (
 	"github.com/dustin/go-humanize"
 	_ "github.com/mattn/go-sqlite3"
 	//"log"
-	//"runtime"
 	"strings"
+	"time"
 )
 
 var i struct {
@@ -20,7 +20,7 @@ var i struct {
 }
 
 func FormatStats() {
-	//runtime.GOMAXPROCS(runtime.NumCPU())
+	t1 := time.Now()
 
 	db, err := sql.Open("sqlite3", "toril.db")
 	ChkErr(err)
@@ -65,29 +65,10 @@ func FormatStats() {
 	ChkErr(err)
 	rows.Close()
 
-	// figure out how to run this and the update concurrently
-	// working example: http://play.golang.org/p/qLFIn0prQi
 	for n := 0; n < len(ids); n++ {
 		short[n] = ConstructShortStats(db, ids[n])
 		long[n] = ConstructLongStats(db, ids[n])
 	}
-
-	/* non-working
-	ch := make(chan int)
-	for i := 0; i < 4; i++ { // 4 goroutines?
-		go func(j int) {
-			for n := range ch {
-				//log.Printf("Constructing ids[%d] with worker %d\n", n, j)
-				short[n] = ConstructShortStats(db, ids[n])
-				long[n] = ConstructLongStats(db, ids[n])
-			}
-		}(i)
-	}
-	for n, _ := range ids {
-		ch <- n
-	}
-	close(ch)
-	*/
 
 	// put the batched short_stats into the database
 	tx, err := db.Begin()
@@ -98,23 +79,6 @@ func FormatStats() {
 	stmt2, err := tx.Prepare("UPDATE items SET long_stats = ? WHERE item_id = ?")
 	ChkErr(err)
 	defer stmt2.Close()
-	/* non-working
-	ch = make(chan int)
-	for i := 0; i < 4; i++ { // 4 goroutines?
-		go func(j int) {
-			for n := range ch {
-				_, err = stmt1.Exec(short[n], ids[n])
-				ChkErr(err)
-				_, err = stmt2.Exec(long[n], ids[n])
-				ChkErr(err)
-			}
-		}(i)
-	}
-	for n, _ := range ids {
-		ch <- n
-	}
-	close(ch)
-	*/
 
 	for n, _ := range ids {
 		_, err = stmt1.Exec(short[n], ids[n])
@@ -125,24 +89,8 @@ func FormatStats() {
 
 	tx.Commit()
 
-	/*	example concurrency
-		defer db.Close()
-
-		wg := sync.WaitGroup{}
-		for i := 0; i < 10; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				rows, err := db.Query("SELECT RoleData FROM Role WHERE Account=?", "account")
-				if err != nil {
-					fmt.Println(err.Error())
-					return
-				}
-				rows.Close()
-			}()
-		}
-		wg.Wait()
-	*/
+	t2 := time.Now()
+	fmt.Printf("Runtime: %v\n", t2.Sub(t1).String())
 }
 
 func ConstructShortStats(db *sql.DB, id int) string {

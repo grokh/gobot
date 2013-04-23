@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -51,6 +52,8 @@ func main() {
 	// for local.go glstat
 	var glist = flag.String("glist", "",
 		"Provide stats for multiple items at once. Ex: \"a longsword|a dagger\"")
+	var item = flag.String("item", "",
+		"Provide stats for a single item. Ex: \"a longsword\"")
 	// for tell.go ReplyTo(char string, tell string)
 	var tell = flag.String("tell", "",
 		"Tell with command and maybe operant. Ex: \"stat a longsword\"")
@@ -77,6 +80,8 @@ func main() {
 		WhoChar(*char, *lvl, *class, *race, *acct)
 	case *stats:
 		FormatStats()
+	case *item != "":
+		fmt.Println(FindItem(*item, "short_stats"))
 	case *glist != "":
 		GlistStats(*glist)
 	case *file != "":

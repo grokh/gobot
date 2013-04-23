@@ -10,7 +10,10 @@ func Identify(filename string) {
 	ChkErr(err)
 
 	// do full text processing like moving stuff onto the same line
-
+	// put all flags/restricts, or effects, on one line
+	//items = re.sub(r'(?<=[A-Z]){2}\n(?=[A-Z]{2})',' ', stats[0])
+	// put enchant info on one line
+	//items = re.sub(r'\n(?=Duration)',' ', items)
 
 	items := strings.Split(string(content), "\n\n")
 

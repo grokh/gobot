@@ -48,6 +48,9 @@ func main() {
 	// for time.go Uptime(curup string)
 	var time = flag.String("time", "",
 		"Parse uptime for boot tracking. Ex: 58:10:26")
+	// for local.go glstat
+	var glist = flag.String("glist", "",
+		"Provide stats for multiple items at once. Ex: \"a longsword|a dagger\"")
 	// for tell.go ReplyTo(char string, tell string)
 	var tell = flag.String("tell", "",
 		"Tell with command and maybe operant. Ex: \"stat a longsword\"")
@@ -74,6 +77,8 @@ func main() {
 		WhoChar(*char, *lvl, *class, *race, *acct)
 	case *stats:
 		FormatStats()
+	case *glist != "":
+		GlistStats(*glist)
 	case *file != "":
 		Identify(*file)
 	case *backup:

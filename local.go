@@ -30,9 +30,18 @@ func GlistStats(list string) {
 		defer stmt.Close()
 
 		err = stmt.QueryRow(item).Scan(&stat)
-		log.Println(stat)
+		//log.Println(stat)
 		if err == sql.ErrNoRows {
-			fmt.Printf("%s is not in the database.\n", item)
+			item += " 1"
+			err = stmt.QueryRow(item).Scan(&stat)
+			if err == sql.ErrNoRows {
+				item = strings.Trim(item, " 1")
+				fmt.Printf("%s is not in the database.\n", item)
+			} else if err != nil {
+				log.Fatal(err)
+			} else {
+				fmt.Printf("%s\n", stat)
+			}
 		} else if err != nil {
 			log.Fatal(err)
 		} else {

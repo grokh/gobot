@@ -40,8 +40,3 @@ func GlistStats(list string) {
 		}
 	}
 }
-
-func ChannelSearch() {
-	// for assoc stat blah, gsay stat blah
-	// use tell.go func FindItem(oper string, length string) string
-}

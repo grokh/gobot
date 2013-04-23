@@ -1,32 +1,32 @@
-#nop TorilMUD Helper Bot
+#nop TorilMUD Helper Bot, for use with gobot executable
 
 #CONFIG		{AUTO TAB}		{5000}
-#CONFIG		{BUFFER SIZE}		{65000}
+#CONFIG		{BUFFER SIZE}	{65000}
 #CONFIG		{CHARSET}		{ASCII}
-#CONFIG		{CONNECT RETRY}		{360}
-#CONFIG		{COMMAND COLOR}		{<078>}
-#CONFIG		{COMMAND ECHO}		{ON}
-#CONFIG		{HISTORY SIZE}		{2500}
+#CONFIG		{CONNECT RETRY}	{360}
+#CONFIG		{COMMAND COLOR}	{<078>}
+#CONFIG		{COMMAND ECHO}	{ON}
+#CONFIG		{HISTORY SIZE}	{2500}
 #CONFIG		{LOG}			{RAW}
 #nop Without packet patch, some text disappears.
 #nop With a high value, the prompt gets overwritten.
-#CONFIG		{PACKET PATCH}		{0.05}
-#CONFIG		{REPEAT ENTER}		{ON}
-#CONFIG		{REPEAT CHAR}		{!}
-#CONFIG		{SCROLL LOCK}		{ON}
+#CONFIG		{PACKET PATCH}	{0.05}
+#CONFIG		{REPEAT ENTER}	{ON}
+#CONFIG		{REPEAT CHAR}	{!}
+#CONFIG		{SCROLL LOCK}	{ON}
 #CONFIG		{SPEEDWALK}		{ON}
-#CONFIG		{TINTIN CHAR}		{#}
+#CONFIG		{TINTIN CHAR}	{#}
 #CONFIG		{VERBATIM}		{OFF}
-#CONFIG		{VERBATIM CHAR}		{\}
+#CONFIG		{VERBATIM CHAR}	{\}
 #CONFIG		{VERBOSE}		{OFF}
 #CONFIG		{WORDWRAP}		{OFF}
-#CONFIG		{256 COLORS}		{ON}
-#PATHDIR	{n}			{s}		{1}
-#PATHDIR	{e}			{w}		{2}
-#PATHDIR	{s}			{n}		{4}
-#PATHDIR	{w}			{e}		{8}
-#PATHDIR	{u}			{d}		{16}
-#PATHDIR	{d}			{u}		{32}
+#CONFIG		{256 COLORS}	{ON}
+#PATHDIR	{n}		{s}		{1}
+#PATHDIR	{e}		{w}		{2}
+#PATHDIR	{s}		{n}		{4}
+#PATHDIR	{w}		{e}		{8}
+#PATHDIR	{u}		{d}		{16}
+#PATHDIR	{d}		{u}		{32}
 
 
 #nop tokens.tin sets the following variables to correct info
@@ -72,7 +72,11 @@
 		#if {"$cmd" != "%d"} {$cmd};
 	};
 }
-#act {You tell %1 '%2'$} {
+#act {You tell %w '%2'$} {
+	#format {time} {%t} {%F %T};
+	#line log {logs/tells.log} {$time - %0};
+}
+#act {No-one by that name here...$} {
 	#format {time} {%t} {%F %T};
 	#line log {logs/tells.log} {$time - %0};
 }
@@ -81,26 +85,26 @@
 #nop Batch Who Check
 #alias {parsewho} {#script {who} {./gobot -who "$ppl"}}
 #act {^-=-=-=-=-=-=-=-=-=-=-=-=-$} {
+	#act {^$} {
+		#unact {%%%0};
+		#unact {^$};
+		#replace {ppl} { (AFK)} {};
+		#replace {ppl} { (RP)} {};
+		#replace {ppl} {(inv) } {};
+		#replace {ppl} {(In Dark)} {};
+		#replace {ppl} {(Daylight)} {};
+		parsewho;
+		#foreach {$who} {cmd} {
+			#if {"$cmd" != "%d"} {$cmd};
+		};
+		#var {who} {};
+	}{2};
 	#var {ppl} {};
 	#var {who} {};
 	#act {%%0} {
-		#if {"%%0" == "There are %* mortal(s) on."} {
-			#unact {%%%0};
-			#replace {ppl} { (AFK)} {};
-			#replace {ppl} { (RP)} {};
-			#replace {ppl} {(inv) } {};
-			#replace {ppl} {(In Dark)} {};
-			#replace {ppl} {(Daylight)} {};
-			parsewho;
-			#foreach {$who} {cmd} {
-				#if {"$cmd" != "%d"} {$cmd};
-			};
-			#var {who} {};
-		} {
-			#var {ppl} {$ppl|%%0};
-		};
-	};
-}
+		#var {ppl} {$ppl|%%0};
+	}{3};
+}{5}
 
 #nop Individual Checks
 #act {^[ %d %+] %w %*(%*) (@%*)} {

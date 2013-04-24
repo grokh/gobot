@@ -29,8 +29,7 @@ func Reply(char string, msg string) {
 }
 
 func FindItem(oper string, length string) string {
-	db, err := sql.Open("sqlite3", "toril.db")
-	ChkErr(err)
+	db := OpenDB()
 	defer db.Close()
 	var stats string
 

@@ -22,8 +22,7 @@ var i struct {
 func FormatStats() {
 	t1 := time.Now()
 
-	db, err := sql.Open("sqlite3", "toril.db")
-	ChkErr(err)
+	db := OpenDB()
 	defer db.Close()
 
 	query := "SELECT count(item_id) FROM items"
@@ -61,9 +60,7 @@ func FormatStats() {
 		//log.Printf("ids[%d] = %d\n", counter, id)
 		counter++
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 
 	for n := 0; n < len(ids); n++ {
 		short[n] = ConstructShortStats(db, ids[n])
@@ -124,9 +121,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp)
 		i.s += " (" + strings.Title(i.tmp) + ")"
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect armor class (i.spec, but only for armor)
@@ -144,9 +139,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp1)
 		i.s += fmt.Sprintf(" AC:%d", i.tmp1)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect attributes (i.attrs, i.attr)
@@ -164,9 +157,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp, &i.tmp1)
 		i.s += fmt.Sprintf(" %s:%d", strings.Title(i.tmp), i.tmp1)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect resistances (i.resis, i.res)
@@ -184,9 +175,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp, &i.tmp1)
 		i.s += fmt.Sprintf(" %s:%d%%", strings.Title(i.tmp), i.tmp1)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect item effects (i.effs, i.eff)
@@ -212,9 +201,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 			i.s += " " + strings.Title(i.tmp)
 		}
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect specials (i.specs, i.spec) and break them down by type
@@ -293,9 +280,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 			}
 		}
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	i.specs += i.txt1 + i.txt2 + i.txt3 + i.txt4 + i.txt5
 	if i.specs != " *" {
@@ -321,9 +306,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 			i.procs += " - " + i.tmp
 		}
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.procs != " *" {
 		i.s += i.procs
@@ -349,9 +332,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		i.enchs += fmt.Sprintf(" %s %d%% %d%% %d %d",
 			strings.Title(i.tmp), i.tmp1, i.tmp2, i.tmp3, i.tmp4)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.enchs != " *" {
 		i.s += i.enchs
@@ -381,9 +362,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 			i.flags += " " + strings.Title(i.tmp)
 		}
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.flags != " *" {
 		i.s += i.flags
@@ -404,9 +383,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp)
 		i.restr += " " + strings.Title(i.tmp)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.restr != " *" && i.flags == " *" {
 		i.s += i.restr
@@ -445,9 +422,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 			i.itype += " " + i.tmp
 		}
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.zones != "" {
 		i.zone += " (" + i.zones + ")"
@@ -497,9 +472,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp)
 		i.s += " (" + i.tmp + ")"
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect armor class (specials, but only for armor)
@@ -519,9 +492,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp, &i.tmp1)
 		i.s += fmt.Sprintf(" %s: %d", i.tmp, i.tmp1)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect attributes (i.attrs, i.attr)
@@ -540,9 +511,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp, &i.tmp1)
 		i.s += fmt.Sprintf(", %s: %d", i.tmp, i.tmp1)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect resistances (i.resis, i.res)
@@ -561,9 +530,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp, &i.tmp1)
 		i.s += fmt.Sprintf(", %s: %d%%", i.tmp, i.tmp1)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect item effects (i.effs, i.eff)
@@ -582,9 +549,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp)
 		i.s += ", " + i.tmp
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 
 	// collect specials (i.specs, i.spec) and break them down by type
@@ -663,9 +628,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 			}
 		}
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	i.specs += i.txt1 + i.txt2 + i.txt3 + i.txt4 + i.txt5
 	if i.specs != " *" {
@@ -694,9 +657,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 			i.procs += " - " + i.tmp
 		}
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.procs != " *" {
 		i.s += i.procs
@@ -722,9 +683,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		i.enchs += fmt.Sprintf(" %s %d%% %d%% %d %d",
 			strings.Title(i.tmp), i.tmp1, i.tmp2, i.tmp3, i.tmp4)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.enchs != " *" {
 		i.s += i.enchs
@@ -747,9 +706,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp)
 		i.flags += ", " + i.tmp
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.flags != " *" {
 		i.s += i.flags
@@ -772,9 +729,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.tmp)
 		i.restr += " " + strings.Title(i.tmp)
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.restr != " *" && i.flags == " *" {
 		i.s += i.restr
@@ -817,9 +772,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 			i.itype += ", " + i.tmp
 		}
 	}
-	err = rows.Err()
-	ChkErr(err)
-	rows.Close()
+	ChkRows(rows)
 	stmt.Close()
 	if i.zones != "" {
 		i.zone += " (" + i.zones + ")"

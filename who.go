@@ -16,8 +16,7 @@ func WhoBatch(batch string) {
 	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]-]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
 	ChkErr(err)
 
-	db, err := sql.Open("sqlite3", "toril.db")
-	ChkErr(err)
+	db := OpenDB()
 	defer db.Close()
 
 	// TODO: also check class change for necro->lich
@@ -66,8 +65,8 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 	loc, err := time.LoadLocation("America/New_York")
 	ChkErr(err)
 	date := time.Now().In(loc)
-	db, err := sql.Open("sqlite3", "toril.db")
-	ChkErr(err)
+
+	db := OpenDB()
 	defer db.Close()
 
 	// check if character exists in DB

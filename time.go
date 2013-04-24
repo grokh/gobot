@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	_ "github.com/mattn/go-sqlite3"
 	"strings"
 	"time"
@@ -15,8 +14,7 @@ func Uptime(curup string) {
 	loc, err := time.LoadLocation("America/New_York")
 	ChkErr(err)
 
-	db, err := sql.Open("sqlite3", "toril.db")
-	ChkErr(err)
+	db := OpenDB()
 	defer db.Close()
 
 	query := "SELECT boot_id, uptime FROM boots " +

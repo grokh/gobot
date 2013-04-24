@@ -9,7 +9,7 @@ import (
 func OpenDB() *sql.DB {
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
-		log.Fatalf("Fatal Error: Cannot open DB: %v", err)
+		log.Fatalln("Fatal Error: Cannot open DB: ", err)
 	}
 	return db
 }
@@ -17,7 +17,7 @@ func OpenDB() *sql.DB {
 func ChkRows(rows *sql.Rows) {
 	err := rows.Err()
 	if err != nil {
-		log.Fatalf("Fatal Error: Rows returned error: %v", err)
+		log.Fatalln("Fatal Error: Rows returned error: ", err)
 	}
 	rows.Close()
 }

@@ -7,6 +7,7 @@ import (
 )
 
 func OpenDB() *sql.DB {
+	// db, err := sql.Open("postgres", "user=kalkinine dbname=torildb sslmode=disable")
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
 		log.Fatalln("Fatal Error: Cannot open DB: ", err)

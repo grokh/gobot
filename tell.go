@@ -105,106 +105,106 @@ func Help(oper string) []string {
 	var txt []string
 	switch {
 	case oper == "?":
-		txt = append(txt, "Syntax: tell katumi ? -- " +
+		txt = append(txt, "Syntax: tell katumi ? -- "+
 			"Katumi provides a full listing of valid commands.")
 	case oper == "hidden?":
-		txt = append(txt, "Syntax: tell katumi hidden? -- " +
-			"Katumi sends a tell in reply " +
-			"if she can see you. If you receive no reply, you are hidden. " +
-			"Katumi has permanent detect invis to ensure that won't cause " +
+		txt = append(txt, "Syntax: tell katumi hidden? -- "+
+			"Katumi sends a tell in reply "+
+			"if she can see you. If you receive no reply, you are hidden. "+
+			"Katumi has permanent detect invis to ensure that won't cause "+
 			"issues.")
 	case oper == "who":
-		txt = append(txt, "Syntax: tell katumi who <acct/char> -- " +
-			"Example: tell katumi who rynshana -- " +
-			"Katumi provides the account name along with a list of every " +
-			"known alt of the named character as a reply. Also works with " +
+		txt = append(txt, "Syntax: tell katumi who <acct/char> -- "+
+			"Example: tell katumi who rynshana -- "+
+			"Katumi provides the account name along with a list of every "+
+			"known alt of the named character as a reply. Also works with "+
 			"account names.")
 	case oper == "char":
-		txt = append(txt, "Syntax: tell katumi char <char> -- " +
-			"Example: tell katumi char rynshana -- " +
-			"Katumi provides the account name along with full information " +
-			"on the named character as a reply, " +
+		txt = append(txt, "Syntax: tell katumi char <char> -- "+
+			"Example: tell katumi char rynshana -- "+
+			"Katumi provides the account name along with full information "+
+			"on the named character as a reply, "+
 			"to include level, class, race, and date/time last seen.")
 	case oper == "find":
-		txt = append(txt, "Syntax: tell katumi find <acct/char> -- " +
-			"Example: tell katumi find rynshana -- " +
-			"Katumi provides the account name along with the last known " +
-			"sighting of any of that character's alts. " +
-			"If they have an alt online, " +
-			"the time will measure in seconds. " +
+		txt = append(txt, "Syntax: tell katumi find <acct/char> -- "+
+			"Example: tell katumi find rynshana -- "+
+			"Katumi provides the account name along with the last known "+
+			"sighting of any of that character's alts. "+
+			"If they have an alt online, "+
+			"the time will measure in seconds. "+
 			"Also works with account names.")
 	case oper == "clist":
-		txt = append(txt, "Syntax: tell katumi clist <acct/char> -- " +
-			"Example: tell katumi clist rynshana -- " +
-			"Katumi provides a full " +
-			"listing of every known alt belonging to <char>, including race, " +
-			"class, level, and date/time last seen, matching the format of " +
+		txt = append(txt, "Syntax: tell katumi clist <acct/char> -- "+
+			"Example: tell katumi clist rynshana -- "+
+			"Katumi provides a full "+
+			"listing of every known alt belonging to <char>, including race, "+
+			"class, level, and date/time last seen, matching the format of "+
 			"the 'char' command. Also works with account names.")
 	case oper == "class":
-		txt = append(txt, "Syntax: tell katumi class <class> -- " +
-			"Example: tell katumi class enchanter -- " +
-			"Katumi provides a " +
-			"list of alts matching the named class for characters who " +
-			"are currently online, letting group leaders find useful " +
+		txt = append(txt, "Syntax: tell katumi class <class> -- "+
+			"Example: tell katumi class enchanter -- "+
+			"Katumi provides a "+
+			"list of alts matching the named class for characters who "+
+			"are currently online, letting group leaders find useful "+
 			"alts from the 'who' list.")
 	case oper == "delalt":
-		txt = append(txt, "Syntax: tell katumi delalt <char> -- " +
-			"Example: tell katumi delalt rynshana -- " +
-			"Katumi no longer " +
-			"provides information on the alt, removing it from 'clist', " +
-			"'who', and 'find' commands. Only works for characters " +
+		txt = append(txt, "Syntax: tell katumi delalt <char> -- "+
+			"Example: tell katumi delalt rynshana -- "+
+			"Katumi no longer "+
+			"provides information on the alt, removing it from 'clist', "+
+			"'who', and 'find' commands. Only works for characters "+
 			"attached to the same account requesting the removal.")
 	case oper == "addalt":
-		txt = append(txt, "Syntax: tell katumi addalt <char> -- " +
-			"Example: tell katumi addalt rynshana -- " +
-			"Katumi begins " +
-			"providing information on the named alt, who had previously " +
-			"been removed with 'delalt', adding the character back to " +
-			"'clist', 'who', and 'find' commands. Only works for chars " +
+		txt = append(txt, "Syntax: tell katumi addalt <char> -- "+
+			"Example: tell katumi addalt rynshana -- "+
+			"Katumi begins "+
+			"providing information on the named alt, who had previously "+
+			"been removed with 'delalt', adding the character back to "+
+			"'clist', 'who', and 'find' commands. Only works for chars "+
 			"attached to the same account.")
 	case oper == "lr":
-		txt = append(txt, "Syntax: tell katumi lr -- " +
-			"Katumi provides a list of load " +
-			"reports for the current boot. This could be rares or quests " +
-			"other players have found or completed. Use the 'lrdel' command " +
+		txt = append(txt, "Syntax: tell katumi lr -- "+
+			"Katumi provides a list of load "+
+			"reports for the current boot. This could be rares or quests "+
+			"other players have found or completed. Use the 'lrdel' command "+
 			"to remove bad or out of date reports.")
-		txt = append(txt, "Syntax: tell katumi lr <report> -- " +
-			"Example: tell katumi lr timestop gnome at ako village -- " +
-			"Katumi adds <report> " +
-			"to the list of load reports for the current boot. If you find " +
-			"a rare, global load, or complete a quest or the like, report " +
+		txt = append(txt, "Syntax: tell katumi lr <report> -- "+
+			"Example: tell katumi lr timestop gnome at ako village -- "+
+			"Katumi adds <report> "+
+			"to the list of load reports for the current boot. If you find "+
+			"a rare, global load, or complete a quest or the like, report "+
 			"it along with a location so other players will know!")
 	case oper == "lrdel":
-		txt = append(txt, "Syntax: tell katumi lrdel <num> -- " +
-			"Example: tell katumi lrdel 3 -- " +
-			"Katumi removes the " +
-			"numbered item from the load reports, if a quest is completed " +
-			"or a rare killed, or a report found to be inaccurate. Please " +
+		txt = append(txt, "Syntax: tell katumi lrdel <num> -- "+
+			"Example: tell katumi lrdel 3 -- "+
+			"Katumi removes the "+
+			"numbered item from the load reports, if a quest is completed "+
+			"or a rare killed, or a report found to be inaccurate. Please "+
 			"do not abuse this command - this service helps everyone.")
 	case oper == "stat":
-		txt = append(txt, "Syntax: tell katumi stat <item> -- " +
-			"Example: tell katumi stat isha cloak -- " +
-			"Katumi provides stat info for the item named. " +
-			"Use 'astat' for full text of acronyms and keywords. " +
-			"The name search is fairly forgiving. Please send new stats " +
+		txt = append(txt, "Syntax: tell katumi stat <item> -- "+
+			"Example: tell katumi stat isha cloak -- "+
+			"Katumi provides stat info for the item named. "+
+			"Use 'astat' for full text of acronyms and keywords. "+
+			"The name search is fairly forgiving. Please send new stats "+
 			"in an mwrite to katumi or email to kristi.michaels@gmail.com")
 	case oper == "astat":
-		txt = append(txt, "Syntax: tell katumi astat <item> -- " +
-			"Example tell katumi astat destruction sword -- " +
-			"Katumi provides full " +
-			"stat information for the item named. Use 'stat' for short " +
-			"text. The name search is fairly forgiving, though the stats " +
-			"are a little buggy right now since I haven't put much time " +
+		txt = append(txt, "Syntax: tell katumi astat <item> -- "+
+			"Example tell katumi astat destruction sword -- "+
+			"Katumi provides full "+
+			"stat information for the item named. Use 'stat' for short "+
+			"text. The name search is fairly forgiving, though the stats "+
+			"are a little buggy right now since I haven't put much time "+
 			"into it.")
 	case oper == "fstat":
-		txt = append(txt, "Syntax: tell katumi fstat <stat> <sym> <num>" +
-			"[, <stat2> <sym2> <num2>][, resist <resist>][, slot <slot>] -- " +
-			"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- " +
+		txt = append(txt, "Syntax: tell katumi fstat <stat> <sym> <num>"+
+			"[, <stat2> <sym2> <num2>][, resist <resist>][, slot <slot>] -- "+
+			"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- "+
 			"Katumi provides up to 10 results which match the parameters.")
-		txt = append(txt, "Type attribs as they appear in stats: str, maxstr, svsp, " +
-			"dam, sf_illu, fire, unarm, ear, on_body, etc. " +
-			"Valid comparisons are >, <, and =. " +
-			"Resists check for a positive value. " +
+		txt = append(txt, "Type attribs as they appear in stats: str, maxstr, svsp, "+
+			"dam, sf_illu, fire, unarm, ear, on_body, etc. "+
+			"Valid comparisons are >, <, and =. "+
+			"Resists check for a positive value. "+
 			"Other options will be added later.")
 	default:
 		txt = append(txt, NotFound("help file", oper))
@@ -715,7 +715,7 @@ func ReplyTo(char string, tell string) {
 	case cmd == "help" && oper != "":
 		txts = Help(oper)
 	case strings.Contains(cmd, "hidden") && char != "Someone":
-		txts = append(txts, char + " is NOT hidden!")
+		txts = append(txts, char+" is NOT hidden!")
 	case cmd == "stat" && oper != "":
 		txts = append(txts, FindItem(oper, "short_stats"))
 	case cmd == "astat" && oper != "":

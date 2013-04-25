@@ -277,14 +277,14 @@ func Fstat(oper string) []string {
 		ChkErr(err)
 		defer rows.Close()
 
-		var replied bool
+		var found bool
 		for rows.Next() {
 			var stats string
 			err = rows.Scan(&stats)
 			txts = append(txts, stats)
-			replied = true
+			found = true
 		}
-		if !replied {
+		if !found {
 			txts = append(txts, NotFound("item(s)", oper))
 		}
 		ChkRows(rows)
@@ -366,6 +366,11 @@ func ReplyTo(char string, tell string) {
 				Reply(char, txt)
 			}
 		}
+	case strings.Contains(cmd, "hidden"):
+		if char != "Someone" {
+			txt = char + " is NOT hidden!"
+			Reply(char, txt)
+		}
 	case cmd == "stat" && oper != "":
 		txt = FindItem(oper, "short_stats")
 		Reply(char, txt)
@@ -397,7 +402,7 @@ func ReplyTo(char string, tell string) {
 		ChkErr(err)
 		defer rows.Close()
 
-		var replied bool
+		var found bool
 		for rows.Next() {
 			var seen string
 			err = rows.Scan(&Char.lvl, &Char.class, &Char.name,
@@ -407,10 +412,10 @@ func ReplyTo(char string, tell string) {
 				Char.lvl, Char.class, Char.name, Char.race, Char.acct, seen,
 			)
 			Reply(char, txt)
-			replied = true
+			found = true
 		}
 		ChkRows(rows)
-		if !replied {
+		if !found {
 			txt = NotFound("character or account", oper)
 			Reply(char, txt)
 		}
@@ -520,7 +525,7 @@ func ReplyTo(char string, tell string) {
 		ChkErr(err)
 		defer rows.Close()
 
-		var replied bool
+		var found bool
 		for rows.Next() {
 			err = rows.Scan(&Char.name, &Char.class, &Char.race,
 				&Char.lvl, &Char.acct)
@@ -529,10 +534,10 @@ func ReplyTo(char string, tell string) {
 				Char.lvl, Char.class, Char.name, Char.race, Char.acct,
 			)
 			Reply(char, txt)
-			replied = true
+			found = true
 		}
 		ChkRows(rows)
-		if !replied {
+		if !found {
 			txt = NotFound("class", oper)
 			Reply(char, txt)
 		}
@@ -622,7 +627,7 @@ func ReplyTo(char string, tell string) {
 			ChkErr(err)
 			defer rows.Close()
 
-			var replied bool
+			var found bool
 			counter := 1
 			for rows.Next() {
 				var report string
@@ -634,10 +639,10 @@ func ReplyTo(char string, tell string) {
 				)
 				Reply(char, txt)
 				counter++
-				replied = true
+				found = true
 			}
 			ChkRows(rows)
-			if !replied {
+			if !found {
 				txt = "No loads reported for current boot."
 				Reply(char, txt)
 			}

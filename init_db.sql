@@ -109,6 +109,10 @@ CREATE TABLE specials(
 	,spec_display VARCHAR(25) NOT NULL
 	,PRIMARY KEY (item_type, spec_abbr)
 );
+CREATE TABLE supps(
+	supp_abbr VARCHAR(10)
+	,supp_display VARCHAR(25)
+);
 CREATE TABLE items(
 	item_id INTEGER PRIMARY KEY
 	,item_name VARCHAR(100) NOT NULL
@@ -118,13 +122,6 @@ CREATE TABLE items(
 	,item_type VARCHAR(10) REFERENCES item_types(type_abbr) NOT NULL
 	,from_zone VARCHAR(25) REFERENCES zones(zone_abbr) NOT NULL
 	,from_mob VARCHAR(150) REFERENCES mobs(mob_name)
-	,no_identify BOOLEAN
-	,is_rare BOOLEAN
-	,from_store BOOLEAN
-	,from_quest BOOLEAN
-	,for_quest BOOLEAN
-	,from_invasion BOOLEAN
-	,out_of_game BOOLEAN
 	,short_stats VARCHAR(450)
 	,long_stats VARCHAR(900)
 	,full_stats TEXT
@@ -189,4 +186,8 @@ CREATE TABLE item_attribs(
 	,attrib_abbr VARCHAR(25) REFERENCES attribs(attrib_abbr)
 	,attrib_value INTEGER NOT NULL
 	,PRIMARY KEY (item_id, attrib_abbr)
+);
+CREATE TABLE item_supps(
+	item_id INTEGER REFERENCES items(item_id)
+	,supp_abbr VARCHAR(10) REFERENCES supp(supp_abbr)
 );

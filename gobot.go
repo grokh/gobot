@@ -67,6 +67,7 @@ func main() {
 
 	flag.Parse()
 
+	var txt []string
 	// only run one command at a time
 	switch {
 	case *time != "":
@@ -74,7 +75,7 @@ func main() {
 	case *who != "":
 		WhoBatch(*who)
 	case *char != "" && *tell != "":
-		ReplyTo(*char, *tell)
+		txt = ReplyTo(*char, *tell)
 	case *char != "" && 50 >= *lvl && *lvl > 0 &&
 		*class != "" && *race != "" && *acct != "":
 		WhoChar(*char, *lvl, *class, *race, *acct)
@@ -96,5 +97,14 @@ func main() {
 		cmd := exec.Command("sh", "-c", "zcat "+*restore+" | sqlite3 toril.db")
 		err := cmd.Run()
 		ChkErr(err)
+	}
+	for _, t := range txt {
+		// very lazy, should actually split on 
+		// first blank space <300
+		if len(t) > 300 {
+			fmt.Printf("t %s %s\nt %s %s\n", *char, t[:300], *char, t[300:])
+		} else {
+			fmt.Printf("t %s %s\n", *char, t)
+		}
 	}
 }

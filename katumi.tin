@@ -42,9 +42,9 @@
 	#log append logs/$char.$logdate.log;
 }
 #alias {login} {
-	#act {               .,:7I::,.            } {
+	#act {     .,:7I::,.     } {
 		logon;$acct;$cpw;$char;time;
-		#unact {               .,:7I::,.            };
+		#unact {     .,:7I::,.     };
 	};
 	#session $char torilmud.com 9999;
 	#split {0} {0};

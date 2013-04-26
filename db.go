@@ -5,6 +5,7 @@ import (
 	// _ "github.com/bmizerany/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"log"
+	"os/exec"
 )
 
 func OpenDB() *sql.DB {
@@ -22,4 +23,22 @@ func ChkRows(rows *sql.Rows) {
 		log.Fatalln("Fatal Error: Rows returned error: ", err)
 	}
 	rows.Close()
+}
+
+func BackupDB() {
+	cmd := exec.Command("sh", "-c",
+		"echo '.dump' | sqlite3 toril.db | "+
+			"gzip -c >bak/toril.db.`date +\"%Y-%m-%d\"`.gz")
+	err := cmd.Run()
+	if err != nil {
+		log.Fatalln("Fatal Error: Cannot backup DB: ", err)
+	}
+}
+
+func RestoreDB(file string) {
+	cmd := exec.Command("sh", "-c", "zcat "+file+" | sqlite3 toril.db")
+	err := cmd.Run()
+	if err != nil {
+		log.Fatalln("Fatal Error: Cannot restore DB: ", err)
+	}
 }

@@ -9,7 +9,7 @@ import (
 )
 
 func OpenDB() *sql.DB {
-	// db, err := sql.Open("postgres", "user=kalkinine dbname=torildb sslmode=disable")
+	// postgres: sql.Open("postgres", "user=kalkinine dbname=torildb sslmode=disable")
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
 		log.Fatalln("Fatal Error: Cannot open DB: ", err)
@@ -26,6 +26,9 @@ func ChkRows(rows *sql.Rows) {
 }
 
 func BackupDB() {
+	// postgres: exec.Command("sh", "-c",
+	// 	"pg_dump -U kalkinine torildb | "+
+	// 		gzip > bak/torildb.`date +\"%Y-%m-%d\"`.sql.gz")
 	cmd := exec.Command("sh", "-c",
 		"echo '.dump' | sqlite3 toril.db | "+
 			"gzip -c >bak/toril.db.`date +\"%Y-%m-%d\"`.gz")
@@ -36,6 +39,7 @@ func BackupDB() {
 }
 
 func RestoreDB(file string) {
+	// postgres: exec.Command("sh", "-c", "gunzip -c "+file+" | psql -U kalkinine -d torildb")
 	cmd := exec.Command("sh", "-c", "zcat "+file+" | sqlite3 toril.db")
 	err := cmd.Run()
 	if err != nil {

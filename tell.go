@@ -16,19 +16,6 @@ func NotFound(four string, oper string) string {
 	return "404 " + four + " not found: " + oper
 }
 
-func Reply(char string, msg string) {
-	// very lazy, should actually split on 
-	// first blank space <300
-	if len(msg) > 300 {
-		msg1 := msg[:300]
-		msg2 := msg[300:]
-		fmt.Printf("t %s %s\n", char, msg1)
-		fmt.Printf("t %s %s\n", char, msg2)
-	} else {
-		fmt.Printf("t %s %s\n", char, msg)
-	}
-}
-
 func FindItem(oper string, length string) string {
 	db := OpenDB()
 	defer db.Close()
@@ -686,7 +673,7 @@ func LRDel(oper string) string {
 var BadSyntax string = "Invalid syntax. For valid syntax: tell katumi ?, " +
 	"tell katumi help <cmd>"
 
-func ReplyTo(char string, tell string) {
+func ReplyTo(char string, tell string) []string {
 	info := "I am a Helper Bot (Beta). " +
 		"Valid commands: ?, help <cmd>, hidden?, " +
 		"who <char>, char <char>, " +
@@ -695,7 +682,7 @@ func ReplyTo(char string, tell string) {
 		"lr, lr <report>, " +
 		"stat <item>, astat <item>, fstat <att> <comp> <val>. " +
 		"For further information, tell katumi help <cmd>"
-	var txts []string
+	var txt []string
 
 	oper := ""
 	split := strings.SplitN(tell, " ", 2)
@@ -710,41 +697,39 @@ func ReplyTo(char string, tell string) {
 
 	switch {
 	case cmd == "?":
-		txts = append(txts, info)
+		txt = append(txt, info)
 	case cmd == "help" && oper == "":
-		txts = append(txts, info)
+		txt = append(txt, info)
 	case cmd == "help" && oper != "":
-		txts = Help(oper)
+		txt = Help(oper)
 	case strings.Contains(cmd, "hidden") && char != "Someone":
-		txts = append(txts, char+" is NOT hidden!")
+		txt = append(txt, char+" is NOT hidden!")
 	case cmd == "stat" && oper != "":
-		txts = append(txts, FindItem(oper, "short_stats"))
+		txt = append(txt, FindItem(oper, "short_stats"))
 	case cmd == "astat" && oper != "":
-		txts = append(txts, FindItem(oper, "long_stats"))
+		txt = append(txt, FindItem(oper, "long_stats"))
 	case cmd == "fstat" && oper != "":
-		txts = Fstat(oper)
+		txt = Fstat(oper)
 	case cmd == "who" && oper != "":
-		txts = append(txts, Who(oper))
+		txt = append(txt, Who(oper))
 	case cmd == "clist" && oper != "":
-		txts = Clist(oper)
+		txt = Clist(oper)
 	case cmd == "char" && oper != "":
-		txts = append(txts, CharInfo(oper))
+		txt = append(txt, CharInfo(oper))
 	case cmd == "find" && oper != "":
-		txts = append(txts, Find(oper))
+		txt = append(txt, Find(oper))
 	case cmd == "class" && oper != "":
-		txts = FindClass(oper)
+		txt = FindClass(oper)
 	case cmd == "delalt" && oper != "":
-		txts = append(txts, DelAlt(oper, char))
+		txt = append(txt, DelAlt(oper, char))
 	case cmd == "addalt" && oper != "":
-		txts = append(txts, AddAlt(oper, char))
+		txt = append(txt, AddAlt(oper, char))
 	case cmd == "lr":
-		txts = LoadReport(oper, char)
+		txt = LoadReport(oper, char)
 	case cmd == "lrdel" && oper != "":
-		txts = append(txts, LRDel(oper))
+		txt = append(txt, LRDel(oper))
 	default:
-		txts = append(txts, BadSyntax)
+		txt = append(txt, BadSyntax)
 	}
-	for _, txt := range txts {
-		Reply(char, txt)
-	}
+	return txt
 }

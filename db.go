@@ -26,7 +26,7 @@ func ChkRows(rows *sql.Rows) {
 }
 
 func BackupDB() {
-	// postgres: exec.Command("sh", "-c",
+	// postgres: cmd := exec.Command("sh", "-c",
 	// 	"pg_dump -U kalkinine torildb | "+
 	// 		gzip > bak/torildb.`date +\"%Y-%m-%d\"`.sql.gz")
 	cmd := exec.Command("sh", "-c",
@@ -39,7 +39,8 @@ func BackupDB() {
 }
 
 func RestoreDB(file string) {
-	// postgres: exec.Command("sh", "-c", "gunzip -c "+file+" | psql -U kalkinine -d torildb")
+	// postgres: cmd := exec.Command("sh", "-c", 
+	//	"gunzip -c "+file+" | psql -U kalkinine -d torildb")
 	cmd := exec.Command("sh", "-c", "zcat "+file+" | sqlite3 toril.db")
 	err := cmd.Run()
 	if err != nil {

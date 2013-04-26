@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
 	"time"
 )
 
@@ -88,15 +87,9 @@ func main() {
 	case *file != "":
 		Identify(*file)
 	case *backup:
-		cmd := exec.Command("sh", "-c",
-			"echo '.dump' | sqlite3 toril.db | "+
-				"gzip -c >bak/toril.db.`date +\"%Y-%m-%d\"`.gz")
-		err := cmd.Run()
-		ChkErr(err)
+		BackupDB()
 	case *restore != "": // this doesn't work on Mac OS X
-		cmd := exec.Command("sh", "-c", "zcat "+*restore+" | sqlite3 toril.db")
-		err := cmd.Run()
-		ChkErr(err)
+		RestoreDB(*restore)
 	}
 	for _, t := range txt {
 		// very lazy, should actually split on 

@@ -702,8 +702,10 @@ func ReplyTo(char string, tell string) []string {
 		txt = append(txt, info)
 	case cmd == "help" && oper != "":
 		txt = Help(oper)
-	case strings.Contains(cmd, "hidden") && char != "Someone":
-		txt = append(txt, char+" is NOT hidden!")
+	case strings.Contains(cmd, "hidden"):
+		if char != "Someone" {
+			txt = append(txt, char+" is NOT hidden!")
+		}
 	case cmd == "stat" && oper != "":
 		txt = append(txt, FindItem(oper, "short_stats"))
 	case cmd == "astat" && oper != "":

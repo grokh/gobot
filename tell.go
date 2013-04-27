@@ -635,7 +635,7 @@ func LRDel(oper string) string {
 	}
 	var curboot string
 	var rtime time.Time
-	var report string
+	report := ""
 	counter := 1
 	for rows.Next() {
 		var boot string
@@ -651,19 +651,23 @@ func LRDel(oper string) string {
 	}
 	ChkRows(rows)
 	if counter > 1 {
-		query = "UPDATE loads SET deleted = 't' " +
-			"WHERE boot_id = ? AND report_time = ?"
+		if report != "" {
+			query = "UPDATE loads SET deleted = 't' " +
+				"WHERE boot_id = ? AND report_time = ?"
 
-		tx, err := db.Begin()
-		ChkErr(err)
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
+			tx, err := db.Begin()
+			ChkErr(err)
+			stmt, err := tx.Prepare(query)
+			ChkErr(err)
+			defer stmt.Close()
 
-		_, err = stmt.Exec(curboot, rtime)
-		ChkErr(err)
-		tx.Commit()
-		txt = fmt.Sprintf("Load deleted: %s", report)
+			_, err = stmt.Exec(curboot, rtime)
+			ChkErr(err)
+			tx.Commit()
+			txt = fmt.Sprintf("Load deleted: %s", report)
+		} else {
+			txt = "Invalid load report number."
+		}
 	} else {
 		txt = "No loads reported for current boot."
 	}

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func chkGood(t *testing.T, char string, tell string, good string, txt []string) {
@@ -24,6 +25,9 @@ func Test_ReplyTo(t *testing.T) {
 	defer f.Close()
 	ChkErr(err)
 	log.SetOutput(f)
+
+	date := time.Now().UTC().String()
+	date = date[:13]
 
 	char, tell := "Yog", "blah"
 	txt := ReplyTo(char, tell)
@@ -113,7 +117,7 @@ func Test_ReplyTo(t *testing.T) {
 
 	char, tell = "Yog", "lr"
 	txt = ReplyTo(char, tell)
-	good = "2: thing at place [Yog at 20"
+	good = "2: thing at place [Yog at " + date
 	if len(txt) == 2 {
 		if !strings.Contains(txt[1], good) {
 			t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s", char, tell, txt[1])

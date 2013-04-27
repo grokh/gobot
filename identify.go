@@ -90,11 +90,11 @@ func Identify(filename string) {
 	ChkErr(err)
 	chkCrit, err := regexp.Compile(
 		// Damage:  2D5  Crit Range: 5%  Crit Bonus: 2x // new weapon, dice/crit/multi
-		`Damage: ([[:digit:]D]+) Crit Range: ([[:digit:]]+)% Crit Bonus: ([[:digit:]]+)x`)
+		`Damage: [ ]?([[:digit:]D]+) [ ]?Crit Range: ([[:digit:]]+)% [ ]?Crit Bonus: ([[:digit:]]+)x`)
 	ChkErr(err)
 	chkEnch, err := regexp.Compile(
 		// Type: Holy             Damage: 100% Frequency: 100% Modifier: 0 Duration: 0 // enchantment
-		`Type: ([[:print:]]+) Damage: ([[:digit:]]+)% Frequency: ([[:digit:]]+)% Modifier: ([[:digit:]]+)`)
+		`Type: ([[:print:]]+) Damage: ([[:digit:]]+)% Frequency: ([[:digit:]]+)[ ]?% Modifier: ([[:digit:]]+)`)
 	ChkErr(err)
 	chkPage, err := regexp.Compile(
 		// Total Pages: 300 // spellbook
@@ -147,6 +147,7 @@ func Identify(filename string) {
 
 		full_stats = item
 		lines := strings.Split(item, "\n")
+		var unmatch []string
 
 		for _, line := range lines {
 			switch {
@@ -213,6 +214,8 @@ func Identify(filename string) {
 				m = chkCont.FindAllStringSubmatch(line, -1)
 			case chkWtless.MatchString(line):
 				m = chkWtless.FindAllStringSubmatch(line, -1)
+			default:
+				unmatch = append(unmatch, line)
 			}
 		}
 		// back to full item
@@ -240,6 +243,14 @@ func Identify(filename string) {
 		}
 		for _, spec := range item_specials {
 			fmt.Printf("Special: Type: %s, Abbr: %s, Value: %s\n", spec[0], spec[1], spec[2])
+		}
+		for _, um := range unmatch {
+			if !strings.Contains(um, "Can affect you as :") && 
+				!strings.Contains(um, "Enchantments:") && 
+				!strings.Contains(um, "Zone:") && 
+				!strings.Contains(um, "You feel informed:") {
+				fmt.Println("Unmatched: ", um)
+			}
 		}
 		_ = full_stats
 		fmt.Print("\n----------\n\n")

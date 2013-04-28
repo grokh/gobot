@@ -342,7 +342,6 @@ func Identify(filename string) {
 		for _, um := range unmatch {
 			if !strings.Contains(um, "Can affect you as :") &&
 				!strings.Contains(um, "Enchantments:") &&
-				!strings.Contains(um, "Zone:") &&
 				!strings.Contains(um, "You feel informed:") {
 				fmt.Println("Unmatched: ", um)
 			}
@@ -392,7 +391,6 @@ func Identify(filename string) {
 			ChkErr(err)
 
 			for _, slot := range item_slots {
-				// handle NOBITS!
 				query = "INSERT INTO item_slots VALUES(?, ?)"
 				stmt, err := tx.Prepare(query)
 				ChkErr(err)

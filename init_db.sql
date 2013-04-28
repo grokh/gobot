@@ -29,7 +29,7 @@ CREATE TABLE chars(
 	,class_name TEXT REFERENCES classes(class_name) NOT NULL
 	,char_race TEXT REFERENCES races(race_name) NOT NULL
 	,char_level INTEGER NOT NULL
-	,last_seen TIMESTAMP NOT NULL
+	,last_seen DATETIME NOT NULL
 	,vis BOOLEAN NOT NULL
 	,PRIMARY KEY (account_name, char_name)
 );
@@ -38,12 +38,12 @@ CREATE TABLE chars(
 -- create new boot/load report tables
 CREATE TABLE boots(
 	boot_id INTEGER PRIMARY KEY
-	,boot_time TIMESTAMP NOT NULL
+	,boot_time DATETIME NOT NULL
 	,uptime TEXT NOT NULL
 );
 CREATE TABLE loads(
 	boot_id INTEGER REFERENCES boots(boot_id) NOT NULL
-	,report_time TIMESTAMP NOT NULL
+	,report_time DATETIME NOT NULL
 	,report_text TEXT NOT NULL
 	,char_name TEXT NOT NULL
 	,deleted BOOLEAN NOT NULL
@@ -98,10 +98,6 @@ CREATE TABLE mobs(
 	mob_name TEXT PRIMARY KEY
 	,mob_abbr TEXT
 	,from_zone TEXT REFERENCES zones(zone_abbr)
-	,from_quest BOOLEAN
-	,has_quest BOOLEAN
-	,is_rare BOOLEAN
-	,from_invasion BOOLEAN
 );
 CREATE TABLE specials(
 	item_type TEXT REFERENCES item_types(item_type)

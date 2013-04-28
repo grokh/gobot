@@ -32,12 +32,12 @@ func Identify(filename string) {
 	// put first wand/staff/scroll/potion spell on one line:
 	re, err = regexp.Compile(`(spell[s]? of:)\n`)
 	ChkErr(err)
-	text = re.ReplaceAllString(text, "$1 ")
+	text = re.ReplaceAllString(text, "$1 Spell: ")
 
 	// put remaining scroll/potion spells on same line:
 	re, err = regexp.Compile(`\n([[:lower:]])`)
 	ChkErr(err)
-	text = re.ReplaceAllString(text, ", $1")
+	text = re.ReplaceAllString(text, " Spell: $1")
 
 	items := strings.Split(text, "\n\n")
 
@@ -128,13 +128,13 @@ func Identify(filename string) {
 		// Has 99 charges, with 99 charges left. // wand/staff
 		`Has ([[:digit:]]+) charges, with ([[:digit:]]+) charges left.`)
 	ChkErr(err)
-	chkPot, err := regexp.Compile(
-		// Level 35 spells of: protection from good, protection from evil // potion/scroll
-		`Level ([[:digit:]]+) spells of: ([[:print:]]+)([, [[:print:]]+])?([, [[:print:]]+])?`)
+	chkSpells, err := regexp.Compile(
+		// Level 35 spells of: Spell: protection from good Spell: protection from evil // potion/scroll/wand/staff
+		` Spell: ([[:print:]]+)`)
 	ChkErr(err)
-	chkWand, err := regexp.Compile(
-		// Level 1 spell of: airy water // staff/wand
-		`Level ([[:digit:]]+) spell of: ([[:print:]]+)`)
+	chkLevel, err := regexp.Compile(
+		// Level 1 spell of: Spell: airy water // staff/wand/potion/scroll
+		`Level ([[:digit:]]+) spell[s]? of: `)
 	ChkErr(err)
 	chkCont, err := regexp.Compile(
 		// Can hold 50 more lbs. // container
@@ -147,7 +147,7 @@ func Identify(filename string) {
 
 
 	for _, item := range items {
-		// initialize item variables
+		// initialize item variables and slices
 		full_stats, item_name, keywords, item_type := "", "", "", ""
 		weight, c_value := -1, -1
 		var item_slots, item_effects, flags, item_flags, item_restricts []string
@@ -240,19 +240,14 @@ func Identify(filename string) {
 				m = chkCharg.FindStringSubmatch(line)
 				item_specials = append(item_specials, []string{item_type, "charges", m[1]})
 				//item_specials = append(item_specials, []string{item_type, "cur_char", m[2]})
-			case chkWand.MatchString(line):
-				m = chkWand.FindStringSubmatch(line)
+			case chkLevel.MatchString(line):
+				m = chkLevel.FindStringSubmatch(line)
 				item_specials = append(item_specials, []string{item_type, "level", m[1]})
-				item_specials = append(item_specials, []string{item_type, "spell", m[2]})
-			case chkPot.MatchString(line):
-				m = chkPot.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "level", m[1]})
-				item_specials = append(item_specials, []string{item_type, "spell1", m[2]})
-				if len(m[0]) == 4 {
-					item_specials = append(item_specials, []string{item_type, "spell2", m[3]})
-				} else if len(m[0]) == 5 {
-					item_specials = append(item_specials, []string{item_type, "spell2", m[3]})
-					item_specials = append(item_specials, []string{item_type, "spell3", m[4]})
+			case chkSpells.MatchString(line):
+				spells := chkSpells.FindAllStringSubmatch(line, -1)
+				for n, spell := range spells {
+					num := "spell" + string(n+1)
+					item_specials = append(item_specials, []string{item_type, num, spell[0]})
 				}
 			case chkCont.MatchString(line):
 				m = chkCont.FindStringSubmatch(line)

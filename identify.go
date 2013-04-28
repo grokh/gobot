@@ -128,13 +128,16 @@ func Identify(filename string) {
 		// Has 99 charges, with 99 charges left. // wand/staff
 		`Has ([[:digit:]]+) charges, with ([[:digit:]]+) charges left.`)
 	ChkErr(err)
-	chkSpells, err := regexp.Compile(
-		// Level 35 spells of: Spell: protection from good Spell: protection from evil // potion/scroll/wand/staff
-		` Spell: ([[:print:]]+)`)
+	chkPot, err := regexp.Compile(
+		// Level 35 spells of: // potion/scroll
+		`Level ([[:digit:]]+) spells of: `)
 	ChkErr(err)
-	chkLevel, err := regexp.Compile(
-		// Level 1 spell of: Spell: airy water // staff/wand/potion/scroll
-		`Level ([[:digit:]]+) spell[s]? of: `)
+	chkWand, err := regexp.Compile(
+		// Level 1 spell of: Spell: airy water // staff/wand
+		`Level ([[:digit:]]+) spell of: `)
+	chkSpells, err := regexp.Compile(
+		// Spell: protection from good Spell: protection from evil // potion/scroll/wand/staff
+		`Spell: ([[:lower:] ]+)`)
 	ChkErr(err)
 	chkCont, err := regexp.Compile(
 		// Can hold 50 more lbs. // container
@@ -240,15 +243,19 @@ func Identify(filename string) {
 				m = chkCharg.FindStringSubmatch(line)
 				item_specials = append(item_specials, []string{item_type, "charges", m[1]})
 				//item_specials = append(item_specials, []string{item_type, "cur_char", m[2]})
-			case chkLevel.MatchString(line):
-				m = chkLevel.FindStringSubmatch(line)
+			case chkPot.MatchString(line):
+				m = chkPot.FindStringSubmatch(line)
 				item_specials = append(item_specials, []string{item_type, "level", m[1]})
-			case chkSpells.MatchString(line):
 				spells := chkSpells.FindAllStringSubmatch(line, -1)
 				for n, spell := range spells {
-					num := "spell" + string(n+1)
-					item_specials = append(item_specials, []string{item_type, num, spell[0]})
+					num := fmt.Sprintf("spell%d", n+1)
+					item_specials = append(item_specials, []string{item_type, num, spell[1]})
 				}
+			case chkWand.MatchString(line):
+				m = chkWand.FindStringSubmatch(line)
+				item_specials = append(item_specials, []string{item_type, "level", m[1]})
+				m = chkSpells.FindStringSubmatch(line)
+				item_specials = append(item_specials, []string{item_type, "spell", m[1]})
 			case chkCont.MatchString(line):
 				m = chkCont.FindStringSubmatch(line)
 				item_specials = append(item_specials, []string{item_type, "holds", m[1]})

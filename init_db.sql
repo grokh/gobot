@@ -1,33 +1,33 @@
 -- create new character tracking tables
 CREATE TABLE race_types(
-	race_type VARCHAR(20) PRIMARY KEY
-	,anti_flag VARCHAR(20) NOT NULL
+	race_type TEXT PRIMARY KEY
+	,anti_flag TEXT NOT NULL
 );
 CREATE TABLE races(
-	race_name VARCHAR(20) PRIMARY KEY
-	,race_abbr VARCHAR(10) NOT NULL
-	,anti_flag VARCHAR(20) NOT NULL
-	,race_type VARCHAR(20) REFERENCES race_types(race_type) NOT NULL
+	race_name TEXT PRIMARY KEY
+	,race_abbr TEXT NOT NULL
+	,anti_flag TEXT NOT NULL
+	,race_type TEXT REFERENCES race_types(race_type) NOT NULL
 );
 CREATE TABLE class_types(
-	class_type VARCHAR(10) PRIMARY KEY
-	,anti_flag VARCHAR(20) NOT NULL
+	class_type TEXT PRIMARY KEY
+	,anti_flag TEXT NOT NULL
 );
 CREATE TABLE classes(
-	class_name VARCHAR(30) PRIMARY KEY
-	,class_abbr VARCHAR(3) NOT NULL
-	,class_type VARCHAR(10) REFERENCES class_types(class_type) NOT NULL
-	,anti_flag VARCHAR(20) NOT NULL
+	class_name TEXT PRIMARY KEY
+	,class_abbr TEXT NOT NULL
+	,class_type TEXT REFERENCES class_types(class_type) NOT NULL
+	,anti_flag TEXT NOT NULL
 );
 CREATE TABLE accounts(
-	account_name VARCHAR(30) PRIMARY KEY
-	,player_name VARCHAR(30)
+	account_name TEXT PRIMARY KEY
+	,player_name TEXT
 );
 CREATE TABLE chars(
-	account_name VARCHAR(30) REFERENCES accounts(account_name)
-	,char_name VARCHAR(30)
-	,class_name VARCHAR(30) REFERENCES classes(class_name) NOT NULL
-	,char_race VARCHAR(20) REFERENCES races(race_name) NOT NULL
+	account_name TEXT REFERENCES accounts(account_name)
+	,char_name TEXT
+	,class_name TEXT REFERENCES classes(class_name) NOT NULL
+	,char_race TEXT REFERENCES races(race_name) NOT NULL
 	,char_level INTEGER NOT NULL
 	,last_seen TIMESTAMP NOT NULL
 	,vis BOOLEAN NOT NULL
@@ -39,13 +39,13 @@ CREATE TABLE chars(
 CREATE TABLE boots(
 	boot_id INTEGER PRIMARY KEY
 	,boot_time TIMESTAMP NOT NULL
-	,uptime VARCHAR(10) NOT NULL
+	,uptime TEXT NOT NULL
 );
 CREATE TABLE loads(
 	boot_id INTEGER REFERENCES boots(boot_id) NOT NULL
 	,report_time TIMESTAMP NOT NULL
-	,report_text VARCHAR(320) NOT NULL
-	,char_name VARCHAR(30) NOT NULL
+	,report_text TEXT NOT NULL
+	,char_name TEXT NOT NULL
 	,deleted BOOLEAN NOT NULL
 	,PRIMARY KEY (boot_id, report_time)
 );
@@ -53,77 +53,78 @@ CREATE TABLE loads(
 
 -- create new item stat tables
 CREATE TABLE enchants(
-	ench_name VARCHAR(25) PRIMARY KEY
-	,ench_desc VARCHAR(100) NOT NULL
+	ench_name TEXT PRIMARY KEY
+	,ench_desc TEXT NOT NULL
 );
 CREATE TABLE attribs(
-	attrib_abbr VARCHAR(10) PRIMARY KEY
-	,attrib_name VARCHAR(25) NOT NULL
-	,attrib_display VARCHAR(25) NOT NULL
+	attrib_name TEXT PRIMARY KEY
+	,attrib_abbr TEXT NOT NULL
+	,attrib_display TEXT NOT NULL
 );
 CREATE TABLE effects(
-	effect_abbr VARCHAR(10) PRIMARY KEY
-	,effect_name VARCHAR(25) NOT NULL
-	,effect_display VARCHAR(25) NOT NULL
+	effect_name TEXT PRIMARY KEY
+	,effect_abbr TEXT NOT NULL
+	,effect_display TEXT NOT NULL
 );
 CREATE TABLE resists(
-	resist_abbr VARCHAR(10) PRIMARY KEY
-	,resist_name VARCHAR(25) NOT NULL
-	,resist_display VARCHAR(25) NOT NULL
+	resist_name TEXT PRIMARY KEY
+	,resist_abbr TEXT NOT NULL
+	,resist_display TEXT NOT NULL
 );
 CREATE TABLE restricts(
-	restrict_abbr VARCHAR(10) PRIMARY KEY
-	,restrict_name VARCHAR(25) NOT NULL
+	restrict_name TEXT PRIMARY KEY
+	,restrict_abbr TEXT NOT NULL
 );
 CREATE TABLE flags(
-	flag_abbr VARCHAR(10) PRIMARY KEY
-	,flag_name VARCHAR(25) NOT NULL
-	,flag_display VARCHAR(25) NOT NULL
+	flag_name TEXT PRIMARY KEY
+	,flag_abbr TEXT NOT NULL
+	,flag_display TEXT NOT NULL
 );
 CREATE TABLE slots(
-	slot_abbr VARCHAR(10) PRIMARY KEY
-	,worn_slot VARCHAR(25)
-	,slot_display VARCHAR(25)
+	worn_slot TEXT PRIMARY KEY
+	,slot_abbr TEXT NOT NULL
+	,slot_display TEXT NOT NULL
 );
 CREATE TABLE item_types(
-	type_abbr VARCHAR(10) PRIMARY KEY
-	,item_type VARCHAR(25) NOT NULL
-	,type_display VARCHAR(25) NOT NULL
+	item_type TEXT PRIMARY KEY
+	,type_abbr TEXT NOT NULL
+	,type_display TEXT NOT NULL
 );
 CREATE TABLE zones(
-	zone_abbr VARCHAR(25) PRIMARY KEY
-	,zone_name VARCHAR(150) NOT NULL
+	zone_abbr TEXT PRIMARY KEY
+	,zone_name TEXT NOT NULL
 );
 CREATE TABLE mobs(
-	mob_name VARCHAR(150) PRIMARY KEY
-	,mob_abbr VARCHAR(25)
-	,from_zone VARCHAR(10) REFERENCES zones(zone_abbr)
+	mob_name TEXT PRIMARY KEY
+	,mob_abbr TEXT
+	,from_zone TEXT REFERENCES zones(zone_abbr)
 	,from_quest BOOLEAN
 	,has_quest BOOLEAN
 	,is_rare BOOLEAN
 	,from_invasion BOOLEAN
 );
 CREATE TABLE specials(
-	item_type VARCHAR(10) REFERENCES item_types(type_abbr)
-	,spec_abbr VARCHAR(10)
-	,spec_display VARCHAR(25) NOT NULL
+	item_type TEXT REFERENCES item_types(item_type)
+	,spec_abbr TEXT NOT NULL
+	,spec_display TEXT NOT NULL
 	,PRIMARY KEY (item_type, spec_abbr)
 );
 CREATE TABLE supps(
-	supp_abbr VARCHAR(10)
-	,supp_display VARCHAR(25)
+	supp_abbr TEXT PRIMARY KEY
+	,supp_display TEXT NOT NULL
+	,supp_value TEXT NOT NULL
 );
 CREATE TABLE items(
 	item_id INTEGER PRIMARY KEY
-	,item_name VARCHAR(100) NOT NULL
-	,keywords VARCHAR(100) NOT NULL
+	,item_name TEXT NOT NULL
+	,keywords TEXT NOT NULL
 	,weight INTEGER
 	,c_value INTEGER
-	,item_type VARCHAR(10) REFERENCES item_types(type_abbr) NOT NULL
-	,from_zone VARCHAR(25) REFERENCES zones(zone_abbr) NOT NULL
-	,from_mob VARCHAR(150) REFERENCES mobs(mob_name)
-	,short_stats VARCHAR(450)
-	,long_stats VARCHAR(900)
+	,item_type TEXT REFERENCES item_types(item_type) NOT NULL
+	,from_zone TEXT REFERENCES zones(zone_abbr) NOT NULL
+	,from_mob TEXT REFERENCES mobs(mob_name)
+	,short_stats TEXT
+	,long_stats TEXT
 	,full_stats TEXT
 	,comments TEXT
 	,last_id DATE
@@ -132,49 +133,49 @@ CREATE INDEX idx_item_name ON items (item_name);
 CREATE TABLE item_procs(
 	item_id INTEGER REFERENCES items(item_id)
 	,proc_name TEXT NOT NULL
-	,proc_type VARCHAR(25)
-	,proc_desc VARCHAR(25)
-	,proc_trig VARCHAR(25)
-	,proc_effect VARCHAR(25)
+	,proc_type TEXT
+	,proc_desc TEXT
+	,proc_trig TEXT
+	,proc_effect TEXT
 	,PRIMARY KEY (item_id, proc_name)
 );
 CREATE TABLE item_slots(
 	item_id INTEGER REFERENCES items(item_id)
-	,slot_abbr VARCHAR(10) REFERENCES slots(slot_abbr)
-	,PRIMARY KEY (item_id, slot_abbr)
+	,worn_slot TEXT REFERENCES slots(worn_slot)
+	,PRIMARY KEY (item_id, worn_slot)
 );
 CREATE TABLE item_flags(
 	item_id INTEGER REFERENCES items(item_id)
-	,flag_abbr VARCHAR(10) REFERENCES flags(flag_abbr)
-	,PRIMARY KEY (item_id, flag_abbr)
+	,flag_name TEXT REFERENCES flags(flag_name)
+	,PRIMARY KEY (item_id, flag_name)
 );
 CREATE TABLE item_restricts(
 	item_id INTEGER REFERENCES items(item_id)
-	,restrict_abbr VARCHAR(10) REFERENCES restricts(restrict_abbr)
-	,PRIMARY KEY (item_id, restrict_abbr)
+	,restrict_name TEXT REFERENCES restricts(restrict_name)
+	,PRIMARY KEY (item_id, restrict_name)
 );
 CREATE TABLE item_resists(
 	item_id INTEGER REFERENCES items(item_id)
-	,resist_abbr VARCHAR(10) REFERENCES resists(resist_abbr)
+	,resist_name TEXT REFERENCES resists(resist_name)
 	,resist_value INTEGER NOT NULL
-	,PRIMARY KEY (item_id, resist_abbr)
+	,PRIMARY KEY (item_id, resist_name)
 );
 CREATE TABLE item_effects(
 	item_id INTEGER REFERENCES items(item_id)
-	,effect_abbr VARCHAR(10) REFERENCES effects(effect_abbr)
-	,PRIMARY KEY (item_id, effect_abbr)
+	,effect_name TEXT REFERENCES effects(effect_name)
+	,PRIMARY KEY (item_id, effect_name)
 );
 CREATE TABLE item_specials(
 	item_id INTEGER REFERENCES items(item_id)
-	,item_type VARCHAR(10)
-	,spec_abbr VARCHAR(10)
-	,spec_value VARCHAR(30) NOT NULL
+	,item_type TEXT
+	,spec_abbr TEXT
+	,spec_value TEXT NOT NULL
 	,FOREIGN KEY (item_type, spec_abbr) REFERENCES specials (item_type, spec_abbr)
 	,PRIMARY KEY (item_id, item_type, spec_abbr)
 );
 CREATE TABLE item_enchants(
 	item_id INTEGER REFERENCES items(item_id)
-	,ench_name VARCHAR(25) REFERENCES enchants(ench_name)
+	,ench_name TEXT REFERENCES enchants(ench_name)
 	,dam_pct INTEGER NOT NULL
 	,freq_pct INTEGER NOT NULL
 	,sv_mod INTEGER NOT NULL
@@ -183,11 +184,11 @@ CREATE TABLE item_enchants(
 );
 CREATE TABLE item_attribs(
 	item_id INTEGER REFERENCES items(item_id)
-	,attrib_abbr VARCHAR(25) REFERENCES attribs(attrib_abbr)
+	,attrib_name TEXT REFERENCES attribs(attrib_name)
 	,attrib_value INTEGER NOT NULL
-	,PRIMARY KEY (item_id, attrib_abbr)
+	,PRIMARY KEY (item_id, attrib_name)
 );
 CREATE TABLE item_supps(
 	item_id INTEGER REFERENCES items(item_id)
-	,supp_abbr VARCHAR(10) REFERENCES supp(supp_abbr)
+	,supp_abbr TEXT REFERENCES supp(supp_abbr)
 );

@@ -20,9 +20,13 @@ UPDATE item_restricts SET restrict_abbr =
 UPDATE item_slots SET slot_abbr = 
 	(SELECT worn_slot FROM slots 
 		WHERE item_slots.slot_abbr = slots.slot_abbr);
+UPDATE specials SET item_type = 
+	(SELECT item_type FROM item_types 
+		WHERE item_types.type_abbr = specials.item_type);
 UPDATE item_specials SET item_type = 
 	(SELECT item_type FROM item_types
 		WHERE item_specials.item_type = item_types.type_abbr);
+
 
 BEGIN TRANSACTION;
 -- create new character tracking tables
@@ -38,7 +42,7 @@ CREATE TEMPORARY TABLE races_bak(
 	race_name TEXT PRIMARY KEY
 	,race_abbr TEXT NOT NULL
 	,anti_flag TEXT NOT NULL
-	,race_type TEXT REFERENCES race_types(race_type) NOT NULL
+	,race_type TEXT REFERENCES race_types_bak(race_type) NOT NULL
 );
 INSERT INTO races_bak
 	SELECT race_name, race_abbr, anti_flag, race_type
@@ -55,7 +59,7 @@ DROP TABLE class_types;
 CREATE TEMPORARY TABLE classes_bak(
 	class_name TEXT PRIMARY KEY
 	,class_abbr TEXT NOT NULL
-	,class_type TEXT REFERENCES class_types(class_type) NOT NULL
+	,class_type TEXT REFERENCES class_types_bak(class_type) NOT NULL
 	,anti_flag TEXT NOT NULL
 );
 INSERT INTO classes_bak
@@ -71,10 +75,10 @@ INSERT INTO accounts_bak
 	FROM accounts;
 DROP TABLE accounts;
 CREATE TEMPORARY TABLE chars_bak(
-	account_name TEXT REFERENCES accounts(account_name)
+	account_name TEXT REFERENCES accounts_bak(account_name)
 	,char_name TEXT
-	,class_name TEXT REFERENCES classes(class_name) NOT NULL
-	,char_race TEXT REFERENCES races(race_name) NOT NULL
+	,class_name TEXT REFERENCES classes_bak(class_name) NOT NULL
+	,char_race TEXT REFERENCES races_bak(race_name) NOT NULL
 	,char_level INTEGER NOT NULL
 	,last_seen DATETIME NOT NULL
 	,vis BOOLEAN NOT NULL
@@ -97,7 +101,7 @@ INSERT INTO boots_bak
 	FROM boots;
 DROP TABLE boots;
 CREATE TEMPORARY TABLE loads_bak(
-	boot_id INTEGER REFERENCES boots(boot_id) NOT NULL
+	boot_id INTEGER REFERENCES boots_bak(boot_id) NOT NULL
 	,report_time DATETIME NOT NULL
 	,report_text TEXT NOT NULL
 	,char_name TEXT NOT NULL
@@ -192,14 +196,14 @@ DROP TABLE zones;
 CREATE TEMPORARY TABLE mobs_bak(
 	mob_name TEXT PRIMARY KEY
 	,mob_abbr TEXT
-	,from_zone TEXT REFERENCES zones(zone_abbr)
+	,from_zone TEXT REFERENCES zones_bak(zone_abbr)
 );
 INSERT INTO mobs_bak
 	SELECT mob_name, mob_abbr, from_zone
 	FROM mobs;
 DROP TABLE mobs;
 CREATE TEMPORARY TABLE specials_bak(
-	item_type TEXT REFERENCES item_types(item_type)
+	item_type TEXT REFERENCES item_types_bak(item_type)
 	,spec_abbr TEXT NOT NULL
 	,spec_display TEXT NOT NULL
 	,PRIMARY KEY (item_type, spec_abbr)
@@ -223,9 +227,9 @@ CREATE TEMPORARY TABLE items_bak(
 	,keywords TEXT NOT NULL
 	,weight INTEGER
 	,c_value INTEGER
-	,item_type TEXT REFERENCES item_types(item_type) NOT NULL
-	,from_zone TEXT REFERENCES zones(zone_abbr) NOT NULL
-	,from_mob TEXT REFERENCES mobs(mob_name)
+	,item_type TEXT REFERENCES item_types_bak(item_type) NOT NULL
+	,from_zone TEXT REFERENCES zones_bak(zone_abbr) NOT NULL
+	,from_mob TEXT REFERENCES mobs_bak(mob_name)
 	,short_stats TEXT
 	,long_stats TEXT
 	,full_stats TEXT
@@ -238,7 +242,7 @@ INSERT INTO items_bak
 	FROM items;
 DROP TABLE items;
 CREATE TEMPORARY TABLE item_procs_bak(
-	item_id INTEGER REFERENCES items(item_id)
+	item_id INTEGER REFERENCES items_bak(item_id)
 	,proc_name TEXT NOT NULL
 	,proc_type TEXT
 	,proc_desc TEXT
@@ -251,8 +255,8 @@ INSERT INTO item_procs_bak
 	FROM item_procs;
 DROP TABLE item_procs;
 CREATE TEMPORARY TABLE item_slots_bak(
-	item_id INTEGER REFERENCES items(item_id)
-	,worn_slot TEXT REFERENCES slots(worn_slot)
+	item_id INTEGER REFERENCES items_bak(item_id)
+	,worn_slot TEXT REFERENCES slots_bak(worn_slot)
 	,PRIMARY KEY (item_id, worn_slot)
 );
 INSERT INTO item_slots_bak
@@ -260,8 +264,8 @@ INSERT INTO item_slots_bak
 	FROM item_slots;
 DROP TABLE item_slots;
 CREATE TEMPORARY TABLE item_flags_bak(
-	item_id INTEGER REFERENCES items(item_id)
-	,flag_name TEXT REFERENCES flags(flag_name)
+	item_id INTEGER REFERENCES items_bak(item_id)
+	,flag_name TEXT REFERENCES flags_bak(flag_name)
 	,PRIMARY KEY (item_id, flag_name)
 );
 INSERT INTO item_flags_bak
@@ -269,8 +273,8 @@ INSERT INTO item_flags_bak
 	FROM item_flags;
 DROP TABLE item_flags;
 CREATE TEMPORARY TABLE item_restricts_bak(
-	item_id INTEGER REFERENCES items(item_id)
-	,restrict_name TEXT REFERENCES restricts(restrict_name)
+	item_id INTEGER REFERENCES items_bak(item_id)
+	,restrict_name TEXT REFERENCES restricts_bak(restrict_name)
 	,PRIMARY KEY (item_id, restrict_name)
 );
 INSERT INTO item_restricts_bak
@@ -278,8 +282,8 @@ INSERT INTO item_restricts_bak
 	FROM item_restricts;
 DROP TABLE item_restricts;
 CREATE TEMPORARY TABLE item_resists_bak(
-	item_id INTEGER REFERENCES items(item_id)
-	,resist_name TEXT REFERENCES resists(resist_name)
+	item_id INTEGER REFERENCES items_bak(item_id)
+	,resist_name TEXT REFERENCES resists_bak(resist_name)
 	,resist_value INTEGER NOT NULL
 	,PRIMARY KEY (item_id, resist_name)
 );
@@ -288,8 +292,8 @@ INSERT INTO item_resists_bak
 	FROM item_resists;
 DROP TABLE item_resists;
 CREATE TEMPORARY TABLE item_effects_bak(
-	item_id INTEGER REFERENCES items(item_id)
-	,effect_name TEXT REFERENCES effects(effect_name)
+	item_id INTEGER REFERENCES items_bak(item_id)
+	,effect_name TEXT REFERENCES effects_bak(effect_name)
 	,PRIMARY KEY (item_id, effect_name)
 );
 INSERT INTO item_effects_bak
@@ -301,7 +305,7 @@ CREATE TEMPORARY TABLE item_specials_bak(
 	,item_type TEXT
 	,spec_abbr TEXT
 	,spec_value TEXT NOT NULL
-	,FOREIGN KEY (item_type, spec_abbr) REFERENCES specials (item_type, spec_abbr)
+	,FOREIGN KEY (item_type, spec_abbr) REFERENCES specials_bak (item_type, spec_abbr)
 	,PRIMARY KEY (item_id, item_type, spec_abbr)
 );
 INSERT INTO item_specials_bak
@@ -309,8 +313,8 @@ INSERT INTO item_specials_bak
 	FROM item_specials;
 DROP TABLE item_specials;
 CREATE TEMPORARY TABLE item_enchants_bak(
-	item_id INTEGER REFERENCES items(item_id)
-	,ench_name TEXT REFERENCES enchants(ench_name)
+	item_id INTEGER REFERENCES items_bak(item_id)
+	,ench_name TEXT REFERENCES enchants_bak(ench_name)
 	,dam_pct INTEGER NOT NULL
 	,freq_pct INTEGER NOT NULL
 	,sv_mod INTEGER NOT NULL
@@ -322,8 +326,8 @@ INSERT INTO item_enchants_bak
 	FROM item_enchants;
 DROP TABLE item_enchants;
 CREATE TEMPORARY TABLE item_attribs_bak(
-	item_id INTEGER REFERENCES items(item_id)
-	,attrib_name TEXT REFERENCES attribs(attrib_name)
+	item_id INTEGER REFERENCES items_bak(item_id)
+	,attrib_name TEXT REFERENCES attribs_bak(attrib_name)
 	,attrib_value INTEGER NOT NULL
 	,PRIMARY KEY (item_id, attrib_name)
 );
@@ -332,8 +336,8 @@ INSERT INTO item_attribs_bak
 	FROM item_attribs;
 DROP TABLE item_attribs;
 CREATE TEMPORARY TABLE item_supps_bak(
-	item_id INTEGER REFERENCES items(item_id)
-	,supp_abbr TEXT REFERENCES supp(supp_abbr)
+	item_id INTEGER REFERENCES items_bak(item_id)
+	,supp_abbr TEXT REFERENCES supp_bak(supp_abbr)
 );
 INSERT INTO item_supps_bak
 	SELECT item_id, supp_abbr
@@ -573,7 +577,7 @@ CREATE TABLE item_slots(
 	,PRIMARY KEY (item_id, worn_slot)
 );
 INSERT INTO item_slots
-	SELECT item_id, worn_slots
+	SELECT item_id, worn_slot
 	FROM item_slots_bak;
 DROP TABLE item_slots_bak;
 CREATE TABLE item_flags(

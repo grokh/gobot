@@ -1,18 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"regexp"
 	"strconv"
 	"strings"
-	"fmt"
 )
 
 func Identify(filename string) {
 	content, err := ioutil.ReadFile(filename)
 	ChkErr(err)
 	text := string(content)
-	
+
 	// put all flags/restricts, or effects, on one line
 	re, err := regexp.Compile(`([[:upper:]]{2})\n([[:upper:]]{2})`)
 	ChkErr(err)
@@ -81,8 +81,11 @@ func Identify(filename string) {
 		`Affects : ([[:print:]]+) [B|b]y ([[:digit:]-]+)`)
 	ChkErr(err)
 	chkEnch, err := regexp.Compile(
-		// Type: Holy             Damage: 100% Frequency: 100% Modifier: 0 Duration: 0 // enchantment
-		`Type: ([[:print:]]+) Damage: ([[:digit:]]+)% Frequency: ([[:digit:]]+)[ ]?% Modifier: ([[:digit:]]+) Duration: ([[:digit:]]+)`)
+		// Type: Holy     Damage: 100% Frequency: 100% Modifier: 0 Duration: 0 // enchantment
+		`Type: ([[:print:]]+) Damage: ([[:digit:]]+)% ` +
+			`Frequency: ([[:digit:]]+)[ ]?% ` +
+			`Modifier: ([[:digit:]]+) ` +
+			`Duration: ([[:digit:]]+)`)
 	ChkErr(err)
 	chkResis, err := regexp.Compile(
 		// Resists: Fire : 5% Cold : 5% Elect : 5% Acid : 5% Poison: 5% Psi : 5%
@@ -102,7 +105,8 @@ func Identify(filename string) {
 	ChkErr(err)
 	chkCrit, err := regexp.Compile(
 		// Damage:  2D5  Crit Range: 5%  Crit Bonus: 2x // new weapon, dice/crit/multi
-		`Damage: [ ]?([[:digit:]D]+) [ ]?Crit Range: ([[:digit:]]+)% [ ]?Crit Bonus: ([[:digit:]]+)x`)
+		`Damage: [ ]?([[:digit:]D]+) [ ]?Crit Range: ([[:digit:]]+)% ` +
+			`[ ]?Crit Bonus: ([[:digit:]]+)x`)
 	ChkErr(err)
 	chkPage, err := regexp.Compile(
 		// Total Pages: 300 // spellbook
@@ -118,11 +122,13 @@ func Identify(filename string) {
 	ChkErr(err)
 	chkApps, err := regexp.Compile(
 		// 1 applications remaining with 3 hits per application. // poison apps
-		`([[:digit:]]+) applications remaining with ([[:digit:]]+) hits per application.`)
+		`([[:digit:]]+) applications remaining with ` +
+			`([[:digit:]]+) hits per application.`)
 	ChkErr(err)
 	chkInstr, err := regexp.Compile(
 		// Instrument Type: Drums, Quality: 8, Stutter: 7, Min Level: 1 // instrument
-		`Instrument Type: ([[:print:]]+), Quality: ([[:digit:]]+), Stutter: ([[:digit:]]+), Min Level: ([[:digit:]]+)`)
+		`Instrument Type: ([[:print:]]+), Quality: ([[:digit:]]+), ` +
+			`Stutter: ([[:digit:]]+), Min Level: ([[:digit:]]+)`)
 	ChkErr(err)
 	chkCharg, err := regexp.Compile(
 		// Has 99 charges, with 99 charges left. // wand/staff
@@ -136,7 +142,7 @@ func Identify(filename string) {
 		// Level 1 spell of: Spell: airy water // staff/wand
 		`Level ([[:digit:]]+) spell of: `)
 	chkSpells, err := regexp.Compile(
-		// Spell: protection from good Spell: protection from evil // potion/scroll/wand/staff
+		// Spell: protection from good // potion/scroll/wand/staff
 		`Spell: ([[:lower:] ]+)`)
 	ChkErr(err)
 	chkCont, err := regexp.Compile(
@@ -147,7 +153,6 @@ func Identify(filename string) {
 		// Can hold 600 more lbs with 300lbs weightless. // container
 		`Can hold ([[:digit:]]+) more lbs with ([[:digit:]]+)lbs weightless.`)
 	ChkErr(err)
-
 
 	for _, item := range items {
 		// initialize item variables and slices
@@ -197,78 +202,104 @@ func Identify(filename string) {
 			case chkResis.MatchString(line):
 				resis := chkResis.FindAllStringSubmatch(line, -1)
 				for _, res := range resis {
-					item_resists = append(item_resists,[]string{
+					item_resists = append(item_resists, []string{
 						strings.TrimSpace(res[1]), res[2]})
 				}
 			case chkEnch.MatchString(line):
 				m = chkEnch.FindStringSubmatch(line)
-				item_enchants = append(item_enchants, []string{
-					strings.TrimSpace(m[1]), m[2], m[3], m[4], m[5]})
+				item_enchants = append(item_enchants,
+					[]string{strings.TrimSpace(m[1]), m[2], m[3], m[4], m[5]})
 			case chkAC.MatchString(line):
 				m = chkAC.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "ac", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "ac", m[1]})
 			case chkDice.MatchString(line):
 				m = chkDice.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "dice", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "dice", m[1]})
 			case chkWeap.MatchString(line):
 				m = chkWeap.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "type", m[1]})
-				item_specials = append(item_specials, []string{item_type, "class", m[2]})
+				item_specials = append(item_specials,
+					[]string{item_type, "type", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "class", m[2]})
 			case chkCrit.MatchString(line):
 				m = chkCrit.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "dice", m[1]})
-				item_specials = append(item_specials, []string{item_type, "crit", m[2]})
-				item_specials = append(item_specials, []string{item_type, "multi", m[3]})
+				item_specials = append(item_specials,
+					[]string{item_type, "dice", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "crit", m[2]})
+				item_specials = append(item_specials,
+					[]string{item_type, "multi", m[3]})
 			case chkPsp.MatchString(line):
 				m = chkPsp.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "psp", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "psp", m[1]})
 			case chkPage.MatchString(line):
 				m = chkPage.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "pages", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "pages", m[1]})
 			case chkPois.MatchString(line):
 				m = chkPois.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "type", m[1]})
-				item_specials = append(item_specials, []string{item_type, "level", m[2]})
+				item_specials = append(item_specials,
+					[]string{item_type, "type", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "level", m[2]})
 			case chkApps.MatchString(line):
 				m = chkApps.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "apps", m[1]})
-				item_specials = append(item_specials, []string{item_type, "hits", m[2]})
+				item_specials = append(item_specials,
+					[]string{item_type, "apps", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "hits", m[2]})
 			case chkInstr.MatchString(line):
 				m = chkInstr.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "type", m[1]})
-				item_specials = append(item_specials, []string{item_type, "quality", m[2]})
-				item_specials = append(item_specials, []string{item_type, "stutter", m[3]})
-				item_specials = append(item_specials, []string{item_type, "min_level", m[4]})
+				item_specials = append(item_specials,
+					[]string{item_type, "type", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "quality", m[2]})
+				item_specials = append(item_specials,
+					[]string{item_type, "stutter", m[3]})
+				item_specials = append(item_specials,
+					[]string{item_type, "min_level", m[4]})
 			case chkCharg.MatchString(line):
 				m = chkCharg.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "charges", m[1]})
-				//item_specials = append(item_specials, []string{item_type, "cur_char", m[2]})
+				item_specials = append(item_specials,
+					[]string{item_type, "charges", m[1]})
+				//item_specials = append(item_specials,
+				//	[]string{item_type, "cur_char", m[2]})
 			case chkPot.MatchString(line):
 				m = chkPot.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "level", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "level", m[1]})
 				spells := chkSpells.FindAllStringSubmatch(line, -1)
 				for n, spell := range spells {
 					num := fmt.Sprintf("spell%d", n+1)
-					item_specials = append(item_specials, []string{item_type, num, spell[1]})
+					item_specials = append(item_specials,
+						[]string{item_type, num, spell[1]})
 				}
 			case chkWand.MatchString(line):
 				m = chkWand.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "level", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "level", m[1]})
 				m = chkSpells.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "spell", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "spell", m[1]})
 			case chkCont.MatchString(line):
 				m = chkCont.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "holds", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "holds", m[1]})
 			case chkWtless.MatchString(line):
 				m = chkWtless.FindStringSubmatch(line)
-				item_specials = append(item_specials, []string{item_type, "holds", m[1]})
-				item_specials = append(item_specials, []string{item_type, "wtless", m[2]})
+				item_specials = append(item_specials,
+					[]string{item_type, "holds", m[1]})
+				item_specials = append(item_specials,
+					[]string{item_type, "wtless", m[2]})
 			default:
 				unmatch = append(unmatch, line)
 			}
 		}
 		// back to full item
-		fmt.Printf("Name: %s\nKeywords: %s\nType: %s\n", 
+		fmt.Printf("Name: %s\nKeywords: %s\nType: %s\n",
 			item_name, keywords, item_type)
 		fmt.Printf("Weight: %d\nValue: %d\n", weight, c_value)
 		for _, slot := range item_slots {
@@ -291,19 +322,21 @@ func Identify(filename string) {
 			fmt.Printf("Attrib: %s, Value: %s\n", attr[0], attr[1])
 		}
 		for _, spec := range item_specials {
-			fmt.Printf("Special: Type: %s, Abbr: %s, Value: %s\n", spec[0], spec[1], spec[2])
+			fmt.Printf("Special: Type: %s, Abbr: %s, Value: %s\n",
+				spec[0], spec[1], spec[2])
 		}
 		for _, ench := range item_enchants {
-			fmt.Printf("Enchant: Name: %s, Dam_Pct: %s, Freq_Pct: %s, Sv_Mod: %s, Duration: %s\n",
+			fmt.Printf("Enchant: Name: %s, Dam_Pct: %s, Freq_Pct: %s, "+
+				"Sv_Mod: %s, Duration: %s\n",
 				ench[0], ench[1], ench[2], ench[3], ench[4])
 		}
 		for _, res := range item_resists {
 			fmt.Printf("Resist: Name: %s, Value: %s\n", res[0], res[1])
 		}
 		for _, um := range unmatch {
-			if !strings.Contains(um, "Can affect you as :") && 
-				!strings.Contains(um, "Enchantments:") && 
-				!strings.Contains(um, "Zone:") && 
+			if !strings.Contains(um, "Can affect you as :") &&
+				!strings.Contains(um, "Enchantments:") &&
+				!strings.Contains(um, "Zone:") &&
 				!strings.Contains(um, "You feel informed:") {
 				fmt.Println("Unmatched: ", um)
 			}

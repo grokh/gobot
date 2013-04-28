@@ -1,11 +1,15 @@
 package main
 
 import (
+	//"database/sql"
 	"fmt"
+	_ "github.com/mattn/go-sqlite3"
 	"io/ioutil"
+	//"log"
 	"regexp"
 	"strconv"
 	"strings"
+	//"time"
 )
 
 func Identify(filename string) {
@@ -299,6 +303,8 @@ func Identify(filename string) {
 			}
 		}
 		// back to full item
+		// translate from long form to abbreviated form
+		// or do that up above?
 		fmt.Printf("Name: %s\nKeywords: %s\nType: %s\n",
 			item_name, keywords, item_type)
 		fmt.Printf("Weight: %d\nValue: %d\n", weight, c_value)
@@ -343,5 +349,134 @@ func Identify(filename string) {
 		}
 		_ = full_stats
 		fmt.Print("\n----------\n\n")
+/*
+		loc, err := time.LoadLocation("America/New_York")
+		ChkErr(err)
+		date := time.Now().In(loc)
+
+		db := OpenDB()
+		defer db.Close()
+
+		// check if exact name is already in DB
+		query := "SELECT item_id FROM items WHERE item_name = ? " +
+			"AND keywords = ? AND item_type = ? " +
+			"AND weight = ? AND c_value = ?"
+		stmt, err := db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+
+		var id int64
+		err = stmt.QueryRow(
+			item_name, keywords, item_type, weight, c_value,
+		).Scan(&id)
+
+		if err == sql.ErrNoRows {
+			// if it's not in the DB, compile full insert queries
+			tx, err := db.Begin()
+			ChkErr(err)
+
+			query = "INSERT INTO items "+
+				"(item_name, keywords, weight, c_value, "+
+				"item_type, full_stats, last_id) "+
+				"VALUES(?, ?, ?, ?, ?, ?, ?)"
+			stmt, err := tx.Prepare(query)
+			ChkErr(err)
+			defer stmt.Close()
+
+			res, err := stmt.Exec(
+				item_name, keywords, weight, c_value,
+				item_type, full_stats, date)
+			ChkErr(err)
+
+			id, err = res.LastInsertId()
+			ChkErr(err)
+
+			for _, slot := range item_slots {
+				// handle NOBITS!
+				query = "INSERT INTO item_slots VALUES(?, ?)"
+				stmt, err := tx.Prepare(query)
+				ChkErr(err)
+				defer stmt.Close()
+
+				_, err = stmt.Exec(id, slot)
+				ChkErr(err)
+			}
+			for _, eff := range item_effects {
+				if eff != "NOBITS" && eff != "GROUP_CACHED" {
+					query = "INSERT INTO item_effects VALUES(?, ?)"
+					stmt, err := tx.Prepare(query)
+					ChkErr(err)
+					defer stmt.Close()
+
+					_, err = stmt.Exec(id, eff)
+					ChkErr(err)
+				}
+			}
+			for _, flag := range item_flags {
+				if flag != "NOBITS" && flag != "NOBITSNOBITS" {
+					query = "INSERT INTO item_flags VALUES(?, ?)"
+					stmt, err := tx.Prepare(query)
+					ChkErr(err)
+					defer stmt.Close()
+
+					_, err = stmt.Exec(id, flag)
+					ChkErr(err)
+				}
+			}
+			for _, rest := range item_restricts {
+				query = "INSERT INTO item_restricts VALUES(?, ?)"
+				stmt, err := tx.Prepare(query)
+				ChkErr(err)
+				defer stmt.Close()
+
+				_, err = stmt.Exec(id, rest)
+				ChkErr(err)
+			}
+			for _, attr := range item_attribs {
+				query = "INSERT INTO item_attribs VALUES(?, ?, ?)"
+				stmt, err := tx.Prepare(query)
+				ChkErr(err)
+				defer stmt.Close()
+
+				_, err = stmt.Exec(id, attr[0], attr[1])
+				ChkErr(err)
+			}
+			for _, spec := range item_specials {
+				query = "INSERT INTO item_specials VALUES(?, ?, ?, ?)"
+				stmt, err := tx.Prepare(query)
+				ChkErr(err)
+				defer stmt.Close()
+
+				_, err = stmt.Exec(id, spec[0], spec[1], spec[2])
+				ChkErr(err)
+			}
+			for _, ench := range item_enchants {
+				query = "INSERT INTO item_enchants VALUES(?, ?, ?, ?, ?, ?)"
+				stmt, err := tx.Prepare(query)
+				ChkErr(err)
+				defer stmt.Close()
+
+				_, err = stmt.Exec(id, ench[0], ench[1], ench[2], ench[3], ench[4])
+				ChkErr(err)
+			}
+			for _, res := range item_resists {
+				query = "INSERT INTO item_resists VALUES(?, ?, ?)"
+				stmt, err := tx.Prepare(query)
+				ChkErr(err)
+				defer stmt.Close()
+
+				_, err = stmt.Exec(id, res[0], res[1])
+				ChkErr(err)
+			}
+			tx.Commit()
+		} else if err != nil {
+			log.Fatal(err)
+		} else {
+			// if same name and such, update the date of last_id
+			// manually compare full_stats vs. short_stats for possible update
+		}
+		// send all insert/update queries as a .sql file to review
+		// manual updates: procs, zone, supps
+		// end of DB stuff */
 	}
 }

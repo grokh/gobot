@@ -337,7 +337,7 @@ INSERT INTO item_attribs_bak
 DROP TABLE item_attribs;
 CREATE TEMPORARY TABLE item_supps_bak(
 	item_id INTEGER REFERENCES items_bak(item_id)
-	,supp_abbr TEXT REFERENCES supp_bak(supp_abbr)
+	,supp_abbr TEXT REFERENCES supps_bak(supp_abbr)
 );
 INSERT INTO item_supps_bak
 	SELECT item_id, supp_abbr
@@ -397,7 +397,7 @@ CREATE TABLE chars(
 	,class_name TEXT REFERENCES classes(class_name) NOT NULL
 	,char_race TEXT REFERENCES races(race_name) NOT NULL
 	,char_level INTEGER NOT NULL
-	,last_seen DATETIME NOT NULL
+	,last_seen TIMESTAMP NOT NULL
 	,vis BOOLEAN NOT NULL
 	,PRIMARY KEY (account_name, char_name)
 );
@@ -410,7 +410,7 @@ DROP TABLE chars_bak;
 -- create new boot/load report tables
 CREATE TABLE boots(
 	boot_id INTEGER PRIMARY KEY
-	,boot_time DATETIME NOT NULL
+	,boot_time TIMESTAMP NOT NULL
 	,uptime TEXT NOT NULL
 );
 INSERT INTO boots
@@ -419,7 +419,7 @@ INSERT INTO boots
 DROP TABLE boots_bak;
 CREATE TABLE loads(
 	boot_id INTEGER REFERENCES boots(boot_id) NOT NULL
-	,report_time DATETIME NOT NULL
+	,report_time TIMESTAMP NOT NULL
 	,report_text TEXT NOT NULL
 	,char_name TEXT NOT NULL
 	,deleted BOOLEAN NOT NULL
@@ -654,10 +654,17 @@ INSERT INTO item_attribs
 DROP TABLE item_attribs_bak;
 CREATE TABLE item_supps(
 	item_id INTEGER REFERENCES items(item_id)
-	,supp_abbr TEXT REFERENCES supp(supp_abbr)
+	,supp_abbr TEXT REFERENCES supps(supp_abbr)
 );
 INSERT INTO item_supps
 	SELECT item_id, supp_abbr
 	FROM item_supps_bak;
 DROP TABLE item_supps_bak;
 COMMIT;
+
+--Convert to postgresql: http://stackoverflow.com/questions/4581727/convert-sqlite-sql-dump-file-to-postgresql
+--echo '.dump' | sqlite3 toril.db | gzip -c >toril.sql.gz
+--gunzip toril.sql.gz
+--SET CONSTRAINTS ALL DEFERRED; - add right after BEGIN
+--:%s/INTEGER/SERIAL/gc - only on boots.boot_id and items.item_id
+--psql -d torildb -U kalkinine -W < test.sql

@@ -186,5 +186,5 @@ CREATE TABLE item_attribs(
 );
 CREATE TABLE item_supps(
 	item_id INTEGER REFERENCES items(item_id)
-	,supp_abbr TEXT REFERENCES supp(supp_abbr)
+	,supp_abbr TEXT REFERENCES supps(supp_abbr)
 );

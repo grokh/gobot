@@ -463,7 +463,9 @@ func Identify(filename string) {
 
 		loc, err := time.LoadLocation("America/New_York")
 		ChkErr(err)
-		date := time.Now().In(loc)
+		date := time.Now().In(loc).Format("2006-01-02")
+		// when using time.Format(), you need to make the format text
+		// from this exact datetime: Mon Jan 2 15:04:05 -0700 MST 2006
 
 		// check if exact name is already in DB
 		query = "SELECT item_id, short_stats " +
@@ -593,7 +595,7 @@ func Identify(filename string) {
 			log.Fatal(err)
 		} else {
 			log.Printf("Item already exists: id[%d], name: %s", id, item_name)
-			log.Printf("UPDATE items SET last_id = %s WHERE item_id = %d;", date, id)
+			log.Printf("UPDATE items SET last_id = '%s' WHERE item_id = %d;", date, id)
 			log.Println(short_stats)
 			log.Println(full_stats)
 			// if same name and such, update the date of last_id

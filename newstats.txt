@@ -111,18 +111,6 @@ evards tentacles
 Can affect you as :
     Affects : CHA By -30
 
-Name 'a staff of elemental water'
-Keyword 'staff elemental water', Item type: STAFF
-Item can be worn on:  HOLD 
-Item will give you following abilities:  WATERBREATH 
-Item is: MAGIC FLOAT NOBURN NOLOCATE NO-WARRIOR NO-THIEF NOBITS
-Weight: 1, Value: 0
-Has 5 charges, with 5 charges left.
-Level 1 spell of:
-airy water
-Resists:
-    Fire  :    1% 
-
 Name 'a potion of protection from good and evil'
 Keyword 'potion protection good evil', Item type: POTION
 Item can be worn on:  NOBITS
@@ -307,14 +295,6 @@ Can affect you as :
     Affects : HITROLL By 3
     Affects : DAMROLL By 3
 Zone: Silverymoon Quest
-
-Name 'a dragonhunter quill'
-Keyword 'quill dragonhunter bright red black striped', Item type: PEN
-Item can be worn on:  HOLD 
-Item will give you following abilities:  NOBITS
-Item is: NOBITSNOBITS
-Weight: 0, Value: 0
-Zone: Comarian Mines Quest
 
 Name 'a seaweed pouch of magic'
 Keyword 'pouch seaweed magic', Item type: COMPONENT_BAG
@@ -635,19 +615,6 @@ Item is: FLOAT NOBURN NOLOCATE NOBITS
 Weight: 0, Value: 0
 Can affect you as :
     Affects : CON By 4
-
-Name 'a deep dragon talisman'
-Keyword 'talisman deep dragon', Item type: ARMOR
-Item can be worn on:  NECK 
-Item will give you following abilities:  NOBITS
-Item is: MAGIC NOBURN NOLOCATE NO-WARRIOR NO-THIEF NOBITS
-Weight: 2, Value: 0
-AC-apply is 5
-Resists:
-    Cold  :    5% Acid  :    5% Poison:    5% 
-Can affect you as :
-    Affects : SV_BREATH By -4
-    Affects : HITPOINTS By 13
 
 You feel informed:
 Name 'a sawtoothed glaive'

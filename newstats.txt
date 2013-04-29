@@ -950,3 +950,13 @@ Called Effect : Mirror Images (invoked by 'say'ing or 'project'ing)
 Command word: Schism
 Recharge: 24 minutes remaining (Recharges while equipped)
 Zone: Ixarkon, From Quest
+
+Name 'a bloody elfskin eyepatch'
+Keyword 'eyepatch elfskin bloody bloodied patch', Item type: ARMOR
+Item can be worn on:  EYES 
+Item will give you following abilities:  NOBITS
+Item is: MAGIC ANTI-GOOD ANTI-NEUTRAL NO-WARRIOR NOBITS
+Weight: 1, Value: 500
+AC-apply is 4
+Can affect you as :
+    Affects : MOVE By 25

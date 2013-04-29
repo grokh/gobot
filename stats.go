@@ -36,12 +36,9 @@ func FormatStats() {
 	ChkErr(err)
 	stmt.Close()
 
-	var ids []int
-	ids = make([]int, size, size)
-	var short []string
-	short = make([]string, size, size)
-	var long []string
-	long = make([]string, size, size)
+	ids := make([]int, size, size)
+	short := make([]string, size, size)
+	long := make([]string, size, size)
 
 	//log.Printf("len(ids) = %d\b", size)
 	query = "SELECT item_id FROM items"

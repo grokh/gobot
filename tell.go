@@ -692,7 +692,7 @@ func ReplyTo(char string, tell string) []string {
 	split := strings.SplitN(tell, " ", 2)
 	cmd := strings.ToLower(split[0])
 	if len(split) > 1 {
-		oper = split[1]
+		oper = strings.TrimSpace(split[1])
 	}
 
 	// debugging

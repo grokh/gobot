@@ -466,7 +466,7 @@ func Identify(filename string) {
 		date := time.Now().In(loc)
 
 		// check if exact name is already in DB
-		query = "SELECT item_id, short_stats "+
+		query = "SELECT item_id, short_stats " +
 			"FROM items WHERE item_name = ? " +
 			"AND keywords = ? AND item_type = ? " +
 			"AND weight = ? AND c_value = ?"
@@ -485,9 +485,9 @@ func Identify(filename string) {
 			tx, err := db.Begin()
 			ChkErr(err)
 
-			query = "INSERT INTO items "+
-				"(item_name, keywords, weight, c_value, "+
-				"item_type, full_stats, last_id, from_zone) "+
+			query = "INSERT INTO items " +
+				"(item_name, keywords, weight, c_value, " +
+				"item_type, full_stats, last_id, from_zone) " +
 				"VALUES(?, ?, ?, ?, ?, ?, ?, 'Unknown')"
 			stmt, err := tx.Prepare(query)
 			ChkErr(err)

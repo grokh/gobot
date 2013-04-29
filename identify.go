@@ -1,18 +1,24 @@
 package main
 
 import (
-	//"database/sql"
+	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"io/ioutil"
-	//"log"
+	"log"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
-	//"time"
+	"time"
 )
 
 func Identify(filename string) {
+	f, err := os.OpenFile("logs/import.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
+	defer f.Close()
+	ChkErr(err)
+	log.SetOutput(f)
+
 	content, err := ioutil.ReadFile(filename)
 	ChkErr(err)
 	text := string(content)
@@ -303,33 +309,138 @@ func Identify(filename string) {
 			}
 		}
 		// back to full item
+
 		// translate from long form to abbreviated form
-		// or do that up above?
+		// by building maps to match DB structure?
+		db := OpenDB()
+		defer db.Close()
+
+		var a, b string
+		query := "SELECT item_type, type_abbr FROM item_types"
+		stmt, err := db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+		rows, err := stmt.Query()
+		ChkErr(err)
+		defer rows.Close()
+		types := make(map[string]string)
+		for rows.Next() {
+			err = rows.Scan(&a, &b)
+			types[a] = b
+		}
+		ChkRows(rows)
+		stmt.Close()
+		query = "SELECT worn_slot, slot_abbr FROM slots"
+		stmt, err = db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+		rows, err = stmt.Query()
+		ChkErr(err)
+		defer rows.Close()
+		slots := make(map[string]string)
+		for rows.Next() {
+			err = rows.Scan(&a, &b)
+			slots[a] = b
+		}
+		ChkRows(rows)
+		stmt.Close()
+		query = "SELECT effect_name, effect_abbr FROM effects"
+		stmt, err = db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+		rows, err = stmt.Query()
+		ChkErr(err)
+		defer rows.Close()
+		effs := make(map[string]string)
+		for rows.Next() {
+			err = rows.Scan(&a, &b)
+			effs[a] = b
+		}
+		ChkRows(rows)
+		stmt.Close()
+		query = "SELECT flag_name, flag_abbr FROM flags"
+		stmt, err = db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+		rows, err = stmt.Query()
+		ChkErr(err)
+		defer rows.Close()
+		iflags := make(map[string]string)
+		for rows.Next() {
+			err = rows.Scan(&a, &b)
+			iflags[a] = b
+		}
+		ChkRows(rows)
+		stmt.Close()
+		query = "SELECT restrict_name, restrict_abbr FROM restricts"
+		stmt, err = db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+		rows, err = stmt.Query()
+		ChkErr(err)
+		defer rows.Close()
+		restrs := make(map[string]string)
+		for rows.Next() {
+			err = rows.Scan(&a, &b)
+			restrs[a] = b
+		}
+		ChkRows(rows)
+		stmt.Close()
+		query = "SELECT attrib_name, attrib_abbr FROM attribs"
+		stmt, err = db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+		rows, err = stmt.Query()
+		ChkErr(err)
+		defer rows.Close()
+		attrs := make(map[string]string)
+		for rows.Next() {
+			err = rows.Scan(&a, &b)
+			attrs[a] = b
+		}
+		ChkRows(rows)
+		stmt.Close()
+		query = "SELECT resist_name, resist_abbr FROM resists"
+		stmt, err = db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+		rows, err = stmt.Query()
+		ChkErr(err)
+		defer rows.Close()
+		resis := make(map[string]string)
+		for rows.Next() {
+			err = rows.Scan(&a, &b)
+			resis[a] = b
+		}
+		ChkRows(rows)
+		stmt.Close()
+
+		/*
 		fmt.Printf("Name: %s\nKeywords: %s\nType: %s\n",
-			item_name, keywords, item_type)
+			item_name, keywords, types[item_type])
 		fmt.Printf("Weight: %d\nValue: %d\n", weight, c_value)
 		for _, slot := range item_slots {
-			fmt.Printf("Slot: %s\n", slot)
+			fmt.Printf("Slot: %s\n", slots[slot])
 		}
 		for _, eff := range item_effects {
 			if eff != "NOBITS" && eff != "GROUP_CACHED" {
-				fmt.Printf("Effect: %s\n", eff)
+				fmt.Printf("Effect: %s\n", effs[eff])
 			}
 		}
 		for _, flag := range item_flags {
 			if flag != "NOBITS" && flag != "NOBITSNOBITS" {
-				fmt.Printf("Flag: %s\n", flag)
+				fmt.Printf("Flag: %s\n", iflags[flag])
 			}
 		}
 		for _, rest := range item_restricts {
-			fmt.Printf("Restrict: %s\n", rest)
+			fmt.Printf("Restrict: %s\n", restrs[rest])
 		}
 		for _, attr := range item_attribs {
-			fmt.Printf("Attrib: %s, Value: %s\n", attr[0], attr[1])
+			fmt.Printf("Attrib: %s, Value: %s\n", attrs[attr[0]], attr[1])
 		}
 		for _, spec := range item_specials {
 			fmt.Printf("Special: Type: %s, Abbr: %s, Value: %s\n",
-				spec[0], spec[1], spec[2])
+				types[spec[0]], spec[1], spec[2])
 		}
 		for _, ench := range item_enchants {
 			fmt.Printf("Enchant: Name: %s, Dam_Pct: %s, Freq_Pct: %s, "+
@@ -337,7 +448,7 @@ func Identify(filename string) {
 				ench[0], ench[1], ench[2], ench[3], ench[4])
 		}
 		for _, res := range item_resists {
-			fmt.Printf("Resist: Name: %s, Value: %s\n", res[0], res[1])
+			fmt.Printf("Resist: Name: %s, Value: %s\n", resis[res[0]], res[1])
 		}
 		for _, um := range unmatch {
 			if !strings.Contains(um, "Can affect you as :") &&
@@ -346,28 +457,28 @@ func Identify(filename string) {
 				fmt.Println("Unmatched: ", um)
 			}
 		}
-		_ = full_stats
+		//_ = full_stats
 		fmt.Print("\n----------\n\n")
-/*
+		// end of debug/test printing */
+
 		loc, err := time.LoadLocation("America/New_York")
 		ChkErr(err)
 		date := time.Now().In(loc)
 
-		db := OpenDB()
-		defer db.Close()
-
 		// check if exact name is already in DB
-		query := "SELECT item_id FROM items WHERE item_name = ? " +
+		query = "SELECT item_id, short_stats "+
+			"FROM items WHERE item_name = ? " +
 			"AND keywords = ? AND item_type = ? " +
 			"AND weight = ? AND c_value = ?"
-		stmt, err := db.Prepare(query)
+		stmt, err = db.Prepare(query)
 		ChkErr(err)
 		defer stmt.Close()
 
 		var id int64
+		var short_stats string
 		err = stmt.QueryRow(
-			item_name, keywords, item_type, weight, c_value,
-		).Scan(&id)
+			item_name, keywords, types[item_type], weight, c_value,
+		).Scan(&id, &short_stats)
 
 		if err == sql.ErrNoRows {
 			// if it's not in the DB, compile full insert queries
@@ -376,19 +487,30 @@ func Identify(filename string) {
 
 			query = "INSERT INTO items "+
 				"(item_name, keywords, weight, c_value, "+
-				"item_type, full_stats, last_id) "+
-				"VALUES(?, ?, ?, ?, ?, ?, ?)"
+				"item_type, full_stats, last_id, from_zone) "+
+				"VALUES(?, ?, ?, ?, ?, ?, ?, 'Unknown')"
 			stmt, err := tx.Prepare(query)
 			ChkErr(err)
 			defer stmt.Close()
 
 			res, err := stmt.Exec(
 				item_name, keywords, weight, c_value,
-				item_type, full_stats, date)
+				types[item_type], full_stats, date)
 			ChkErr(err)
 
 			id, err = res.LastInsertId()
 			ChkErr(err)
+			log.Printf("Inserted new item: id[%d], name: %s", id, item_name)
+			for _, um := range unmatch {
+				if !strings.Contains(um, "Can affect you as :") &&
+					!strings.Contains(um, "Enchantments:") &&
+					!strings.Contains(um, "You feel informed:") {
+					log.Printf("Unmatched: %s", um)
+				}
+			}
+			log.Printf("UPDATE items SET from_zone = '?' WHERE item_id = %d;", id)
+			log.Printf("INSERT INTO item_supps VALUES(%d, '?');", id)
+			log.Printf("INSERT INTO item_procs (item_id, proc_name) VALUES(%d, '?');", id)
 
 			for _, slot := range item_slots {
 				query = "INSERT INTO item_slots VALUES(?, ?)"
@@ -396,7 +518,7 @@ func Identify(filename string) {
 				ChkErr(err)
 				defer stmt.Close()
 
-				_, err = stmt.Exec(id, slot)
+				_, err = stmt.Exec(id, slots[slot])
 				ChkErr(err)
 			}
 			for _, eff := range item_effects {
@@ -406,7 +528,7 @@ func Identify(filename string) {
 					ChkErr(err)
 					defer stmt.Close()
 
-					_, err = stmt.Exec(id, eff)
+					_, err = stmt.Exec(id, effs[eff])
 					ChkErr(err)
 				}
 			}
@@ -417,7 +539,7 @@ func Identify(filename string) {
 					ChkErr(err)
 					defer stmt.Close()
 
-					_, err = stmt.Exec(id, flag)
+					_, err = stmt.Exec(id, iflags[flag])
 					ChkErr(err)
 				}
 			}
@@ -427,7 +549,7 @@ func Identify(filename string) {
 				ChkErr(err)
 				defer stmt.Close()
 
-				_, err = stmt.Exec(id, rest)
+				_, err = stmt.Exec(id, restrs[rest])
 				ChkErr(err)
 			}
 			for _, attr := range item_attribs {
@@ -436,7 +558,7 @@ func Identify(filename string) {
 				ChkErr(err)
 				defer stmt.Close()
 
-				_, err = stmt.Exec(id, attr[0], attr[1])
+				_, err = stmt.Exec(id, attrs[attr[0]], attr[1])
 				ChkErr(err)
 			}
 			for _, spec := range item_specials {
@@ -445,7 +567,7 @@ func Identify(filename string) {
 				ChkErr(err)
 				defer stmt.Close()
 
-				_, err = stmt.Exec(id, spec[0], spec[1], spec[2])
+				_, err = stmt.Exec(id, types[spec[0]], spec[1], spec[2])
 				ChkErr(err)
 			}
 			for _, ench := range item_enchants {
@@ -463,13 +585,17 @@ func Identify(filename string) {
 				ChkErr(err)
 				defer stmt.Close()
 
-				_, err = stmt.Exec(id, res[0], res[1])
+				_, err = stmt.Exec(id, resis[res[0]], res[1])
 				ChkErr(err)
 			}
 			tx.Commit()
 		} else if err != nil {
 			log.Fatal(err)
 		} else {
+			log.Printf("Item already exists: id[%d], name: %s", id, item_name)
+			log.Printf("UPDATE items SET last_id = %s WHERE item_id = %d;", date, id)
+			log.Println(short_stats)
+			log.Println(full_stats)
 			// if same name and such, update the date of last_id
 			// manually compare full_stats vs. short_stats for possible update
 		}

@@ -416,50 +416,50 @@ func Identify(filename string) {
 		stmt.Close()
 
 		/*
-		fmt.Printf("Name: %s\nKeywords: %s\nType: %s\n",
-			item_name, keywords, types[item_type])
-		fmt.Printf("Weight: %d\nValue: %d\n", weight, c_value)
-		for _, slot := range item_slots {
-			fmt.Printf("Slot: %s\n", slots[slot])
-		}
-		for _, eff := range item_effects {
-			if eff != "NOBITS" && eff != "GROUP_CACHED" {
-				fmt.Printf("Effect: %s\n", effs[eff])
+			fmt.Printf("Name: %s\nKeywords: %s\nType: %s\n",
+				item_name, keywords, types[item_type])
+			fmt.Printf("Weight: %d\nValue: %d\n", weight, c_value)
+			for _, slot := range item_slots {
+				fmt.Printf("Slot: %s\n", slots[slot])
 			}
-		}
-		for _, flag := range item_flags {
-			if flag != "NOBITS" && flag != "NOBITSNOBITS" {
-				fmt.Printf("Flag: %s\n", iflags[flag])
+			for _, eff := range item_effects {
+				if eff != "NOBITS" && eff != "GROUP_CACHED" {
+					fmt.Printf("Effect: %s\n", effs[eff])
+				}
 			}
-		}
-		for _, rest := range item_restricts {
-			fmt.Printf("Restrict: %s\n", restrs[rest])
-		}
-		for _, attr := range item_attribs {
-			fmt.Printf("Attrib: %s, Value: %s\n", attrs[attr[0]], attr[1])
-		}
-		for _, spec := range item_specials {
-			fmt.Printf("Special: Type: %s, Abbr: %s, Value: %s\n",
-				types[spec[0]], spec[1], spec[2])
-		}
-		for _, ench := range item_enchants {
-			fmt.Printf("Enchant: Name: %s, Dam_Pct: %s, Freq_Pct: %s, "+
-				"Sv_Mod: %s, Duration: %s\n",
-				ench[0], ench[1], ench[2], ench[3], ench[4])
-		}
-		for _, res := range item_resists {
-			fmt.Printf("Resist: Name: %s, Value: %s\n", resis[res[0]], res[1])
-		}
-		for _, um := range unmatch {
-			if !strings.Contains(um, "Can affect you as :") &&
-				!strings.Contains(um, "Enchantments:") &&
-				!strings.Contains(um, "You feel informed:") {
-				fmt.Println("Unmatched: ", um)
+			for _, flag := range item_flags {
+				if flag != "NOBITS" && flag != "NOBITSNOBITS" {
+					fmt.Printf("Flag: %s\n", iflags[flag])
+				}
 			}
-		}
-		//_ = full_stats
-		fmt.Print("\n----------\n\n")
-		// end of debug/test printing */
+			for _, rest := range item_restricts {
+				fmt.Printf("Restrict: %s\n", restrs[rest])
+			}
+			for _, attr := range item_attribs {
+				fmt.Printf("Attrib: %s, Value: %s\n", attrs[attr[0]], attr[1])
+			}
+			for _, spec := range item_specials {
+				fmt.Printf("Special: Type: %s, Abbr: %s, Value: %s\n",
+					types[spec[0]], spec[1], spec[2])
+			}
+			for _, ench := range item_enchants {
+				fmt.Printf("Enchant: Name: %s, Dam_Pct: %s, Freq_Pct: %s, "+
+					"Sv_Mod: %s, Duration: %s\n",
+					ench[0], ench[1], ench[2], ench[3], ench[4])
+			}
+			for _, res := range item_resists {
+				fmt.Printf("Resist: Name: %s, Value: %s\n", resis[res[0]], res[1])
+			}
+			for _, um := range unmatch {
+				if !strings.Contains(um, "Can affect you as :") &&
+					!strings.Contains(um, "Enchantments:") &&
+					!strings.Contains(um, "You feel informed:") {
+					fmt.Println("Unmatched: ", um)
+				}
+			}
+			//_ = full_stats
+			fmt.Print("\n----------\n\n")
+			// end of debug/test printing */
 
 		loc, err := time.LoadLocation("America/New_York")
 		ChkErr(err)
@@ -467,7 +467,7 @@ func Identify(filename string) {
 		// when using time.Format(), you need to make the format text
 		// from this exact datetime: Mon Jan 2 15:04:05 -0700 MST 2006
 
-		// check if exact name is already in DB
+		// check if exact name, keywords, type, weight, value is already in DB
 		query = "SELECT item_id, short_stats " +
 			"FROM items WHERE item_name = ? " +
 			"AND keywords = ? AND item_type = ? " +
@@ -510,9 +510,12 @@ func Identify(filename string) {
 					log.Printf("Unmatched: %s", um)
 				}
 			}
-			log.Printf("UPDATE items SET from_zone = '?' WHERE item_id = %d;", id)
-			log.Printf("INSERT INTO item_supps VALUES(%d, '?');", id)
-			log.Printf("INSERT INTO item_procs (item_id, proc_name) VALUES(%d, '?');", id)
+			log.Printf("UPDATE items SET from_zone = '?' "+
+				"WHERE item_id = %d; -- %s", id, item_name)
+			log.Printf("INSERT INTO item_supps VALUES(%d, '?'); -- %s",
+				id, item_name)
+			log.Printf("INSERT INTO item_procs (item_id, proc_name) "+
+				"VALUES(%d, '?'); -- %s", id, item_name)
 
 			for _, slot := range item_slots {
 				query = "INSERT INTO item_slots VALUES(?, ?)"

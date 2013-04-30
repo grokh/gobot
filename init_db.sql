@@ -41,6 +41,10 @@ CREATE TABLE boots(
 	,boot_time DATETIME NOT NULL
 	,uptime TEXT NOT NULL
 );
+INSERT INTO boots (boot_time, uptime) VALUES(
+	(SELECT datetime('now', '-1 minute'))
+	, '0:01:00'
+);
 CREATE TABLE loads(
 	boot_id INTEGER REFERENCES boots(boot_id) NOT NULL
 	,report_time DATETIME NOT NULL
@@ -57,37 +61,37 @@ CREATE TABLE enchants(
 	,ench_desc TEXT NOT NULL
 );
 CREATE TABLE attribs(
-	attrib_name TEXT PRIMARY KEY
-	,attrib_abbr TEXT NOT NULL
+	attrib_abbr TEXT PRIMARY KEY
+	,attrib_name TEXT NOT NULL
 	,attrib_display TEXT NOT NULL
 );
 CREATE TABLE effects(
-	effect_name TEXT PRIMARY KEY
-	,effect_abbr TEXT NOT NULL
+	effect_abbr TEXT PRIMARY KEY
+	,effect_name TEXT NOT NULL
 	,effect_display TEXT NOT NULL
 );
 CREATE TABLE resists(
-	resist_name TEXT PRIMARY KEY
-	,resist_abbr TEXT NOT NULL
+	resist_abbr TEXT PRIMARY KEY
+	,resist_name TEXT NOT NULL
 	,resist_display TEXT NOT NULL
 );
 CREATE TABLE restricts(
-	restrict_name TEXT PRIMARY KEY
-	,restrict_abbr TEXT NOT NULL
+	restrict_abbr TEXT PRIMARY KEY
+	,restrict_name TEXT NOT NULL
 );
 CREATE TABLE flags(
-	flag_name TEXT PRIMARY KEY
-	,flag_abbr TEXT NOT NULL
+	flag_abbr TEXT PRIMARY KEY
+	,flag_name TEXT NOT NULL
 	,flag_display TEXT NOT NULL
 );
 CREATE TABLE slots(
-	worn_slot TEXT PRIMARY KEY
-	,slot_abbr TEXT NOT NULL
+	slot_abbr TEXT PRIMARY KEY
+	,worn_slot TEXT NOT NULL
 	,slot_display TEXT NOT NULL
 );
 CREATE TABLE item_types(
-	item_type TEXT PRIMARY KEY
-	,type_abbr TEXT NOT NULL
+	type_abbr TEXT PRIMARY KEY
+	,item_type TEXT NOT NULL
 	,type_display TEXT NOT NULL
 );
 CREATE TABLE zones(
@@ -100,7 +104,7 @@ CREATE TABLE mobs(
 	,from_zone TEXT REFERENCES zones(zone_abbr)
 );
 CREATE TABLE specials(
-	item_type TEXT REFERENCES item_types(item_type)
+	item_type TEXT REFERENCES item_types(type_abbr)
 	,spec_abbr TEXT NOT NULL
 	,spec_display TEXT NOT NULL
 	,PRIMARY KEY (item_type, spec_abbr)
@@ -116,7 +120,7 @@ CREATE TABLE items(
 	,keywords TEXT NOT NULL
 	,weight INTEGER
 	,c_value INTEGER
-	,item_type TEXT REFERENCES item_types(item_type) NOT NULL
+	,item_type TEXT REFERENCES item_types(type_abbr) NOT NULL
 	,from_zone TEXT REFERENCES zones(zone_abbr) NOT NULL
 	,from_mob TEXT REFERENCES mobs(mob_name)
 	,short_stats TEXT
@@ -137,36 +141,36 @@ CREATE TABLE item_procs(
 );
 CREATE TABLE item_slots(
 	item_id INTEGER REFERENCES items(item_id)
-	,worn_slot TEXT REFERENCES slots(worn_slot)
-	,PRIMARY KEY (item_id, worn_slot)
+	,slot_abbr TEXT REFERENCES slots(slot_abbr)
+	,PRIMARY KEY (item_id, slot_abbr)
 );
 CREATE TABLE item_flags(
 	item_id INTEGER REFERENCES items(item_id)
-	,flag_name TEXT REFERENCES flags(flag_name)
-	,PRIMARY KEY (item_id, flag_name)
+	,flag_abbr TEXT REFERENCES flags(flag_abbr)
+	,PRIMARY KEY (item_id, flag_abbr)
 );
 CREATE TABLE item_restricts(
 	item_id INTEGER REFERENCES items(item_id)
-	,restrict_name TEXT REFERENCES restricts(restrict_name)
-	,PRIMARY KEY (item_id, restrict_name)
+	,restrict_abbr TEXT REFERENCES restricts(restrict_abbr)
+	,PRIMARY KEY (item_id, restrict_abbr)
 );
 CREATE TABLE item_resists(
 	item_id INTEGER REFERENCES items(item_id)
-	,resist_name TEXT REFERENCES resists(resist_name)
+	,resist_abbr TEXT REFERENCES resists(resist_abbr)
 	,resist_value INTEGER NOT NULL
-	,PRIMARY KEY (item_id, resist_name)
+	,PRIMARY KEY (item_id, resist_abbr)
 );
 CREATE TABLE item_effects(
 	item_id INTEGER REFERENCES items(item_id)
-	,effect_name TEXT REFERENCES effects(effect_name)
-	,PRIMARY KEY (item_id, effect_name)
+	,effect_abbr TEXT REFERENCES effects(effect_abbr)
+	,PRIMARY KEY (item_id, effect_abbr)
 );
 CREATE TABLE item_specials(
 	item_id INTEGER REFERENCES items(item_id)
 	,item_type TEXT
 	,spec_abbr TEXT
 	,spec_value TEXT NOT NULL
-	,FOREIGN KEY (item_type, spec_abbr) REFERENCES specials (item_type, spec_abbr)
+	,FOREIGN KEY (item_type, spec_abbr) REFERENCES specials (type_abbr, spec_abbr)
 	,PRIMARY KEY (item_id, item_type, spec_abbr)
 );
 CREATE TABLE item_enchants(
@@ -180,9 +184,9 @@ CREATE TABLE item_enchants(
 );
 CREATE TABLE item_attribs(
 	item_id INTEGER REFERENCES items(item_id)
-	,attrib_name TEXT REFERENCES attribs(attrib_name)
+	,attrib_abbr TEXT REFERENCES attribs(attrib_abbr)
 	,attrib_value INTEGER NOT NULL
-	,PRIMARY KEY (item_id, attrib_name)
+	,PRIMARY KEY (item_id, attrib_abbr)
 );
 CREATE TABLE item_supps(
 	item_id INTEGER REFERENCES items(item_id)

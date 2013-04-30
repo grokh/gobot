@@ -286,7 +286,20 @@ func Test_All(t *testing.T) {
 
 	// test item importing and statting
 	txt = Identify("testItems.txt")
+	good = "Items Inserted: 3, Items Ignored: 0\n"
+	if txt[0] != good {
+		t.Errorf("Identify() check failed.")
+	}
 	txt = FormatStats()
+	good = "Runtime: "
+	if !strings.Contains(txt[0], good) {
+		t.Errorf("FormatStats() check failed.")
+	}
+	txt = Identify("testItems.txt")
+	good = "Items Inserted: 0, Items Ignored: 3\n"
+	if txt[0] != good {
+		t.Errorf("Identify() check #2 failed.")
+	}
 
 	loc, err := time.LoadLocation("America/New_York")
 	chkErr(t, err)
@@ -342,6 +355,27 @@ func Test_All(t *testing.T) {
 	txt = ReplyTo(char, tell)
 	good = "t Yog 404 item(s) not found: resist blah\n"
 	chkReply(t, char, tell, good, txt)
+
+	txt = GlistStats(
+		"|Ynndchiarhlizz                  " +
+		"a black longsword of destruction|" +
+		"                                " +
+		"the mark of the dragonhunter|" +
+		"                                " +
+		"a tiny mithril stud set with a ruby")
+	good = "a black longsword of destruction (Wield) " +
+		"Dam:8 Hit:5 Fire:5% Infra * (Weapon) Dice:8D6 " +
+		"Crit:6% Multi:2x (Class: Martial, Type: Longsword) * " +
+		"Float Magic No_Burn No_Drop No_Loc Two_Hand " +
+		"!Mage !Pal !Priest !Rang !Thief * Wt:15 Val:10,000 * " +
+		"Zone: Unknown * Last ID: " + date + "\n" +
+		"the mark of the dragonhunter is not in the database.\n" +
+		"a tiny mithril stud set with a ruby (Ear) " +
+		"Dam:3 Maxagi:3 Fire:5% * No_Burn * Wt:0 Val:501,000 " +
+		"* Zone: Unknown * Last ID: "+date+"\n"
+	if strings.Join(txt, "") != good {
+		t.Errorf("GlistStats() check failed.")
+	}
 
 	cmd = exec.Command("sh", "-c", "rm toril.db")
 	err = cmd.Run()

@@ -9,14 +9,22 @@ import (
 	"time"
 )
 
-func chkReply(t *testing.T, char string, tell string, good string, txt []string) {
+func chkReply(
+	t *testing.T,
+	char string,
+	tell string,
+	good string,
+	txt []string,
+) {
 	if len(txt) == 1 {
 		if txt[0] != good {
-			t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s",
+			t.Errorf("ReplyTo Check failed: %s tells you '%s'"+
+				" Actual response: %s",
 				char, tell, txt[0])
 		}
 	} else {
-		t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s",
+		t.Errorf("ReplyTo Check failed: %s tells you '%s'"+
+			" Actual response: %s",
 			char, tell, "Incorrect number of responses!")
 	}
 }
@@ -28,7 +36,11 @@ func chkErr(t *testing.T, err error) {
 }
 
 func Test_All(t *testing.T) {
-	f, err := os.OpenFile("logs/test.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
+	f, err := os.OpenFile(
+		"logs/test.log",
+		os.O_RDWR|os.O_APPEND|os.O_CREATE,
+		0640,
+	)
 	defer f.Close()
 	chkErr(t, err)
 	log.SetOutput(f)
@@ -36,7 +48,8 @@ func Test_All(t *testing.T) {
 	cmd := exec.Command("sh", "-c", "mv toril.db toril.db.bak")
 	err = cmd.Run()
 	chkErr(t, err)
-	cmd = exec.Command("sh", "-c", "echo '.read init_db.sql' | sqlite3 toril.db")
+	cmd = exec.Command("sh", "-c",
+		"echo '.read init_db.sql' | sqlite3 toril.db")
 	err = cmd.Run()
 	chkErr(t, err)
 
@@ -119,7 +132,9 @@ func Test_All(t *testing.T) {
 	char, tell = "Someone", "hidden"
 	txt = ReplyTo(char, tell)
 	if len(txt) > 0 {
-		t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %v", char, tell, txt)
+		t.Errorf(
+			"ReplyTo Check failed: %s tells you '%s' Actual response: %v",
+			char, tell, txt)
 	}
 
 	char, tell = "Yog", "who blah"
@@ -147,11 +162,15 @@ func Test_All(t *testing.T) {
 	good = "t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + "\n"
 	if len(txt) == 2 {
 		if txt[0] != good {
-			t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s", char, tell, txt[0])
+			t.Errorf(
+				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
+				char, tell, txt[0])
 		}
 		good = "t Yog [1 Warrior] Tom (Drow Elf) (@Bob) seen " + date + "\n"
 		if txt[1] != good {
-			t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s", char, tell, txt[1])
+			t.Errorf(
+				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
+				char, tell, txt[1])
 		}
 	} else {
 		t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s",
@@ -175,7 +194,8 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "lr blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Invalid syntax. For valid syntax: tell katumi ?, tell katumi help <cmd>\n"
+	good = "t Yog Invalid syntax. For valid syntax:" +
+		" tell katumi ?, tell katumi help <cmd>\n"
 	chkReply(t, char, tell, good, txt)
 
 	char, tell = "Yog", "lr ogre in space"
@@ -193,7 +213,9 @@ func Test_All(t *testing.T) {
 	good = "t Yog 2: thing at place [Yog at " + date + "]\n"
 	if len(txt) == 2 {
 		if txt[1] != good {
-			t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s", char, tell, txt[1])
+			t.Errorf(
+				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
+				char, tell, txt[1])
 		}
 	} else {
 		t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s",
@@ -212,7 +234,8 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "lrdel blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Invalid syntax. For valid syntax: tell katumi ?, tell katumi help <cmd>\n"
+	good = "t Yog Invalid syntax. For valid syntax: " +
+		"tell katumi ?, tell katumi help <cmd>\n"
 	chkReply(t, char, tell, good, txt)
 
 	char, tell = "Yog", "find bob"
@@ -252,7 +275,8 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "help ?"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Syntax: tell katumi ? -- Katumi provides a full listing of valid commands.\n"
+	good = "t Yog Syntax: tell katumi ? -- " +
+		"Katumi provides a full listing of valid commands.\n"
 	chkReply(t, char, tell, good, txt)
 
 	char, tell = "Yog", "help blah"
@@ -270,7 +294,8 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "stat bane stiletto"
 	txt = ReplyTo(char, tell)
-	good = "t Yog the infernal stiletto of bane (Wield) Dam:4 Hit:5 Haste Slow_Poi " +
+	good = "t Yog the infernal stiletto of bane (Wield)" +
+		" Dam:4 Hit:5 Haste Slow_Poi " +
 		"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
 		"!Mage !Priest * Wt:5 Val:0 * Zone: Unknown * Last ID: " + date + "\n"
 	chkReply(t, char, tell, good, txt)
@@ -282,13 +307,16 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "astat destruction sword"
 	txt = ReplyTo(char, tell)
-	good = "t Yog a black longsword of destruction (Wielded), Damroll: 8, Hitroll: 5, " +
-		"Fire: 5%, Infravision (Item Type: Weapon) Damage Dice: 8D6, Crit Chance: 6%, " +
+	good = "t Yog a black longsword of destruction (Wielded), " +
+		"Damroll: 8, Hitroll: 5, " +
+		"Fire: 5%, Infravision (Item Type: Weapon) " +
+		"Damage Dice: 8D6, Crit Chance: 6%, " +
 		"Crit Multiplier: 2x, (Class: Martial, Type: Longsword) * " +
 		"Float, Magic, No Burn, No Drop, No Locate, Two Handed " +
 		"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER N\n" +
 		"t Yog O-THIEF * Keywords:(black sword destruction twilight) * " +
-		"Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " + date + "\n"
+		"Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " +
+		date + "\n"
 	chkReply(t, char, tell, good, txt)
 
 	char, tell = "Yog", "astat blah"
@@ -298,13 +326,16 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "fstat resist fire, maxagi > 0, slot ear"
 	txt = ReplyTo(char, tell)
-	good = "t Yog a tiny mithril stud set with a ruby (Ear) Dam:3 Maxagi:3 Fire:5% " +
-		"* No_Burn * Wt:0 Val:501,000 * Zone: Unknown * Last ID: " + date + "\n"
+	good = "t Yog a tiny mithril stud set with a ruby (Ear) " +
+		"Dam:3 Maxagi:3 Fire:5% " +
+		"* No_Burn * Wt:0 Val:501,000 * Zone: Unknown * Last ID: " +
+		date + "\n"
 	chkReply(t, char, tell, good, txt)
 
 	char, tell = "Yog", "fstat blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Invalid syntax. For valid syntax: tell katumi ?, tell katumi help <cmd>\n"
+	good = "t Yog Invalid syntax. For valid syntax: " +
+		"tell katumi ?, tell katumi help <cmd>\n"
 	chkReply(t, char, tell, good, txt)
 
 	char, tell = "Yog", "fstat resist blah"

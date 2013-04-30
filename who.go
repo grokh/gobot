@@ -15,7 +15,8 @@ func WhoBatch(batch string) []string {
 	var cmds []string
 	batch = strings.Trim(batch, "| ")
 	ppl := strings.Split(batch, "|")
-	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]-]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
+	re, err := regexp.Compile(
+		`^\[[ ]?(\d{1,2}) ([[:alpha:]-]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
 	ChkErr(err)
 
 	db := OpenDB()

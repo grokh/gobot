@@ -192,7 +192,7 @@ func Test_All(t *testing.T) {
 	txt = ReplyTo(char, tell)
 	good = "t Yog 2: thing at place [Yog at " + date + "]\n"
 	if len(txt) == 2 {
-		if !strings.Contains(txt[1], good) {
+		if txt[1] != good {
 			t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s", char, tell, txt[1])
 		}
 	} else {
@@ -281,12 +281,12 @@ func Test_All(t *testing.T) {
 	chkReply(t, char, tell, good, txt)
 
 	char, tell = "Yog", "astat destruction sword"
-	txt = ReplyTo(char, tell) // t %s %s\nt %s %s\n"
+	txt = ReplyTo(char, tell)
 	good = "t Yog a black longsword of destruction (Wielded), Damroll: 8, Hitroll: 5, " +
 		"Fire: 5%, Infravision (Item Type: Weapon) Damage Dice: 8D6, Crit Chance: 6%, " +
 		"Crit Multiplier: 2x, (Class: Martial, Type: Longsword) * " +
 		"Float, Magic, No Burn, No Drop, No Locate, Two Handed " +
-		"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER N\n" + 
+		"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER N\n" +
 		"t Yog O-THIEF * Keywords:(black sword destruction twilight) * " +
 		"Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " + date + "\n"
 	chkReply(t, char, tell, good, txt)

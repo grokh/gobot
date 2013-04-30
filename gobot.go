@@ -92,6 +92,6 @@ func main() {
 		RestoreDB(*restore)
 	}
 	for _, cmd := range cmds {
-		fmt.Printf(cmd)
+		fmt.Print(cmd)
 	}
 }

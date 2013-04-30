@@ -737,5 +737,13 @@ func ReplyTo(char string, tell string) []string {
 	default:
 		txt = append(txt, BadSyntax)
 	}
+	for i, t := range txt {
+		// very lazy, should actually split on first blank space <300
+		if len(t) > 300 {
+			txt[i] = fmt.Sprintf("t %s %s\nt %s %s\n", char, t[:300], char, t[300:])
+		} else {
+			txt[i] = fmt.Sprintf("t %s %s\n", char, t)
+		}
+	}
 	return txt
 }

@@ -182,6 +182,16 @@ func Test_All(t *testing.T) {
 	good = "t Yog 404 character or account not found: blah\n"
 	chkReply(t, char, tell, good, txt)
 
+	char, tell = "Yog", "class enchanter"
+	txt = ReplyTo(char, tell)
+	good = "t Yog 404 class not found: enchanter\n"
+	chkReply(t, char, tell, good, txt)
+
+	char, tell = "Yog", "class bard"
+	txt = ReplyTo(char, tell)
+	good = "t Yog [50 Bard] Bob (Human) (@Bob)\n"
+	chkReply(t, char, tell, good, txt)
+
 	char, tell = "Yog", "lr"
 	txt = ReplyTo(char, tell)
 	good = "t Yog No loads reported for current boot.\n"
@@ -376,6 +386,9 @@ func Test_All(t *testing.T) {
 	if strings.Join(txt, "") != good {
 		t.Errorf("GlistStats() check failed.")
 	}
+
+	up = "0:01:00"
+	Uptime(up)
 
 	cmd = exec.Command("sh", "-c", "rm toril.db")
 	err = cmd.Run()

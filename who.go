@@ -11,7 +11,8 @@ import (
 	"time"
 )
 
-func WhoBatch(batch string) {
+func WhoBatch(batch string) []string {
+	var cmds []string
 	batch = strings.Trim(batch, "| ")
 	ppl := strings.Split(batch, "|")
 	re, err := regexp.Compile(`^\[[ ]?(\d{1,2}) ([[:alpha:]-]{3})\] ([[:alpha:]]+) .*\((.*)\)`)
@@ -51,7 +52,8 @@ func WhoBatch(batch string) {
 						log.Fatal(err)
 					} else {
 						if affected != 1 {
-							fmt.Printf("who %s\n", name)
+							cmd := fmt.Sprintf("who %s\n", name)
+							cmds = append(cmds, cmd)
 						}
 					}
 				}
@@ -60,6 +62,7 @@ func WhoBatch(batch string) {
 	}
 
 	tx.Commit()
+	return cmds
 }
 
 func WhoChar(char string, lvl int, class string, race string, acct string) {
@@ -109,7 +112,7 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 		tx, err := db.Begin()
 		ChkErr(err)
 
-		class = strings.Trim(class, " ")
+		class = strings.TrimSpace(class)
 		query = "INSERT INTO chars VALUES(?, ?, ?, ?, ?, ?, 't')"
 		stmt, err := tx.Prepare(query)
 		ChkErr(err)

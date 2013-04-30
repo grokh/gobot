@@ -9,11 +9,12 @@ import (
 	"strings"
 )
 
-func GlistStats(list string) {
+func GlistStats(list string) []string {
 	db, err := sql.Open("sqlite3", "toril.db")
 	ChkErr(err)
 	defer db.Close()
 
+	var txt []string
 	// query items table for exact item name
 	list = strings.Trim(list, "| ")
 	//log.Printf("List: %v\n", list) // debug
@@ -37,16 +38,18 @@ func GlistStats(list string) {
 			err = stmt.QueryRow(item).Scan(&stat)
 			if err == sql.ErrNoRows {
 				item = strings.Trim(item, " 1")
-				fmt.Printf("%s is not in the database.\n", item)
+				txt = append(txt,
+					fmt.Sprintf("%s is not in the database.\n", item))
 			} else if err != nil {
 				log.Fatal(err)
 			} else {
-				fmt.Printf("%s\n", stat)
+				txt = append(txt, fmt.Sprintf("%s\n", stat))
 			}
 		} else if err != nil {
 			log.Fatal(err)
 		} else {
-			fmt.Printf("%s\n", stat)
+			txt = append(txt, fmt.Sprintf("%s\n", stat))
 		}
 	}
+	return txt
 }

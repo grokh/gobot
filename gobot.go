@@ -66,15 +66,15 @@ func main() {
 
 	flag.Parse()
 
-	var txt []string
+	var cmds []string
 	// only run one command at a time
 	switch {
 	case *time != "":
 		Uptime(*time)
 	case *who != "":
-		WhoBatch(*who)
+		cmds = WhoBatch(*who)
 	case *char != "" && *tell != "":
-		txt = ReplyTo(*char, *tell)
+		cmds = ReplyTo(*char, *tell)
 	case *char != "" && 50 >= *lvl && *lvl > 0 &&
 		*class != "" && *race != "" && *acct != "":
 		WhoChar(*char, *lvl, *class, *race, *acct)
@@ -91,13 +91,7 @@ func main() {
 	case *restore != "": // this doesn't work on Mac OS X
 		RestoreDB(*restore)
 	}
-	for _, t := range txt {
-		// very lazy, should actually split on 
-		// first blank space <300
-		if len(t) > 300 {
-			fmt.Printf("t %s %s\nt %s %s\n", *char, t[:300], *char, t[300:])
-		} else {
-			fmt.Printf("t %s %s\n", *char, t)
-		}
+	for _, cmd := range cmds {
+		fmt.Printf(cmd)
 	}
 }

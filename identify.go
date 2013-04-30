@@ -13,15 +13,17 @@ import (
 	"time"
 )
 
-func Identify(filename string) {
+func Identify(filename string) []string {
 	f, err := os.OpenFile("logs/import.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
 	defer f.Close()
 	ChkErr(err)
 	log.SetOutput(f)
 
+	inserted, ignored := 0, 0
+
 	content, err := ioutil.ReadFile(filename)
 	ChkErr(err)
-	text := string(content)
+	text := strings.TrimSpace(string(content))
 
 	// put all flags/restricts, or effects, on one line
 	re, err := regexp.Compile(`([[:upper:]]{2})\n([[:upper:]]{2})`)
@@ -503,6 +505,7 @@ func Identify(filename string) {
 			id, err = res.LastInsertId()
 			ChkErr(err)
 			log.Printf("Inserted new item: id[%d], name: %s", id, item_name)
+			inserted++
 			for _, um := range unmatch {
 				if !strings.Contains(um, "Can affect you as :") &&
 					!strings.Contains(um, "Enchantments:") &&
@@ -597,6 +600,7 @@ func Identify(filename string) {
 		} else if err != nil {
 			log.Fatal(err)
 		} else {
+			ignored++
 			log.Printf("Item already exists: id[%d], name: %s", id, item_name)
 			log.Printf("UPDATE items SET last_id = '%s' WHERE item_id = %d;", date, id)
 			log.Println(short_stats)
@@ -608,4 +612,6 @@ func Identify(filename string) {
 		// manual updates: procs, zone, supps
 		// end of DB stuff */
 	}
+	txt := []string{fmt.Sprintf("Items Inserted: %d, Items Ignored: %d\n", inserted, ignored)}
+	return txt
 }

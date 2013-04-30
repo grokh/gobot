@@ -20,7 +20,7 @@ var i struct {
 	txt1, txt2, txt3, txt4, txt5             string // temp, special ordering
 }
 
-func FormatStats() {
+func FormatStats() []string {
 	t1 := time.Now()
 
 	db := OpenDB()
@@ -85,7 +85,8 @@ func FormatStats() {
 	tx.Commit()
 
 	t2 := time.Now()
-	fmt.Printf("Runtime: %v\n", t2.Sub(t1).String())
+	txt := []string{fmt.Sprintf("Runtime: %v\n", t2.Sub(t1).String())}
+	return txt
 }
 
 func ConstructShortStats(db *sql.DB, id int) string {

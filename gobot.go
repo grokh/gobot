@@ -87,7 +87,7 @@ func main() {
 	case *item != "":
 		fmt.Println(FindItem(*item, "short_stats"))
 	case *glist != "":
-		GlistStats(*glist)
+		cmds = GlistStats(*glist)
 	case *file != "":
 		cmds = Identify(*file)
 	case *backup:

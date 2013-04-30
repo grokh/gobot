@@ -1,0 +1,45 @@
+Name 'a black longsword of destruction'
+Keyword 'black sword destruction twilight', Item type: WEAPON
+Item can be worn on:  WIELD 
+Item will give you following abilities:  INFRA 
+Item is: MAGIC NODROP FLOAT NOBURN NOLOCATE TWOHANDS NO-CLERIC NO-THIEF NO-MAGE ANTI-RANGER ANTI-PALADIN 
+Weight: 15, Value: 10000
+Type: Longsword Class: Martial
+Damage:  8D6  Crit Range: 6%  Crit Bonus: 2x
+Resists:
+    Fire  :    5% 
+Can affect you as :
+    Affects : HITROLL by 5
+    Affects : DAMROLL by 8
+Special Effects : Battle Rage
+Zone: Jot Invasion
+
+Name 'a tiny mithril stud set with a ruby'
+Keyword 'stud mithril set ruby', Item type: WORN
+Item can be worn on:  EARRING 
+Item will give you following abilities:  NOBITS
+Item is: NOBURN NOBITS
+Weight: 0, Value: 501000
+Resists:
+    Fire  :    5% 
+Can affect you as :
+    Affects : DAMROLL By 3
+    Affects : AGI_MAX By 3
+Zone: Skullport, from quest
+
+Name 'the infernal stiletto of bane'
+Keyword 'infernal stiletto bane', Item type: WEAPON
+Item can be worn on:  WIELD
+Item will give you following abilities:  HASTE SLOW-POISON 
+Item is: MAGIC FLOAT NOBURN NOLOCATE NO-WARRIOR NO-CLERIC NO-MAGE NOBITS
+Weight: 5, Value: 0
+Damage Dice are '4D4'
+Can affect you as :
+    Affects : HITROLL by 5
+    Affects : DAMROLL by 4
+Called Effects :  (invoked by 'say'ing them)
+                  'Dragonpoison'  effect: poison       - 1 charge
+                  'Dragonslow'    effect: slow         - 2 charge
+                  'Dragonblind'   effect: blind        - 3 charge
+                  'Dragonstrike'  effect: instant kill - 5 charge
+Zone: Tiamat, rare

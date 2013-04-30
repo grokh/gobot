@@ -417,52 +417,6 @@ func Identify(filename string) []string {
 		ChkRows(rows)
 		stmt.Close()
 
-		/*
-			fmt.Printf("Name: %s\nKeywords: %s\nType: %s\n",
-				item_name, keywords, types[item_type])
-			fmt.Printf("Weight: %d\nValue: %d\n", weight, c_value)
-			for _, slot := range item_slots {
-				fmt.Printf("Slot: %s\n", slots[slot])
-			}
-			for _, eff := range item_effects {
-				if eff != "NOBITS" && eff != "GROUP_CACHED" {
-					fmt.Printf("Effect: %s\n", effs[eff])
-				}
-			}
-			for _, flag := range item_flags {
-				if flag != "NOBITS" && flag != "NOBITSNOBITS" {
-					fmt.Printf("Flag: %s\n", iflags[flag])
-				}
-			}
-			for _, rest := range item_restricts {
-				fmt.Printf("Restrict: %s\n", restrs[rest])
-			}
-			for _, attr := range item_attribs {
-				fmt.Printf("Attrib: %s, Value: %s\n", attrs[attr[0]], attr[1])
-			}
-			for _, spec := range item_specials {
-				fmt.Printf("Special: Type: %s, Abbr: %s, Value: %s\n",
-					types[spec[0]], spec[1], spec[2])
-			}
-			for _, ench := range item_enchants {
-				fmt.Printf("Enchant: Name: %s, Dam_Pct: %s, Freq_Pct: %s, "+
-					"Sv_Mod: %s, Duration: %s\n",
-					ench[0], ench[1], ench[2], ench[3], ench[4])
-			}
-			for _, res := range item_resists {
-				fmt.Printf("Resist: Name: %s, Value: %s\n", resis[res[0]], res[1])
-			}
-			for _, um := range unmatch {
-				if !strings.Contains(um, "Can affect you as :") &&
-					!strings.Contains(um, "Enchantments:") &&
-					!strings.Contains(um, "You feel informed:") {
-					fmt.Println("Unmatched: ", um)
-				}
-			}
-			//_ = full_stats
-			fmt.Print("\n----------\n\n")
-			// end of debug/test printing */
-
 		loc, err := time.LoadLocation("America/New_York")
 		ChkErr(err)
 		date := time.Now().In(loc).Format("2006-01-02")

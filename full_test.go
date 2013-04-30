@@ -261,8 +261,8 @@ func Test_All(t *testing.T) {
 	chkReply(t, char, tell, good, txt)
 
 	// test item importing and statting
-	Identify("testItems.txt")
-	FormatStats()
+	txt = Identify("testItems.txt")
+	txt = FormatStats()
 
 	loc, err := time.LoadLocation("America/New_York")
 	chkErr(t, err)

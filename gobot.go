@@ -79,13 +79,13 @@ func main() {
 		*class != "" && *race != "" && *acct != "":
 		WhoChar(*char, *lvl, *class, *race, *acct)
 	case *stats:
-		FormatStats()
+		cmds = FormatStats()
 	case *item != "":
 		fmt.Println(FindItem(*item, "short_stats"))
 	case *glist != "":
 		GlistStats(*glist)
 	case *file != "":
-		Identify(*file)
+		cmds = Identify(*file)
 	case *backup:
 		BackupDB()
 	case *restore != "": // this doesn't work on Mac OS X

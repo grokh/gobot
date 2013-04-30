@@ -39,7 +39,8 @@ func Uptime(curup string) {
 		ChkErr(err)
 
 		boottime := time.Now().In(loc).Add(-curtime)
-		stmt, err = db.Prepare("INSERT INTO boots (boot_time, uptime) VALUES(?, ?)")
+		stmt, err = db.Prepare(
+			"INSERT INTO boots (boot_time, uptime) VALUES(?, ?)")
 		ChkErr(err)
 		defer stmt.Close()
 
@@ -54,7 +55,8 @@ func Uptime(curup string) {
 		// it's still the current boot, so update current uptime
 		tx, err := db.Begin()
 		ChkErr(err)
-		stmt, err := tx.Prepare("UPDATE boots SET uptime = ? WHERE boot_id = ?")
+		stmt, err := tx.Prepare(
+			"UPDATE boots SET uptime = ? WHERE boot_id = ?")
 		ChkErr(err)
 		defer stmt.Close()
 

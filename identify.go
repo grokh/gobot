@@ -14,7 +14,11 @@ import (
 )
 
 func Identify(filename string) []string {
-	f, err := os.OpenFile("logs/import.log", os.O_RDWR|os.O_APPEND|os.O_CREATE, 0640)
+	f, err := os.OpenFile(
+		"logs/import.log",
+		os.O_RDWR|os.O_APPEND|os.O_CREATE,
+		0640,
+	)
 	defer f.Close()
 	ChkErr(err)
 	log.SetOutput(f)

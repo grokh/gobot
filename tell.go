@@ -189,11 +189,12 @@ func Help(oper string) []string {
 			"[, <stat2> <sym2> <num2>][, resist <resist>][, slot <slot>] -- "+
 			"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- "+
 			"Katumi provides up to 10 results which match the parameters.")
-		txt = append(txt, "Type attribs as they appear in stats: str, maxstr, svsp, "+
-			"dam, sf_illu, fire, unarm, ear, on_body, etc. "+
-			"Valid comparisons are >, <, and =. "+
-			"Resists check for a positive value. "+
-			"Other options will be added later.")
+		txt = append(txt,
+			"Type attribs as they appear in stats: str, maxstr, svsp, "+
+				"dam, sf_illu, fire, unarm, ear, on_body, etc. "+
+				"Valid comparisons are >, <, and =. "+
+				"Resists check for a positive value. "+
+				"Other options will be added later.")
 	default:
 		txt = append(txt, NotFound("help file", oper))
 	}
@@ -740,7 +741,8 @@ func ReplyTo(char string, tell string) []string {
 	for i, t := range txt {
 		// very lazy, should actually split on first blank space <300
 		if len(t) > 300 {
-			txt[i] = fmt.Sprintf("t %s %s\nt %s %s\n", char, t[:300], char, t[300:])
+			txt[i] = fmt.Sprintf("t %s %s\nt %s %s\n",
+				char, t[:300], char, t[300:])
 		} else {
 			txt[i] = fmt.Sprintf("t %s %s\n", char, t)
 		}

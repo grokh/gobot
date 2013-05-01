@@ -562,10 +562,10 @@ func Identify(filename string) []string {
 			ignored++
 			log.Printf(
 				"Item already exists: id[%d], name: %s",
-					id, item_name)
+				id, item_name)
 			log.Printf(
 				"UPDATE items SET last_id = '%s' WHERE item_id = %d;",
-					date, id)
+				date, id)
 			log.Println(short_stats)
 			log.Println(full_stats)
 			// if same name and such, update the date of last_id

@@ -368,11 +368,11 @@ func Test_All(t *testing.T) {
 
 	txt = GlistStats(
 		"|Ynndchiarhlizz                  " +
-		"a black longsword of destruction|" +
-		"                                " +
-		"the mark of the dragonhunter|" +
-		"                                " +
-		"a tiny mithril stud set with a ruby")
+			"a black longsword of destruction|" +
+			"                                " +
+			"the mark of the dragonhunter|" +
+			"                                " +
+			"a tiny mithril stud set with a ruby")
 	good = "a black longsword of destruction (Wield) " +
 		"Dam:8 Hit:5 Fire:5% Infra * (Weapon) Dice:8D6 " +
 		"Crit:6% Multi:2x (Class: Martial, Type: Longsword) * " +
@@ -382,13 +382,13 @@ func Test_All(t *testing.T) {
 		"the mark of the dragonhunter is not in the database.\n" +
 		"a tiny mithril stud set with a ruby (Ear) " +
 		"Dam:3 Maxagi:3 Fire:5% * No_Burn * Wt:0 Val:501,000 " +
-		"* Zone: Unknown * Last ID: "+date+"\n"
+		"* Zone: Unknown * Last ID: " + date + "\n"
 	if strings.Join(txt, "") != good {
 		t.Errorf("GlistStats() check failed.")
 	}
 
-	up = "0:01:00"
-	Uptime(up)
+	//up = "0:01:00"
+	//Uptime(up)
 
 	cmd = exec.Command("sh", "-c", "rm toril.db")
 	err = cmd.Run()

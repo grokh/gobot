@@ -62,7 +62,7 @@ func FindItem(oper string, length string) string {
 					"items WHERE "
 				for n, word := range words {
 					query += "item_name LIKE ? AND "
-					args[n] = "%"+word+"%"
+					args[n] = "%" + word + "%"
 				}
 				query = strings.TrimRight(query, "AND ")
 

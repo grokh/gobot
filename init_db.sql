@@ -716,7 +716,7 @@ CREATE TABLE item_specials(
 	,item_type TEXT
 	,spec_abbr TEXT
 	,spec_value TEXT NOT NULL
-	,FOREIGN KEY (item_type, spec_abbr) REFERENCES specials (type_abbr, spec_abbr)
+	,FOREIGN KEY (item_type, spec_abbr) REFERENCES specials (item_type, spec_abbr)
 	,PRIMARY KEY (item_id, item_type, spec_abbr)
 );
 CREATE TABLE item_enchants(

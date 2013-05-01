@@ -1,8 +1,6 @@
 package main
 
 import (
-	// _ "github.com/bmizerany/pq"
-	_ "github.com/mattn/go-sqlite3"
 	"strings"
 	"time"
 )

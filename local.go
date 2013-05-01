@@ -3,15 +3,12 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	// _ "github.com/bmizerany/pq"
-	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"strings"
 )
 
 func GlistStats(list string) []string {
-	db, err := sql.Open("sqlite3", "toril.db")
-	ChkErr(err)
+	db := OpenDB()
 	defer db.Close()
 
 	var txt []string

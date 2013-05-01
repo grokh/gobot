@@ -14,6 +14,10 @@ func OpenDB() *sql.DB {
 	if err != nil {
 		log.Fatalln("Fatal Error: Cannot open DB: ", err)
 	}
+	_, err = db.Exec("PRAGMA foreign_keys = ON;")
+	if err != nil {
+		log.Fatalln("Fatal Error: Cannot enforce foreign keys: ", err)
+	}
 	return db
 }
 

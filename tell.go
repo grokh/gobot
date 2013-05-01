@@ -37,11 +37,11 @@ func FindItem(oper string, length string) string {
 		query = "SELECT " + length + " FROM items " +
 			"WHERE item_name LIKE ? LIMIT 1"
 
-		stmt2, err := db.Prepare(query)
+		stmt, err = db.Prepare(query)
 		ChkErr(err)
-		defer stmt2.Close()
+		defer stmt.Close()
 
-		err = stmt2.QueryRow(item).Scan(&stats)
+		err = stmt.QueryRow(item).Scan(&stats)
 		if err == sql.ErrNoRows {
 			// if no match on LIKE, check with %'s in place of spaces
 			item = " " + oper + " "
@@ -49,28 +49,28 @@ func FindItem(oper string, length string) string {
 			query = "SELECT " + length + " FROM items " +
 				"WHERE item_name LIKE ? LIMIT 1"
 
-			stmt3, err := db.Prepare(query)
+			stmt, err = db.Prepare(query)
 			ChkErr(err)
-			defer stmt3.Close()
+			defer stmt.Close()
 
-			err = stmt3.QueryRow(item).Scan(&stats)
+			err = stmt.QueryRow(item).Scan(&stats)
 			if err == sql.ErrNoRows {
 				// if no match on %'s, check general strings in any order
 				words := strings.Fields(oper)
-				var args []interface{}
+				args := make([]interface{}, len(words))
 				query = "SELECT " + length + " FROM " +
 					"items WHERE "
-				for _, word := range words {
+				for n, word := range words {
 					query += "item_name LIKE ? AND "
-					args = append(args, "%"+word+"%")
+					args[n] = "%"+word+"%"
 				}
 				query = strings.TrimRight(query, "AND ")
 
-				stmt4, err := db.Prepare(query)
+				stmt, err := db.Prepare(query)
 				ChkErr(err)
-				defer stmt4.Close()
+				defer stmt.Close()
 
-				err = stmt4.QueryRow(args...).Scan(&stats)
+				err = stmt.QueryRow(args...).Scan(&stats)
 				if err == sql.ErrNoRows {
 					stats = NotFound("item", oper)
 				} else if err != nil {

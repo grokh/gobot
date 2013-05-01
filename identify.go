@@ -542,7 +542,8 @@ func Identify(filename string) []string {
 				ChkErr(err)
 				defer stmt.Close()
 
-				_, err = stmt.Exec(id, ench[0], ench[1], ench[2], ench[3], ench[4])
+				_, err = stmt.Exec(id,
+					ench[0], ench[1], ench[2], ench[3], ench[4])
 				ChkErr(err)
 			}
 			for _, res := range item_resists {
@@ -559,8 +560,12 @@ func Identify(filename string) []string {
 			log.Fatal(err)
 		} else {
 			ignored++
-			log.Printf("Item already exists: id[%d], name: %s", id, item_name)
-			log.Printf("UPDATE items SET last_id = '%s' WHERE item_id = %d;", date, id)
+			log.Printf(
+				"Item already exists: id[%d], name: %s",
+					id, item_name)
+			log.Printf(
+				"UPDATE items SET last_id = '%s' WHERE item_id = %d;",
+					date, id)
 			log.Println(short_stats)
 			log.Println(full_stats)
 			// if same name and such, update the date of last_id
@@ -570,6 +575,8 @@ func Identify(filename string) []string {
 		// manual updates: procs, zone, supps
 		// end of DB stuff */
 	}
-	txt := []string{fmt.Sprintf("Items Inserted: %d, Items Ignored: %d\n", inserted, ignored)}
+	txt := []string{
+		fmt.Sprintf("Items Inserted: %d, Items Ignored: %d\n",
+			inserted, ignored)}
 	return txt
 }

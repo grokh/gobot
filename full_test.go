@@ -116,7 +116,8 @@ func Test_All(t *testing.T) {
 	good = "t Yog I am a Helper Bot (Beta). Valid commands: " +
 		"?, help <cmd>, hidden?, who <char>, char <char>, clist <char>, " +
 		"find <char>, class <class>, delalt <char>, addalt <char>, " +
-		"lr, lr <report>, stat <item>, astat <item>, fstat <att> <comp> <val>. " +
+		"lr, lr <report>, stat <item>, astat <item>, " +
+		"fstat <att> <comp> <val>. " +
 		"For further information, tell katumi help <cmd>\n"
 	chkReply(t, char, tell, good, txt)
 

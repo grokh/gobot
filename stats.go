@@ -68,10 +68,12 @@ func FormatStats() []string {
 	// put the batched short_stats into the database
 	tx, err := db.Begin()
 	ChkErr(err)
-	stmt1, err := tx.Prepare("UPDATE items SET short_stats = ? WHERE item_id = ?")
+	stmt1, err := tx.Prepare(
+		"UPDATE items SET short_stats = ? WHERE item_id = ?")
 	ChkErr(err)
 	defer stmt1.Close()
-	stmt2, err := tx.Prepare("UPDATE items SET long_stats = ? WHERE item_id = ?")
+	stmt2, err := tx.Prepare(
+		"UPDATE items SET long_stats = ? WHERE item_id = ?")
 	ChkErr(err)
 	defer stmt2.Close()
 
@@ -758,7 +760,10 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		i.itype += fmt.Sprintf(" Weight: %d", i.wt)
 	}
 	if i.val != -1 {
-		i.itype += fmt.Sprintf(", Value: %s copper", humanize.Comma(int64(i.val)))
+		i.itype += fmt.Sprintf(
+			", Value: %s copper",
+			humanize.Comma(int64(i.val)),
+		)
 	}
 
 	// construct the zone and last id

@@ -36,24 +36,22 @@ func WhoBatch(batch string) []string {
 	var lvl string
 	var name string
 	for _, who := range ppl {
-		char := re.FindAllStringSubmatch(who, -1)
+		char := re.FindStringSubmatch(who)
 		//log.Println(char)
-		if len(char) > 0 {
-			if len(char[0]) == 5 {
-				lvl = char[0][1]
-				name = char[0][3]
-				res, err := stmt.Exec(lvl, date, name)
+		if len(char) == 5 {
+			lvl = char[1]
+			name = char[3]
+			res, err := stmt.Exec(lvl, date, name)
+			if err != nil {
+				log.Fatal(err)
+			} else {
+				affected, err := res.RowsAffected()
 				if err != nil {
 					log.Fatal(err)
 				} else {
-					affected, err := res.RowsAffected()
-					if err != nil {
-						log.Fatal(err)
-					} else {
-						if affected != 1 {
-							cmd := fmt.Sprintf("who %s\n", name)
-							cmds = append(cmds, cmd)
-						}
+					if affected != 1 {
+						cmd := fmt.Sprintf("who %s\n", name)
+						cmds = append(cmds, cmd)
 					}
 				}
 			}
@@ -71,7 +69,7 @@ func WhoChar(
 	race string,
 	acct string,
 ) []string {
-	txt := make([]string, 1)
+	var txt []string
 	loc, err := time.LoadLocation("America/New_York")
 	ChkErr(err)
 	date := time.Now().In(loc)
@@ -108,10 +106,14 @@ func WhoChar(
 			defer stmt.Close()
 
 			log.Printf("New acct: @%s", acct)
-			txt[0] = fmt.Sprintf(
-				"nhc Welcome, %s. If you have any questions, "+
-					"feel free to ask on this channel like this: "+
-					"nhc hi", char)
+			txt = append(txt,
+				fmt.Sprintf(
+					"nhc Welcome, %s. If you have any questions, "+
+						"feel free to ask on this channel like this: "+
+						"nhc hi",
+					char,
+				),
+			)
 			_, err = stmt.Exec(acct)
 			ChkErr(err)
 			tx.Commit()

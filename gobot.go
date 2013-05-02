@@ -54,7 +54,8 @@ func main() {
 		"Parse uptime for boot tracking. Ex: 58:10:26")
 	// for local.go glstat
 	var glist = flag.String("glist", "",
-		"Provide stats for multiple items at once. Ex: \"a longsword|a dagger\"")
+		"Provide stats for multiple items at once. "+
+			"Ex: \"a longsword|a dagger\"")
 	var item = flag.String("item", "",
 		"Provide stats for a single item. Ex: \"a longsword\"")
 	// for tell.go ReplyTo(char string, tell string)

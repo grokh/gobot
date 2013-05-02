@@ -23,7 +23,7 @@ func chk(t *testing.T, check string, good []string, txt []string) {
 
 func chkErr(t *testing.T, err error) {
 	if err != nil {
-		t.Errorf("Check failed: %s", err)
+		t.Errorf("Check errored: %s", err)
 	}
 }
 
@@ -76,7 +76,7 @@ func Test_All(t *testing.T) {
 	txt = WhoChar(char, lvl, class, race, acct)
 	good = []string{
 		"nhc Welcome, Yog. If you have any questions, " +
-		"feel free to ask on this channel like this: nhc hi",
+			"feel free to ask on this channel like this: nhc hi",
 	}
 	chk(t, "WhoChar()", good, txt)
 
@@ -84,13 +84,13 @@ func Test_All(t *testing.T) {
 	txt = WhoChar(char, lvl, class, race, acct)
 	good = []string{
 		"nhc Welcome, Bob. If you have any questions, " +
-		"feel free to ask on this channel like this: nhc hi",
+			"feel free to ask on this channel like this: nhc hi",
 	}
 	chk(t, "WhoChar()", good, txt)
 
 	char, lvl, class, race, acct = "Tom", 1, "Warrior     ", "Drow Elf", "Bob"
 	txt = WhoChar(char, lvl, class, race, acct)
-	good = []string{""}
+	good = []string{}
 	chk(t, "WhoChar()", good, txt)
 
 	query = "SELECT count(*) FROM chars"
@@ -98,6 +98,7 @@ func Test_All(t *testing.T) {
 	chkErr(t, err)
 	defer stmt.Close()
 
+	txt = make([]string, 1)
 	err = stmt.QueryRow().Scan(&txt[0])
 	chkErr(t, err)
 	good = []string{"3"}
@@ -108,7 +109,7 @@ func Test_All(t *testing.T) {
 	txt = ReplyTo(char, tell)
 	good = []string{
 		"t Yog Invalid syntax. For valid syntax: tell katumi ?, " +
-		"tell katumi help <cmd>\n",
+			"tell katumi help <cmd>\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
@@ -116,11 +117,11 @@ func Test_All(t *testing.T) {
 	txt = ReplyTo(char, tell)
 	good = []string{
 		"t Yog I am a Helper Bot (Beta). Valid commands: " +
-		"?, help <cmd>, hidden?, who <char>, char <char>, clist <char>, " +
-		"find <char>, class <class>, delalt <char>, addalt <char>, " +
-		"lr, lr <report>, stat <item>, astat <item>, " +
-		"fstat <att> <comp> <val>. " +
-		"For further information, tell katumi help <cmd>\n",
+			"?, help <cmd>, hidden?, who <char>, char <char>, clist <char>, " +
+			"find <char>, class <class>, delalt <char>, addalt <char>, " +
+			"lr, lr <report>, stat <item>, astat <item>, " +
+			"fstat <att> <comp> <val>. " +
+			"For further information, tell katumi help <cmd>\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
@@ -296,9 +297,9 @@ func Test_All(t *testing.T) {
 	txt = ReplyTo(char, tell)
 	good = []string{
 		"t Yog the infernal stiletto of bane (Wield)" +
-		" Dam:4 Hit:5 Haste Slow_Poi " +
-		"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
-		"!Mage !Priest * Wt:5 Val:0 * Zone: Unknown * Last ID: " + date + "\n",
+			" Dam:4 Hit:5 Haste Slow_Poi " +
+			"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
+			"!Mage !Priest * Wt:5 Val:0 * Zone: Unknown * Last ID: " + date + "\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
@@ -311,15 +312,15 @@ func Test_All(t *testing.T) {
 	txt = ReplyTo(char, tell)
 	good = []string{
 		"t Yog a black longsword of destruction (Wielded), " +
-		"Damroll: 8, Hitroll: 5, " +
-		"Fire: 5%, Infravision (Item Type: Weapon) " +
-		"Damage Dice: 8D6, Crit Chance: 6%, " +
-		"Crit Multiplier: 2x, (Class: Martial, Type: Longsword) * " +
-		"Float, Magic, No Burn, No Drop, No Locate, Two Handed " +
-		"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER\n",
+			"Damroll: 8, Hitroll: 5, " +
+			"Fire: 5%, Infravision (Item Type: Weapon) " +
+			"Damage Dice: 8D6, Crit Chance: 6%, " +
+			"Crit Multiplier: 2x, (Class: Martial, Type: Longsword) * " +
+			"Float, Magic, No Burn, No Drop, No Locate, Two Handed " +
+			"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER\n",
 		"t Yog NO-THIEF * Keywords:(black sword destruction twilight) " +
-		"* Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " +
-		date + "\n",
+			"* Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " +
+			date + "\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
@@ -332,9 +333,9 @@ func Test_All(t *testing.T) {
 	txt = ReplyTo(char, tell)
 	good = []string{
 		"t Yog a tiny mithril stud set with a ruby (Ear) " +
-		"Dam:3 Maxagi:3 Fire:5% " +
-		"* No_Burn * Wt:0 Val:501,000 * Zone: Unknown * Last ID: " +
-		date + "\n",
+			"Dam:3 Maxagi:3 Fire:5% " +
+			"* No_Burn * Wt:0 Val:501,000 * Zone: Unknown * Last ID: " +
+			date + "\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
@@ -358,15 +359,15 @@ func Test_All(t *testing.T) {
 			"a tiny mithril stud set with a ruby")
 	good = []string{
 		"a black longsword of destruction (Wield) " +
-		"Dam:8 Hit:5 Fire:5% Infra * (Weapon) Dice:8D6 " +
-		"Crit:6% Multi:2x (Class: Martial, Type: Longsword) * " +
-		"Float Magic No_Burn No_Drop No_Loc Two_Hand " +
-		"!Mage !Pal !Priest !Rang !Thief * Wt:15 Val:10,000 * " +
-		"Zone: Unknown * Last ID: " + date + "\n",
+			"Dam:8 Hit:5 Fire:5% Infra * (Weapon) Dice:8D6 " +
+			"Crit:6% Multi:2x (Class: Martial, Type: Longsword) * " +
+			"Float Magic No_Burn No_Drop No_Loc Two_Hand " +
+			"!Mage !Pal !Priest !Rang !Thief * Wt:15 Val:10,000 * " +
+			"Zone: Unknown * Last ID: " + date + "\n",
 		"the mark of the dragonhunter is not in the database.\n",
 		"a tiny mithril stud set with a ruby (Ear) " +
-		"Dam:3 Maxagi:3 Fire:5% * No_Burn * Wt:0 Val:501,000 " +
-		"* Zone: Unknown * Last ID: " + date + "\n",
+			"Dam:3 Maxagi:3 Fire:5% * No_Burn * Wt:0 Val:501,000 " +
+			"* Zone: Unknown * Last ID: " + date + "\n",
 	}
 	chk(t, "GlistStats()", good, txt)
 

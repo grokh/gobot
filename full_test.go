@@ -4,28 +4,20 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"testing"
 	"time"
 )
 
-func chkReply(
-	t *testing.T,
-	char string,
-	tell string,
-	good string,
-	txt []string,
-) {
-	if len(txt) == 1 {
-		if txt[0] != good {
-			t.Errorf("ReplyTo Check failed: %s tells you '%s'"+
-				" Actual response: %s",
-				char, tell, txt[0])
+func chk(t *testing.T, check string, good []string, txt []string) {
+	if len(txt) == len(good) {
+		for i := range txt {
+			if txt[i] != good[i] {
+				t.Errorf("%s check failed: Expected: %s, Actual: %s",
+					check, good[i], txt[i])
+			}
 		}
 	} else {
-		t.Errorf("ReplyTo Check failed: %s tells you '%s'"+
-			" Actual response: %s",
-			char, tell, "Incorrect number of responses!")
+		t.Errorf("%s check failed: Incorrect number of responses.", check)
 	}
 }
 
@@ -68,42 +60,38 @@ func Test_All(t *testing.T) {
 	txt := make([]string, 1)
 	err = stmt.QueryRow().Scan(&txt[0])
 	chkErr(t, err)
-	good := "0:01:30"
-	if txt[0] != good {
-		t.Errorf("Time check failed: expected %s, got %s.", good, txt[0])
-	}
+	good := []string{"0:01:30"}
+	chk(t, "Uptime()", good, txt)
 
 	// test output from 'who' command - run every 30s
 	who := "[50 Sha] Yog  (Barbarian)|" +
 		"[50 Bar] Bob - Soul Singer - The Warders (Human)|" +
 		"[ 1 War] Tom  (Drow Elf)"
-	good = "who Yog\nwho Bob\nwho Tom\n"
+	good = []string{"who Yog\n", "who Bob\n", "who Tom\n"}
 	txt = WhoBatch(who)
-	if strings.Join(txt, "") != good {
-		t.Errorf("WhoBatch check failed: expected %s, got %s",
-			good, strings.Join(txt, ""))
-	}
+	chk(t, "WhoBatch()", good, txt)
 
 	// test output from 'who char' command - run whenever new char spotted
 	char, lvl, class, race, acct := "Yog", 50, "Shaman    ", "Barbarian", "Yog"
 	txt = WhoChar(char, lvl, class, race, acct)
-	good = "nhc Welcome, Yog. If you have any questions, " +
-		"feel free to ask on this channel like this: nhc hi"
-	if txt[0] != good {
-		t.Errorf("WhoChar check failed: %v", txt)
+	good = []string{
+		"nhc Welcome, Yog. If you have any questions, " +
+		"feel free to ask on this channel like this: nhc hi",
 	}
+	chk(t, "WhoChar()", good, txt)
+
 	char, lvl, class, race, acct = "Bob", 50, "Bard       ", "Human", "Bob"
 	txt = WhoChar(char, lvl, class, race, acct)
-	good = "nhc Welcome, Bob. If you have any questions, " +
-		"feel free to ask on this channel like this: nhc hi"
-	if txt[0] != good {
-		t.Errorf("WhoChar check failed: %v", txt)
+	good = []string{
+		"nhc Welcome, Bob. If you have any questions, " +
+		"feel free to ask on this channel like this: nhc hi",
 	}
+	chk(t, "WhoChar()", good, txt)
+
 	char, lvl, class, race, acct = "Tom", 1, "Warrior     ", "Drow Elf", "Bob"
 	txt = WhoChar(char, lvl, class, race, acct)
-	if txt[0] != "" {
-		t.Errorf("WhoChar check failed: %v", txt)
-	}
+	good = []string{""}
+	chk(t, "WhoChar()", good, txt)
 
 	query = "SELECT count(*) FROM chars"
 	stmt, err = db.Prepare(query)
@@ -112,218 +100,193 @@ func Test_All(t *testing.T) {
 
 	err = stmt.QueryRow().Scan(&txt[0])
 	chkErr(t, err)
-	good = "3"
-	if txt[0] != good {
-		t.Errorf("Who check failed: expected %s, got %s.", good, txt[0])
-	}
+	good = []string{"3"}
+	chk(t, "Who()", good, txt)
 
 	// test output from tells
 	char, tell := "Yog", "blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Invalid syntax. For valid syntax: tell katumi ?, " +
-		"tell katumi help <cmd>\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{
+		"t Yog Invalid syntax. For valid syntax: tell katumi ?, " +
+		"tell katumi help <cmd>\n",
+	}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "?"
 	txt = ReplyTo(char, tell)
-	good = "t Yog I am a Helper Bot (Beta). Valid commands: " +
+	good = []string{
+		"t Yog I am a Helper Bot (Beta). Valid commands: " +
 		"?, help <cmd>, hidden?, who <char>, char <char>, clist <char>, " +
 		"find <char>, class <class>, delalt <char>, addalt <char>, " +
 		"lr, lr <report>, stat <item>, astat <item>, " +
 		"fstat <att> <comp> <val>. " +
-		"For further information, tell katumi help <cmd>\n"
-	chkReply(t, char, tell, good, txt)
+		"For further information, tell katumi help <cmd>\n",
+	}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "help"
 	txt = ReplyTo(char, tell)
-	chkReply(t, char, tell, good, txt)
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "hidden"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Yog is NOT hidden!\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Yog is NOT hidden!\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Someone", "hidden"
 	txt = ReplyTo(char, tell)
-	if len(txt) > 0 {
-		t.Errorf(
-			"ReplyTo Check failed: %s tells you '%s' Actual response: %v",
-			char, tell, txt)
-	}
+	good = []string{}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "who blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 character or account not found: blah\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 character or account not found: blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "who bob"
 	txt = ReplyTo(char, tell)
-	good = "t Yog @Bob: Bob, Tom\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog @Bob: Bob, Tom\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "char Blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 character not found: Blah\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 character not found: Blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "char bob"
 	txt = ReplyTo(char, tell)
-	good = "t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + "\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + "\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "clist bob"
 	txt = ReplyTo(char, tell)
-	good = "t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + "\n"
-	if len(txt) == 2 {
-		if txt[0] != good {
-			t.Errorf(
-				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
-				char, tell, txt[0])
-		}
-		good = "t Yog [1 Warrior] Tom (Drow Elf) (@Bob) seen " + date + "\n"
-		if txt[1] != good {
-			t.Errorf(
-				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
-				char, tell, txt[1])
-		}
-	} else {
-		t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s",
-			char, tell, "Incorrect number of responses!")
+	good = []string{
+		"t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + "\n",
+		"t Yog [1 Warrior] Tom (Drow Elf) (@Bob) seen " + date + "\n",
 	}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "clist blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 character or account not found: blah\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 character or account not found: blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "class enchanter"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 class not found: enchanter\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 class not found: enchanter\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "class bard"
 	txt = ReplyTo(char, tell)
-	good = "t Yog [50 Bard] Bob (Human) (@Bob)\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog [50 Bard] Bob (Human) (@Bob)\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lr"
 	txt = ReplyTo(char, tell)
-	good = "t Yog No loads reported for current boot.\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog No loads reported for current boot.\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lrdel 1"
 	txt = ReplyTo(char, tell)
-	good = "t Yog No loads reported for current boot.\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog No loads reported for current boot.\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lr blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Invalid syntax. For valid syntax:" +
-		" tell katumi ?, tell katumi help <cmd>\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Invalid syntax. For valid syntax:" +
+		" tell katumi ?, tell katumi help <cmd>\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lr ogre in space"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Load reported: ogre in space\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Load reported: ogre in space\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lr thing at place"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Load reported: thing at place\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Load reported: thing at place\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lr"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 2: thing at place [Yog at " + date + "]\n"
-	if len(txt) == 2 {
-		if txt[1] != good {
-			t.Errorf(
-				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
-				char, tell, txt[1])
-		}
-	} else {
-		t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s",
-			char, tell, "Incorrect number of responses!")
-	}
+	good = []string{"t Yog 1: ogre in space [Yog at " + date + "]\n",
+		"t Yog 2: thing at place [Yog at " + date + "]\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lrdel 2"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Load deleted: thing at place\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Load deleted: thing at place\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lrdel 3"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Invalid load report number.\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Invalid load report number.\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lrdel blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Invalid syntax. For valid syntax: " +
-		"tell katumi ?, tell katumi help <cmd>\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Invalid syntax. For valid syntax: " +
+		"tell katumi ?, tell katumi help <cmd>\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "find bob"
 	txt = ReplyTo(char, tell)
-	good = "t Yog @Bob is online as Tom\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog @Bob is online as Tom\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "find blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 character or account not found: blah\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 character or account not found: blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "delalt tom"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 character or account not found: tom\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 character or account not found: tom\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Bob", "delalt tom"
 	txt = ReplyTo(char, tell)
-	good = "t Bob Removed character from your alt list:: tom\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Bob Removed character from your alt list:: tom\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Bob", "who tom"
 	txt = ReplyTo(char, tell)
-	good = "t Bob 404 character or account not found: tom\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Bob 404 character or account not found: tom\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "addalt tom"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 character or account not found: tom\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 character or account not found: tom\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Bob", "addalt tom"
 	txt = ReplyTo(char, tell)
-	good = "t Bob Re-added character to your alt list:: tom\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Bob Re-added character to your alt list:: tom\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "help ?"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Syntax: tell katumi ? -- " +
-		"Katumi provides a full listing of valid commands.\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Syntax: tell katumi ? -- " +
+		"Katumi provides a full listing of valid commands.\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "help blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 help file not found: blah\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 help file not found: blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	// test item importing and statting
 	txt = Identify("testItems.txt")
-	good = "Items Inserted: 3, Items Ignored: 0\n"
-	if txt[0] != good {
-		t.Errorf("Identify() check failed.")
-	}
+	good = []string{"Items Inserted: 3, Items Ignored: 0\n"}
+	chk(t, "Identify()", good, txt)
+
 	txt = FormatStats()
-	good = "Runtime: "
-	if !strings.Contains(txt[0], good) {
-		t.Errorf("FormatStats() check failed.")
-	}
+	good = []string{"Runtime: "}
+	//chk(t, "FormatStats()", good, txt)
+
 	txt = Identify("testItems.txt")
-	good = "Items Inserted: 0, Items Ignored: 3\n"
-	if txt[0] != good {
-		t.Errorf("Identify() check #2 failed.")
-	}
+	good = []string{"Items Inserted: 0, Items Ignored: 3\n"}
+	chk(t, "Identify() run 2", good, txt)
 
 	loc, err := time.LoadLocation("America/New_York")
 	chkErr(t, err)
@@ -331,68 +294,60 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "stat bane stiletto"
 	txt = ReplyTo(char, tell)
-	good = "t Yog the infernal stiletto of bane (Wield)" +
+	good = []string{
+		"t Yog the infernal stiletto of bane (Wield)" +
 		" Dam:4 Hit:5 Haste Slow_Poi " +
 		"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
-		"!Mage !Priest * Wt:5 Val:0 * Zone: Unknown * Last ID: " + date + "\n"
-	chkReply(t, char, tell, good, txt)
+		"!Mage !Priest * Wt:5 Val:0 * Zone: Unknown * Last ID: " + date + "\n",
+	}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "stat blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 item not found: blah\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 item not found: blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "astat destruction sword"
 	txt = ReplyTo(char, tell)
-	good = "t Yog a black longsword of destruction (Wielded), " +
+	good = []string{
+		"t Yog a black longsword of destruction (Wielded), " +
 		"Damroll: 8, Hitroll: 5, " +
 		"Fire: 5%, Infravision (Item Type: Weapon) " +
 		"Damage Dice: 8D6, Crit Chance: 6%, " +
 		"Crit Multiplier: 2x, (Class: Martial, Type: Longsword) * " +
 		"Float, Magic, No Burn, No Drop, No Locate, Two Handed " +
-		"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER\n"
-	if len(txt) == 2 {
-		if txt[0] != good {
-			t.Errorf(
-				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
-				char, tell, txt[0])
-		}
-		good = "t Yog NO-THIEF * Keywords:(black sword destruction twilight) " +
-			"* Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " +
-			date + "\n"	
-		if txt[1] != good {
-			t.Errorf(
-				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
-				char, tell, txt[1])
-		}
-	} else {
-		t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s",
-			char, tell, "Incorrect number of responses!")
+		"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER\n",
+		"t Yog NO-THIEF * Keywords:(black sword destruction twilight) " +
+		"* Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " +
+		date + "\n",
 	}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "astat blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 item not found: blah\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 item not found: blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "fstat resist fire, maxagi > 0, slot ear"
 	txt = ReplyTo(char, tell)
-	good = "t Yog a tiny mithril stud set with a ruby (Ear) " +
+	good = []string{
+		"t Yog a tiny mithril stud set with a ruby (Ear) " +
 		"Dam:3 Maxagi:3 Fire:5% " +
 		"* No_Burn * Wt:0 Val:501,000 * Zone: Unknown * Last ID: " +
-		date + "\n"
-	chkReply(t, char, tell, good, txt)
+		date + "\n",
+	}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "fstat blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog Invalid syntax. For valid syntax: " +
-		"tell katumi ?, tell katumi help <cmd>\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog Invalid syntax. For valid syntax: " +
+		"tell katumi ?, tell katumi help <cmd>\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "fstat resist blah"
 	txt = ReplyTo(char, tell)
-	good = "t Yog 404 item(s) not found: resist blah\n"
-	chkReply(t, char, tell, good, txt)
+	good = []string{"t Yog 404 item(s) not found: resist blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	txt = GlistStats(
 		"|Ynndchiarhlizz                  " +
@@ -401,19 +356,19 @@ func Test_All(t *testing.T) {
 			"the mark of the dragonhunter|" +
 			"                                " +
 			"a tiny mithril stud set with a ruby")
-	good = "a black longsword of destruction (Wield) " +
+	good = []string{
+		"a black longsword of destruction (Wield) " +
 		"Dam:8 Hit:5 Fire:5% Infra * (Weapon) Dice:8D6 " +
 		"Crit:6% Multi:2x (Class: Martial, Type: Longsword) * " +
 		"Float Magic No_Burn No_Drop No_Loc Two_Hand " +
 		"!Mage !Pal !Priest !Rang !Thief * Wt:15 Val:10,000 * " +
-		"Zone: Unknown * Last ID: " + date + "\n" +
-		"the mark of the dragonhunter is not in the database.\n" +
+		"Zone: Unknown * Last ID: " + date + "\n",
+		"the mark of the dragonhunter is not in the database.\n",
 		"a tiny mithril stud set with a ruby (Ear) " +
 		"Dam:3 Maxagi:3 Fire:5% * No_Burn * Wt:0 Val:501,000 " +
-		"* Zone: Unknown * Last ID: " + date + "\n"
-	if strings.Join(txt, "") != good {
-		t.Errorf("GlistStats() check failed.")
+		"* Zone: Unknown * Last ID: " + date + "\n",
 	}
+	chk(t, "GlistStats()", good, txt)
 
 	//up = "0:01:00"
 	//Uptime(up)

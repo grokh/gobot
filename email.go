@@ -10,11 +10,11 @@ import (
 func SendBootEmail() {
 	content, err := ioutil.ReadFile("tokens.txt")
 	ChkErr(err)
-	lines := strings.Split(string(content), "\n")
+	lines := strings.Split(strings.TrimSpace(string(content)), "\n")
 
 	from := lines[0]
 	pwd := lines[1]
-	to := lines[2 : len(lines)-1] // vim adds a newline at end of file? careful
+	to := lines[2:]
 
 	sub := "Subject: TorilMUD reboot/crash:\r\n\r\n"
 	body := "Katumi detected a new TorilMUD boot."

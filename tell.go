@@ -89,29 +89,29 @@ func FindItem(oper string, length string) string {
 func Help(oper string) []string {
 	oper = strings.ToLower(oper)
 	var txt []string
-	switch {
-	case oper == "?":
+	switch oper {
+	case "?":
 		txt = append(txt, "Syntax: tell katumi ? -- "+
 			"Katumi provides a full listing of valid commands.")
-	case oper == "hidden?":
+	case "hidden?":
 		txt = append(txt, "Syntax: tell katumi hidden? -- "+
 			"Katumi sends a tell in reply "+
 			"if she can see you. If you receive no reply, you are hidden. "+
 			"Katumi has permanent detect invis to ensure that won't cause "+
 			"issues.")
-	case oper == "who":
+	case "who":
 		txt = append(txt, "Syntax: tell katumi who <acct/char> -- "+
 			"Example: tell katumi who rynshana -- "+
 			"Katumi provides the account name along with a list of every "+
 			"known alt of the named character as a reply. Also works with "+
 			"account names.")
-	case oper == "char":
+	case "char":
 		txt = append(txt, "Syntax: tell katumi char <char> -- "+
 			"Example: tell katumi char rynshana -- "+
 			"Katumi provides the account name along with full information "+
 			"on the named character as a reply, "+
 			"to include level, class, race, and date/time last seen.")
-	case oper == "find":
+	case "find":
 		txt = append(txt, "Syntax: tell katumi find <acct/char> -- "+
 			"Example: tell katumi find rynshana -- "+
 			"Katumi provides the account name along with the last known "+
@@ -119,28 +119,28 @@ func Help(oper string) []string {
 			"If they have an alt online, "+
 			"the time will measure in seconds. "+
 			"Also works with account names.")
-	case oper == "clist":
+	case "clist":
 		txt = append(txt, "Syntax: tell katumi clist <acct/char> -- "+
 			"Example: tell katumi clist rynshana -- "+
 			"Katumi provides a full "+
 			"listing of every known alt belonging to <char>, including race, "+
 			"class, level, and date/time last seen, matching the format of "+
 			"the 'char' command. Also works with account names.")
-	case oper == "class":
+	case "class":
 		txt = append(txt, "Syntax: tell katumi class <class> -- "+
 			"Example: tell katumi class enchanter -- "+
 			"Katumi provides a "+
 			"list of alts matching the named class for characters who "+
 			"are currently online, letting group leaders find useful "+
 			"alts from the 'who' list.")
-	case oper == "delalt":
+	case "delalt":
 		txt = append(txt, "Syntax: tell katumi delalt <char> -- "+
 			"Example: tell katumi delalt rynshana -- "+
 			"Katumi no longer "+
 			"provides information on the alt, removing it from 'clist', "+
 			"'who', and 'find' commands. Only works for characters "+
 			"attached to the same account requesting the removal.")
-	case oper == "addalt":
+	case "addalt":
 		txt = append(txt, "Syntax: tell katumi addalt <char> -- "+
 			"Example: tell katumi addalt rynshana -- "+
 			"Katumi begins "+
@@ -148,7 +148,7 @@ func Help(oper string) []string {
 			"been removed with 'delalt', adding the character back to "+
 			"'clist', 'who', and 'find' commands. Only works for chars "+
 			"attached to the same account.")
-	case oper == "lr":
+	case "lr":
 		txt = append(txt, "Syntax: tell katumi lr -- "+
 			"Katumi provides a list of load "+
 			"reports for the current boot. This could be rares or quests "+
@@ -160,21 +160,21 @@ func Help(oper string) []string {
 			"to the list of load reports for the current boot. If you find "+
 			"a rare, global load, or complete a quest or the like, report "+
 			"it along with a location so other players will know!")
-	case oper == "lrdel":
+	case "lrdel":
 		txt = append(txt, "Syntax: tell katumi lrdel <num> -- "+
 			"Example: tell katumi lrdel 3 -- "+
 			"Katumi removes the "+
 			"numbered item from the load reports, if a quest is completed "+
 			"or a rare killed, or a report found to be inaccurate. Please "+
 			"do not abuse this command - this service helps everyone.")
-	case oper == "stat":
+	case "stat":
 		txt = append(txt, "Syntax: tell katumi stat <item> -- "+
 			"Example: tell katumi stat isha cloak -- "+
 			"Katumi provides stat info for the item named. "+
 			"Use 'astat' for full text of acronyms and keywords. "+
 			"The name search is fairly forgiving. Please send new stats "+
 			"in an mwrite to katumi or email to kristi.michaels@gmail.com")
-	case oper == "astat":
+	case "astat":
 		txt = append(txt, "Syntax: tell katumi astat <item> -- "+
 			"Example tell katumi astat destruction sword -- "+
 			"Katumi provides full "+
@@ -182,7 +182,7 @@ func Help(oper string) []string {
 			"text. The name search is fairly forgiving, though the stats "+
 			"are a little buggy right now since I haven't put much time "+
 			"into it.")
-	case oper == "fstat":
+	case "fstat":
 		txt = append(txt, "Syntax: tell katumi fstat <stat> <sym> <num>"+
 			"[, <stat2> <sym2> <num2>][, resist <resist>][, slot <slot>] -- "+
 			"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- "+
@@ -206,8 +206,8 @@ func Fstat(oper string) []string {
 	var args []interface{}
 	for _, ops := range opers {
 		fop := strings.Fields(ops)
-		switch {
-		case len(fop) == 3:
+		switch len(fop) {
+		case 3:
 			fop[0] = strings.ToLower(fop[0])
 			comp := fop[1]
 			if strings.ContainsAny(comp, "=<>") {
@@ -221,7 +221,7 @@ func Fstat(oper string) []string {
 					"AND attrib_abbr = ? AND attrib_value " + comp + " ?)"
 				args = append(args, fop[0], fop[2])
 			}
-		case len(fop) == 2:
+		case 2:
 			if strings.ToLower(fop[0]) == "resist" {
 				res := strings.ToLower(fop[1])
 				if !strings.Contains(query, "WHERE") {

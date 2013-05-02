@@ -86,11 +86,24 @@ func Test_All(t *testing.T) {
 
 	// test output from 'who char' command - run whenever new char spotted
 	char, lvl, class, race, acct := "Yog", 50, "Shaman    ", "Barbarian", "Yog"
-	WhoChar(char, lvl, class, race, acct)
+	txt = WhoChar(char, lvl, class, race, acct)
+	good = "nhc Welcome, Yog. If you have any questions, " +
+		"feel free to ask on this channel like this: nhc hi"
+	if txt[0] != good {
+		t.Errorf("WhoChar check failed: %v", txt)
+	}
 	char, lvl, class, race, acct = "Bob", 50, "Bard       ", "Human", "Bob"
-	WhoChar(char, lvl, class, race, acct)
+	txt = WhoChar(char, lvl, class, race, acct)
+	good = "nhc Welcome, Bob. If you have any questions, " +
+		"feel free to ask on this channel like this: nhc hi"
+	if txt[0] != good {
+		t.Errorf("WhoChar check failed: %v", txt)
+	}
 	char, lvl, class, race, acct = "Tom", 1, "Warrior     ", "Drow Elf", "Bob"
-	WhoChar(char, lvl, class, race, acct)
+	txt = WhoChar(char, lvl, class, race, acct)
+	if txt[0] != "" {
+		t.Errorf("WhoChar check failed: %v", txt)
+	}
 
 	query = "SELECT count(*) FROM chars"
 	stmt, err = db.Prepare(query)

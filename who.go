@@ -64,7 +64,14 @@ func WhoBatch(batch string) []string {
 	return cmds
 }
 
-func WhoChar(char string, lvl int, class string, race string, acct string) {
+func WhoChar(
+	char string,
+	lvl int,
+	class string,
+	race string,
+	acct string,
+) []string {
+	txt := make([]string, 1)
 	loc, err := time.LoadLocation("America/New_York")
 	ChkErr(err)
 	date := time.Now().In(loc)
@@ -101,6 +108,10 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 			defer stmt.Close()
 
 			log.Printf("New acct: @%s", acct)
+			txt[0] = fmt.Sprintf(
+				"nhc Welcome, %s. If you have any questions, "+
+				"feel free to ask on this channel like this: "+
+				"nhc hi", char)
 			_, err = stmt.Exec(acct)
 			ChkErr(err)
 			tx.Commit()
@@ -127,4 +138,5 @@ func WhoChar(char string, lvl int, class string, race string, acct string) {
 	} else if err != nil {
 		log.Fatal(err)
 	}
+	return txt
 }

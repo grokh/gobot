@@ -350,11 +350,25 @@ func Test_All(t *testing.T) {
 		"Damage Dice: 8D6, Crit Chance: 6%, " +
 		"Crit Multiplier: 2x, (Class: Martial, Type: Longsword) * " +
 		"Float, Magic, No Burn, No Drop, No Locate, Two Handed " +
-		"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER N\n" +
-		"t Yog O-THIEF * Keywords:(black sword destruction twilight) * " +
-		"Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " +
-		date + "\n"
-	chkReply(t, char, tell, good, txt)
+		"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER\n"
+	if len(txt) == 2 {
+		if txt[0] != good {
+			t.Errorf(
+				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
+				char, tell, txt[0])
+		}
+		good = "t Yog NO-THIEF * Keywords:(black sword destruction twilight) " +
+			"* Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " +
+			date + "\n"	
+		if txt[1] != good {
+			t.Errorf(
+				"ReplyTo Check failed: %s tells you '%s' Actual response: %s",
+				char, tell, txt[1])
+		}
+	} else {
+		t.Errorf("ReplyTo Check failed: %s tells you '%s' Actual response: %s",
+			char, tell, "Incorrect number of responses!")
+	}
 
 	char, tell = "Yog", "astat blah"
 	txt = ReplyTo(char, tell)

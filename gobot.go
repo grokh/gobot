@@ -81,7 +81,7 @@ func main() {
 		cmds = ReplyTo(*char, *tell)
 	case *char != "" && 50 >= *lvl && *lvl > 0 &&
 		*class != "" && *race != "" && *acct != "":
-		WhoChar(*char, *lvl, *class, *race, *acct)
+		cmds = WhoChar(*char, *lvl, *class, *race, *acct)
 	case *stats:
 		cmds = FormatStats()
 	case *item != "":

@@ -92,7 +92,7 @@ func main() {
 		cmds = Identify(*file)
 	case *backup:
 		BackupDB()
-	case *restore != "": // this doesn't work on Mac OS X
+	case *restore != "":
 		RestoreDB(*restore)
 	}
 	for _, cmd := range cmds {

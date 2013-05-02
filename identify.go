@@ -67,7 +67,7 @@ func Identify(filename string) []string {
 		`Keyword '([[:print:]]+)', Item type: ([[:word:]]+)`)
 	ChkErr(err)
 	chkWorn, err := regexp.Compile(
-		// Item can be worn on:  HEAD 
+		// Item can be worn on:  HEAD
 		`Item can be worn on: ([[:print:]]+)`)
 	ChkErr(err)
 	chkEff, err := regexp.Compile(
@@ -104,8 +104,8 @@ func Identify(filename string) []string {
 	ChkErr(err)
 	chkResis, err := regexp.Compile(
 		// Resists: Fire : 5% Cold : 5% Elect : 5% Acid : 5% Poison: 5% Psi : 5%
-		//     Unarmd:    2% Slash :    2% Bludgn:    2% Pierce:    2% 
-		//     Fire  :   10% Mental:    5% 
+		//     Unarmd:    2% Slash :    2% Bludgn:    2% Pierce:    2%
+		//     Fire  :   10% Mental:    5%
 		`([[:alpha:] ]{6}):[ ]{3,4}([[:digit:]]{1,2})% `)
 	ChkErr(err)
 

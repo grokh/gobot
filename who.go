@@ -110,8 +110,8 @@ func WhoChar(
 			log.Printf("New acct: @%s", acct)
 			txt[0] = fmt.Sprintf(
 				"nhc Welcome, %s. If you have any questions, "+
-				"feel free to ask on this channel like this: "+
-				"nhc hi", char)
+					"feel free to ask on this channel like this: "+
+					"nhc hi", char)
 			_, err = stmt.Exec(acct)
 			ChkErr(err)
 			tx.Commit()

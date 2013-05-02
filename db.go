@@ -42,8 +42,8 @@ func BackupDB() {
 	}
 }
 
-func RestoreDB(file string) {
-	// postgres: cmd := exec.Command("sh", "-c", 
+func RestoreDB(file string) { // this doesn't work on Mac OS X
+	// postgres: cmd := exec.Command("sh", "-c",
 	//	"gunzip -c "+file+" | psql -U kalkinine -d torildb")
 	cmd := exec.Command("sh", "-c", "zcat "+file+" | sqlite3 toril.db")
 	err := cmd.Run()

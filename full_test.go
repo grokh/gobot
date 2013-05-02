@@ -299,7 +299,8 @@ func Test_All(t *testing.T) {
 		"t Yog the infernal stiletto of bane (Wield)" +
 			" Dam:4 Hit:5 Haste Slow_Poi " +
 			"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
-			"!Mage !Priest * Wt:5 Val:0 * Zone: Unknown * Last ID: " + date + "\n",
+			"!Mage !Priest * Wt:5 Val:0 * Zone: Unknown * Last ID: " +
+			date + "\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 

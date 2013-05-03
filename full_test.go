@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -13,12 +14,15 @@ func chk(t *testing.T, check string, good []string, txt []string) {
 	if len(txt) == len(good) {
 		for i := range txt {
 			if txt[i] != good[i] {
-				t.Errorf("%s check failed: Expected: %s, Actual: %s",
-					check, good[i], txt[i])
+				t.Errorf(
+					"%s check failed: Expected: %s, Actual: %s",
+					check, strconv.Quote(good[i]), strconv.Quote(txt[i]))
 			}
 		}
 	} else {
-		t.Errorf("%s check failed: Incorrect number of responses.", check)
+		t.Errorf(
+			"%s check failed: Expected: %d responses, Actual: %d",
+			check, len(good), len(txt))
 	}
 }
 

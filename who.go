@@ -109,8 +109,7 @@ func WhoChar(
 			txt = append(txt,
 				fmt.Sprintf(
 					"nhc Welcome, %s. If you have any questions, "+
-						"feel free to ask on this channel like this: "+
-						"nhc hi",
+						"feel free to ask on this channel.",
 					char,
 				),
 			)

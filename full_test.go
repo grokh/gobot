@@ -84,7 +84,7 @@ func Test_All(t *testing.T) {
 	txt = WhoChar(char, lvl, class, race, acct)
 	good = []string{
 		"nhc Welcome, Yog. If you have any questions, " +
-			"feel free to ask on this channel like this: nhc hi",
+			"feel free to ask on this channel.",
 	}
 	chk(t, "WhoChar()", good, txt)
 
@@ -92,7 +92,7 @@ func Test_All(t *testing.T) {
 	txt = WhoChar(char, lvl, class, race, acct)
 	good = []string{
 		"nhc Welcome, Bob. If you have any questions, " +
-			"feel free to ask on this channel like this: nhc hi",
+			"feel free to ask on this channel.",
 	}
 	chk(t, "WhoChar()", good, txt)
 
@@ -123,13 +123,19 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "?"
 	txt = ReplyTo(char, tell)
-	good = []string{
-		"t Yog I am a Helper Bot (Beta). Valid commands: " +
-			"?, help <cmd>, hidden?, who <char>, char <char>, clist <char>, " +
-			"find <char>, class <class>, delalt <char>, addalt <char>, " +
-			"lr, lr <report>, stat <item>, astat <item>, " +
-			"fstat <att> <comp> <val>. " +
-			"For further information, tell katumi help <cmd>\n",
+	good = []string{"t Yog I am a Helper Bot (Beta). Each command I accept " +
+		"has further help files available at: tell katumi help <cmd>\n",
+		"t Yog Find items: Acronymed stats: stat <item name>, " +
+			"Stats fully spelled out: astat <item name>, " +
+			"Find items by attributes, slots, etc.: fstat <fields>\n",
+		"t Yog Find people: Provide acct and char info: who <char/acct>, " +
+			"clist <char/acct>, char <char>, Show last online alt: " +
+			"find <char/acct>, Find alts of listed class for people online: " +
+			"class <class>, RL names: name <char/acct>, addname <name>, " +
+			"Control your listing: delalt <char>, addalt <char>\n",
+		"t Yog Misc: This message: ?, More info on each command: help <cmd>, " +
+			"Find out if you're hidden: hidden, Load reports for rares or " +
+			"global mobs: lr, lr <report>, lrdel <num>\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 

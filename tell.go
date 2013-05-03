@@ -761,14 +761,20 @@ var BadSyntax string = "Invalid syntax. For valid syntax: tell katumi ?, " +
 	"tell katumi help <cmd>"
 
 func ReplyTo(char string, tell string) []string {
-	info := "I am a Helper Bot (Beta). " +
-		"Valid commands: ?, help <cmd>, hidden?, " +
-		"who <char>, char <char>, " +
-		"clist <char>, find <char>, class <class>, " +
-		"delalt <char>, addalt <char>, " +
-		"lr, lr <report>, " +
-		"stat <item>, astat <item>, fstat <att> <comp> <val>. " +
-		"For further information, tell katumi help <cmd>"
+	info := []string{"I am a Helper Bot (Beta). Each command I accept " +
+		"has further help files available at: tell katumi help <cmd>",
+		"Find items: Acronymed stats: stat <item name>, " +
+			"Stats fully spelled out: astat <item name>, " +
+			"Find items by attributes, slots, etc.: fstat <fields>",
+		"Find people: Provide acct and char info: who <char/acct>, " +
+			"clist <char/acct>, char <char>, Show last online alt: " +
+			"find <char/acct>, Find alts of listed class for people online: " +
+			"class <class>, RL names: name <char/acct>, addname <name>, " +
+			"Control your listing: delalt <char>, addalt <char>",
+		"Misc: This message: ?, More info on each command: help <cmd>, " +
+			"Find out if you're hidden: hidden, Load reports for rares or " +
+			"global mobs: lr, lr <report>, lrdel <num>",
+	}
 	var txt []string
 
 	oper := ""
@@ -784,9 +790,9 @@ func ReplyTo(char string, tell string) []string {
 
 	switch {
 	case cmd == "?":
-		txt = append(txt, info)
+		txt = info
 	case cmd == "help" && oper == "":
-		txt = append(txt, info)
+		txt = info
 	case cmd == "help" && oper != "":
 		txt = Help(oper)
 	case strings.HasPrefix(cmd, "hidden"):

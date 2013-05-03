@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/exec"
@@ -27,7 +28,10 @@ func chkErr(t *testing.T, err error) {
 	}
 }
 
+var email = flag.Bool("email", false, "Test sending email/SMS.")
+
 func Test_All(t *testing.T) {
+	flag.Parse()
 	f, err := os.OpenFile(
 		"logs/test.log",
 		os.O_RDWR|os.O_APPEND|os.O_CREATE,
@@ -392,8 +396,10 @@ func Test_All(t *testing.T) {
 	}
 	chk(t, "GlistStats()", good, txt)
 
-	//up = "0:01:00"
-	//Uptime(up)
+	if *email {
+		up = "0:01:00"
+		Uptime(up)
+	}
 
 	cmd = exec.Command("sh", "-c", "rm toril.db")
 	err = cmd.Run()

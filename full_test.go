@@ -339,7 +339,7 @@ func Test_All(t *testing.T) {
 		"t Yog the infernal stiletto of bane (Wield)" +
 			" Dam:4 Hit:5 Haste Slow_Poi " +
 			"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
-			"!Mage !Priest * Wt:5 Val:0 * Zone: Unknown * Last ID: " +
+			"!Mage !Priest * Wt:5 Val:0p * Zone: Unknown * Last ID: " +
 			date + "\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
@@ -375,7 +375,7 @@ func Test_All(t *testing.T) {
 	good = []string{
 		"t Yog a tiny mithril stud set with a ruby (Ear) " +
 			"Dam:3 Maxagi:3 Fire:5% " +
-			"* No_Burn * Wt:0 Val:501,000 * Zone: Unknown * Last ID: " +
+			"* No_Burn * Wt:0 Val:501p * Zone: Unknown * Last ID: " +
 			date + "\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
@@ -403,11 +403,11 @@ func Test_All(t *testing.T) {
 			"Dam:8 Hit:5 Fire:5% Infra * (Weapon) Dice:8D6 " +
 			"Crit:6% Multi:2x (Class: Martial, Type: Longsword) * " +
 			"Float Magic No_Burn No_Drop No_Loc Two_Hand " +
-			"!Mage !Pal !Priest !Rang !Thief * Wt:15 Val:10,000 * " +
+			"!Mage !Pal !Priest !Rang !Thief * Wt:15 Val:10p * " +
 			"Zone: Unknown * Last ID: " + date + "\n",
 		"the mark of the dragonhunter is not in the database.\n",
 		"a tiny mithril stud set with a ruby (Ear) " +
-			"Dam:3 Maxagi:3 Fire:5% * No_Burn * Wt:0 Val:501,000 " +
+			"Dam:3 Maxagi:3 Fire:5% * No_Burn * Wt:0 Val:501p " +
 			"* Zone: Unknown * Last ID: " + date + "\n",
 	}
 	chk(t, "GlistStats()", good, txt)

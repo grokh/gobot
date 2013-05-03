@@ -80,26 +80,32 @@ func Test_All(t *testing.T) {
 	chk(t, "WhoBatch()", good, txt)
 
 	// test output from 'who char' command - run whenever new char spotted
-	char, lvl, class, race, acct := "Yog", 50, "Shaman    ", "Barbarian", "Yog"
-	txt = WhoChar(char, lvl, class, race, acct)
+	c := Char{
+		name: "Yog", lvl: 50, class: "Shaman ", race: "Barbarian", acct: "Yog",
+	}
+	txt = c.who()
 	good = []string{
 		"nhc Welcome, Yog. If you have any questions, " +
 			"feel free to ask on this channel.",
 	}
-	chk(t, "WhoChar()", good, txt)
+	chk(t, "c.who()", good, txt)
 
-	char, lvl, class, race, acct = "Bob", 50, "Bard       ", "Human", "Bob"
-	txt = WhoChar(char, lvl, class, race, acct)
+	c = Char{
+		name: "Bob", lvl: 50, class: "Bard      ", race: "Human", acct: "Bob",
+	}
+	txt = c.who()
 	good = []string{
 		"nhc Welcome, Bob. If you have any questions, " +
 			"feel free to ask on this channel.",
 	}
-	chk(t, "WhoChar()", good, txt)
+	chk(t, "c.who()", good, txt)
 
-	char, lvl, class, race, acct = "Tom", 1, "Warrior     ", "Drow Elf", "Bob"
-	txt = WhoChar(char, lvl, class, race, acct)
+	c = Char{
+		name: "Tom", lvl: 1, class: "Warrior ", race: "Drow Elf", acct: "Bob",
+	}
+	txt = c.who()
 	good = []string{}
-	chk(t, "WhoChar()", good, txt)
+	chk(t, "c.who()", good, txt)
 
 	query = "SELECT count(*) FROM chars"
 	stmt, err = db.Prepare(query)

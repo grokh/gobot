@@ -9,6 +9,12 @@ import (
 	"time"
 )
 
+type Char struct {
+	class, name, race, acct, seen string
+	lvl                           int
+	tseen                         time.Time
+}
+
 func WhoBatch(batch string) []string {
 	var cmds []string
 	batch = strings.Trim(batch, "| ")
@@ -62,13 +68,7 @@ func WhoBatch(batch string) []string {
 	return cmds
 }
 
-func WhoChar(
-	char string,
-	lvl int,
-	class string,
-	race string,
-	acct string,
-) []string {
+func (c *Char) who() []string {
 	var txt []string
 	loc, err := time.LoadLocation("America/New_York")
 	ChkErr(err)
@@ -85,7 +85,7 @@ func WhoChar(
 	defer stmt.Close()
 	var acc string
 	var name string
-	err = stmt.QueryRow(char).Scan(&acc, &name)
+	err = stmt.QueryRow(c.name).Scan(&acc, &name)
 	if err == sql.ErrNoRows {
 		// if no char, check if account exists in DB, create char
 		query = "SELECT account_name FROM accounts " +
@@ -94,7 +94,7 @@ func WhoChar(
 		ChkErr(err)
 		defer stmt.Close()
 
-		err = stmt.QueryRow(acct).Scan(&acc)
+		err = stmt.QueryRow(c.acct).Scan(&acc)
 		if err == sql.ErrNoRows {
 			//if no acct, create acccount
 			tx, err := db.Begin()
@@ -105,15 +105,15 @@ func WhoChar(
 			ChkErr(err)
 			defer stmt.Close()
 
-			log.Printf("New acct: @%s", acct)
+			log.Printf("New acct: @%s", c.acct)
 			txt = append(txt,
 				fmt.Sprintf(
 					"nhc Welcome, %s. If you have any questions, "+
 						"feel free to ask on this channel.",
-					char,
+					c.name,
 				),
 			)
-			_, err = stmt.Exec(acct)
+			_, err = stmt.Exec(c.acct)
 			ChkErr(err)
 			tx.Commit()
 		} else if err != nil {
@@ -123,7 +123,7 @@ func WhoChar(
 		tx, err := db.Begin()
 		ChkErr(err)
 
-		class = strings.TrimSpace(class)
+		c.class = strings.TrimSpace(c.class)
 		query = "INSERT INTO chars VALUES(?, ?, ?, ?, ?, ?, 't')"
 		stmt, err := tx.Prepare(query)
 		ChkErr(err)
@@ -131,9 +131,9 @@ func WhoChar(
 
 		log.Printf(
 			"New char: [%d %s] %s (%s) (@%s) seen %s",
-			lvl, class, char, race, acct, date,
+			c.lvl, c.class, c.name, c.race, c.acct, date,
 		)
-		_, err = stmt.Exec(acct, char, class, race, lvl, date)
+		_, err = stmt.Exec(c.acct, c.name, c.class, c.race, c.lvl, date)
 		ChkErr(err)
 		tx.Commit()
 	} else if err != nil {

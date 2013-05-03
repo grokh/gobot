@@ -441,6 +441,52 @@ func Find(oper string) string {
 	return txt
 }
 
+func Name(oper string) string {
+	db := OpenDB()
+	defer db.Close()
+
+	query := "SELECT account_name, player_name " +
+		"FROM accounts " +
+		"WHERE player_name IS NOT NULL " +
+		"AND (account_name = " +
+		"(SELECT account_name FROM chars " +
+		"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
+		"OR LOWER(account_name) = LOWER(?))"
+
+	stmt, err := db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
+
+	var txt string
+	err = stmt.QueryRow(oper, oper).Scan(&Char.acct, &Char.name)
+	if err == sql.ErrNoRows {
+		query := "SELECT account_name " +
+			"FROM accounts " +
+			"WHERE (account_name = " +
+			"(SELECT account_name FROM chars " +
+			"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
+			"OR LOWER(account_name) = LOWER(?))"
+
+		stmt, err := db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+
+		err = stmt.QueryRow(oper, oper).Scan(&Char.acct)
+		if err == sql.ErrNoRows {
+			txt = NotFound("character or account", oper)
+		} else if err != nil {
+			log.Fatal(err)
+		} else {
+			txt = fmt.Sprintf("@%s did not disclose their real name", Char.acct)
+		}
+	} else if err != nil {
+		log.Fatal(err)
+	} else {
+		txt = fmt.Sprintf("@%s's real name is %s", Char.acct, Char.name)
+	}
+	return txt
+}
+
 func FindClass(oper string) []string {
 	db := OpenDB()
 	defer db.Close()
@@ -552,6 +598,44 @@ func AddAlt(oper string, char string) string {
 		ChkErr(err)
 		tx.Commit()
 		txt = fmt.Sprintf("Re-added character to your alt list:: %s", oper)
+	}
+	return txt
+}
+
+func AddName(oper string, char string) string {
+	db := OpenDB()
+	defer db.Close()
+
+	query := "SELECT account_name " +
+		"FROM chars " +
+		"WHERE char_name = ?"
+
+	stmt, err := db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
+
+	var txt string
+	err = stmt.QueryRow(char).Scan(&Char.acct)
+	if err == sql.ErrNoRows {
+		txt = NotFound("character", char)
+	} else if err != nil {
+		log.Fatal(err)
+	} else {
+		query = "UPDATE accounts " +
+			"SET player_name = ? " +
+			"WHERE account_name = ?"
+
+		tx, err := db.Begin()
+		ChkErr(err)
+		stmt, err := tx.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+
+		name := strings.Title(oper)
+		_, err = stmt.Exec(name, Char.acct)
+		ChkErr(err)
+		tx.Commit()
+		txt = fmt.Sprintf("Your real name recorded as: %s", oper)
 	}
 	return txt
 }
@@ -723,12 +807,16 @@ func ReplyTo(char string, tell string) []string {
 		txt = append(txt, CharInfo(oper))
 	case cmd == "find" && oper != "":
 		txt = append(txt, Find(oper))
+	case cmd == "name" && oper != "":
+		txt = append(txt, Name(oper))
 	case cmd == "class" && oper != "":
 		txt = FindClass(oper)
 	case cmd == "delalt" && oper != "":
 		txt = append(txt, DelAlt(oper, char))
 	case cmd == "addalt" && oper != "":
 		txt = append(txt, AddAlt(oper, char))
+	case cmd == "addname" && oper != "":
+		txt = append(txt, AddName(oper, char))
 	case cmd == "lr":
 		txt = LoadReport(oper, char)
 	case cmd == "lrdel" && oper != "":
@@ -737,7 +825,6 @@ func ReplyTo(char string, tell string) []string {
 		txt = append(txt, BadSyntax)
 	}
 	for i, t := range txt {
-		// very lazy, should actually split on first blank space <300
 		if len(t) > 300 {
 			y := strings.Fields(t[:300])
 			x, y := y[len(y)-1], y[:len(y)-1]

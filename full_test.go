@@ -265,6 +265,26 @@ func Test_All(t *testing.T) {
 	good = []string{"t Bob Re-added character to your alt list:: tom\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
+	char, tell = "Yog", "name bob"
+	txt = ReplyTo(char, tell)
+	good = []string{"t Yog @Bob did not disclose their real name\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
+
+	char, tell = "Bob", "addname Bob"
+	txt = ReplyTo(char, tell)
+	good = []string{"t Bob Your real name recorded as: Bob\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
+
+	char, tell = "Yog", "name bob"
+	txt = ReplyTo(char, tell)
+	good = []string{"t Yog @Bob's real name is Bob\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
+
+	char, tell = "Yog", "name blah"
+	txt = ReplyTo(char, tell)
+	good = []string{"t Yog 404 character or account not found: blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
+
 	char, tell = "Yog", "help ?"
 	txt = ReplyTo(char, tell)
 	good = []string{"t Yog Syntax: tell katumi ? -- " +

@@ -298,13 +298,14 @@ func Who(oper string) string {
 	ChkErr(err)
 	defer rows.Close()
 
+	var c Char
 	for rows.Next() {
-		err = rows.Scan(&Char.acct, &Char.name)
+		err = rows.Scan(&c.acct, &c.name)
 		if strings.Contains(txt, "@") {
-			txt += ", " + Char.name
+			txt += ", " + c.name
 		} else {
-			txt = "@" + Char.acct
-			txt += ": " + Char.name
+			txt = "@" + c.acct
+			txt += ": " + c.name
 		}
 	}
 	ChkRows(rows)
@@ -334,13 +335,13 @@ func Clist(oper string) []string {
 
 	var txts []string
 	var found bool
-	var seen string
+	var c Char
 	for rows.Next() {
-		err = rows.Scan(&Char.lvl, &Char.class, &Char.name,
-			&Char.race, &Char.acct, &seen)
+		err = rows.Scan(&c.lvl, &c.class, &c.name,
+			&c.race, &c.acct, &c.seen)
 		char := fmt.Sprintf(
 			"[%d %s] %s (%s) (@%s) seen %s",
-			Char.lvl, Char.class, Char.name, Char.race, Char.acct, seen,
+			c.lvl, c.class, c.name, c.race, c.acct, c.seen,
 		)
 		txts = append(txts, char)
 		found = true
@@ -365,9 +366,9 @@ func CharInfo(oper string) string {
 	defer stmt.Close()
 
 	var txt string
-	var seen string
+	var c Char
 	err = stmt.QueryRow(oper).Scan(
-		&Char.lvl, &Char.class, &Char.name, &Char.race, &Char.acct, &seen)
+		&c.lvl, &c.class, &c.name, &c.race, &c.acct, &c.seen)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", oper)
 	} else if err != nil {
@@ -375,7 +376,7 @@ func CharInfo(oper string) string {
 	} else {
 		txt = fmt.Sprintf(
 			"[%d %s] %s (%s) (@%s) seen %s",
-			Char.lvl, Char.class, Char.name, Char.race, Char.acct, seen,
+			c.lvl, c.class, c.name, c.race, c.acct, c.seen,
 		)
 	}
 	return txt
@@ -399,30 +400,30 @@ func Find(oper string) string {
 
 	var txt string
 	var seconds int
-	err = stmt.QueryRow(oper, oper).Scan(&Char.acct, &Char.name, &seconds)
+	var c Char
+	err = stmt.QueryRow(oper, oper).Scan(&c.acct, &c.name, &seconds)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
 		log.Fatal(err)
 	} else {
-		var seen string
 		online := false
 		secs := time.Duration(seconds) * time.Second
 		if secs.Hours() >= 24 && secs.Hours() < 48 {
-			seen = "1 day"
+			c.seen = "1 day"
 		} else if secs.Hours() >= 48 {
 			days := int(secs.Hours()) / 24
-			seen = fmt.Sprintf("%d days", days)
+			c.seen = fmt.Sprintf("%d days", days)
 		} else if secs.Seconds() > 3600 {
 			hours := int(secs.Seconds()) / 3600
 			minutes := (int(secs.Seconds()) % 3600) / 60
-			seen = fmt.Sprintf("%dh%dm", hours, minutes)
+			c.seen = fmt.Sprintf("%dh%dm", hours, minutes)
 		} else if secs.Seconds() > 60 {
 			minutes := int(secs.Seconds()) / 60
 			seconds = int(secs.Seconds()) % 60
-			seen = fmt.Sprintf("%dm%ds", minutes, seconds)
+			c.seen = fmt.Sprintf("%dm%ds", minutes, seconds)
 		} else if secs.Seconds() <= 60 && secs.Seconds() >= 0 {
-			seen = fmt.Sprintf("%ds", int(secs.Seconds()))
+			c.seen = fmt.Sprintf("%ds", int(secs.Seconds()))
 			online = true
 		} else {
 			log.Printf("'find' error: seconds were %d\n", secs.Seconds())
@@ -431,11 +432,11 @@ func Find(oper string) string {
 		if !online {
 			txt = fmt.Sprintf(
 				"@%s last seen %s ago as %s",
-				Char.acct, seen, Char.name)
+				c.acct, c.seen, c.name)
 		} else {
 			txt = fmt.Sprintf(
 				"@%s is online as %s",
-				Char.acct, Char.name)
+				c.acct, c.name)
 		}
 	}
 	return txt
@@ -458,7 +459,8 @@ func Name(oper string) string {
 	defer stmt.Close()
 
 	var txt string
-	err = stmt.QueryRow(oper, oper).Scan(&Char.acct, &Char.name)
+	var c Char
+	err = stmt.QueryRow(oper, oper).Scan(&c.acct, &c.name)
 	if err == sql.ErrNoRows {
 		query := "SELECT account_name " +
 			"FROM accounts " +
@@ -471,18 +473,18 @@ func Name(oper string) string {
 		ChkErr(err)
 		defer stmt.Close()
 
-		err = stmt.QueryRow(oper, oper).Scan(&Char.acct)
+		err = stmt.QueryRow(oper, oper).Scan(&c.acct)
 		if err == sql.ErrNoRows {
 			txt = NotFound("character or account", oper)
 		} else if err != nil {
 			log.Fatal(err)
 		} else {
-			txt = fmt.Sprintf("@%s did not disclose their real name", Char.acct)
+			txt = fmt.Sprintf("@%s did not disclose their real name", c.acct)
 		}
 	} else if err != nil {
 		log.Fatal(err)
 	} else {
-		txt = fmt.Sprintf("@%s's real name is %s", Char.acct, Char.name)
+		txt = fmt.Sprintf("@%s's real name is %s", c.acct, c.name)
 	}
 	return txt
 }
@@ -510,12 +512,13 @@ func FindClass(oper string) []string {
 
 	var txts []string
 	var found bool
+	var c Char
 	for rows.Next() {
-		err = rows.Scan(&Char.name, &Char.class, &Char.race,
-			&Char.lvl, &Char.acct)
+		err = rows.Scan(&c.name, &c.class, &c.race,
+			&c.lvl, &c.acct)
 		txt := fmt.Sprintf(
 			"[%d %s] %s (%s) (@%s)",
-			Char.lvl, Char.class, Char.name, Char.race, Char.acct,
+			c.lvl, c.class, c.name, c.race, c.acct,
 		)
 		txts = append(txts, txt)
 		found = true
@@ -541,7 +544,8 @@ func DelAlt(oper string, char string) string {
 	defer stmt.Close()
 
 	var txt string
-	err = stmt.QueryRow(oper, char).Scan(&Char.acct, &Char.name)
+	var c Char
+	err = stmt.QueryRow(oper, char).Scan(&c.acct, &c.name)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
@@ -579,7 +583,8 @@ func AddAlt(oper string, char string) string {
 	defer stmt.Close()
 
 	var txt string
-	err = stmt.QueryRow(oper, char).Scan(&Char.acct, &Char.name)
+	var c Char
+	err = stmt.QueryRow(oper, char).Scan(&c.acct, &c.name)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
@@ -615,7 +620,8 @@ func AddName(oper string, char string) string {
 	defer stmt.Close()
 
 	var txt string
-	err = stmt.QueryRow(char).Scan(&Char.acct)
+	var c Char
+	err = stmt.QueryRow(char).Scan(&c.acct)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", char)
 	} else if err != nil {
@@ -632,7 +638,7 @@ func AddName(oper string, char string) string {
 		defer stmt.Close()
 
 		name := strings.Title(oper)
-		_, err = stmt.Exec(name, Char.acct)
+		_, err = stmt.Exec(name, c.acct)
 		ChkErr(err)
 		tx.Commit()
 		txt = fmt.Sprintf("Your real name recorded as: %s", oper)
@@ -646,6 +652,7 @@ func LoadReport(oper string, char string) []string {
 
 	var txts []string
 	var txt string
+	var c Char
 	if oper == "" {
 		query := "SELECT char_name, report_text, " +
 			"DATETIME(report_time) " +
@@ -662,10 +669,10 @@ func LoadReport(oper string, char string) []string {
 		for rows.Next() {
 			var report string
 			var date string
-			err = rows.Scan(&Char.name, &report, &date)
+			err = rows.Scan(&c.name, &report, &date)
 			txt = fmt.Sprintf(
 				"%d: %s [%s at %s]",
-				counter, report, Char.name, date,
+				counter, report, c.name, date,
 			)
 			txts = append(txts, txt)
 			counter++

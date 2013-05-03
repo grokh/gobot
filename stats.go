@@ -9,6 +9,12 @@ import (
 	"time"
 )
 
+type Item struct {
+	name, itype, zone, date, keys     string
+	wt, val                           int
+	specs, procs, enchs, flags, restr []string
+}
+
 var i struct {
 	name, itype, zone, date, keys, s         string // base
 	wt, val                                  int    // base

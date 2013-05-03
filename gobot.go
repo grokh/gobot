@@ -5,14 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"time"
 )
-
-var Char struct {
-	class, name, race, acct string
-	lvl                     int
-	seen                    time.Time
-}
 
 func ChkErr(err error) {
 	if err != nil {
@@ -82,7 +75,10 @@ func main() {
 		cmds = ReplyTo(*char, *tell)
 	case *char != "" && 50 >= *lvl && *lvl > 0 &&
 		*class != "" && *race != "" && *acct != "":
-		cmds = WhoChar(*char, *lvl, *class, *race, *acct)
+		c := Char{
+			name: *char, lvl: *lvl, class: *class, race: *race, acct: *acct,
+		}
+		cmds = c.who()
 	case *stats:
 		cmds = FormatStats()
 	case *item != "":

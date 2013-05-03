@@ -10,9 +10,9 @@ import (
 )
 
 type Item struct {
-	name, itype, zone, date, keys     string
-	wt, val                           int
-	specs, procs, enchs, flags, restr []string
+	name, itype, zone, date, keys            string
+	id, wt, val                              int
+	specs, procs, enchs, flags, restr, supps []string
 }
 
 var i struct {
@@ -414,7 +414,8 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		i.itype += fmt.Sprintf(" Wt:%d", i.wt)
 	}
 	if i.val != -1 {
-		i.itype += fmt.Sprintf(" Val:%s", humanize.Comma(int64(i.val)))
+		i.val = i.val / 1000
+		i.itype += fmt.Sprintf(" Val:%dp", i.val)
 	}
 
 	// construct the zone and last id

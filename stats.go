@@ -10,9 +10,11 @@ import (
 )
 
 type Item struct {
-	name, itype, zone, date, keys            string
-	id, wt, val                              int
-	specs, procs, enchs, flags, restr, supps []string
+	full_stats, item_name, keywords, item_type, last_id      string
+	weight, c_value, item_id                                 int
+	item_slots, item_effects, item_flags, item_restricts     []string
+	item_attribs, item_specials, item_enchants, item_resists [][]string
+	tlast_id                                                 time.Time
 }
 
 var i struct {
@@ -64,7 +66,7 @@ func FormatStats() []string {
 	}
 	ChkRows(rows)
 
-	for n := 0; n < len(ids); n++ {
+	for n := range ids {
 		short[n] = ConstructShortStats(db, ids[n])
 		long[n] = ConstructLongStats(db, ids[n])
 	}
@@ -72,19 +74,14 @@ func FormatStats() []string {
 	// put the batched short_stats into the database
 	tx, err := db.Begin()
 	ChkErr(err)
-	stmt1, err := tx.Prepare(
-		"UPDATE items SET short_stats = ? WHERE item_id = ?")
+	stmt, err = tx.Prepare(
+		"UPDATE items SET short_stats = ?, long_stats = ? "+
+			"WHERE item_id = ?")
 	ChkErr(err)
-	defer stmt1.Close()
-	stmt2, err := tx.Prepare(
-		"UPDATE items SET long_stats = ? WHERE item_id = ?")
-	ChkErr(err)
-	defer stmt2.Close()
+	defer stmt.Close()
 
-	for n, _ := range ids {
-		_, err = stmt1.Exec(short[n], ids[n])
-		ChkErr(err)
-		_, err = stmt2.Exec(long[n], ids[n])
+	for n := range ids {
+		_, err = stmt.Exec(short[n], long[n], ids[n])
 		ChkErr(err)
 	}
 

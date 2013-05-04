@@ -106,13 +106,15 @@ func (c *Char) who() []string {
 			defer stmt.Close()
 
 			log.Printf("New acct: @%s", c.acct)
-			txt = append(txt,
-				fmt.Sprintf(
-					"nhc Welcome, %s. If you have any questions, "+
-						"feel free to ask on this channel.",
-					c.name,
-				),
-			)
+			if c.lvl <= 20 {
+				txt = append(txt,
+					fmt.Sprintf(
+						"nhc Welcome, %s. If you have any questions, "+
+							"feel free to ask on this channel.",
+						c.name,
+					),
+				)
+			}
 			_, err = stmt.Exec(c.acct)
 			ChkErr(err)
 			tx.Commit()

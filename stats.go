@@ -10,11 +10,11 @@ import (
 )
 
 type Item struct {
-	full_stats, item_name, keywords, item_type, last_id      string
-	weight, c_value, item_id                                 int
-	item_slots, item_effects, item_flags, item_restricts     []string
-	item_attribs, item_specials, item_enchants, item_resists [][]string
-	tlast_id                                                 time.Time
+	full, short, long, name, keys, itype, date string
+	id, wt, val                                int
+	slots, effs, flags, restrs, supps          []string
+	attrs, specs, enchs, resis, procs          [][]string
+	tdate                                      time.Time
 }
 
 var i struct {
@@ -42,6 +42,7 @@ func FormatStats() []string {
 	ChkErr(err)
 	stmt.Close()
 
+	// switch to multidimensional
 	ids := make([]int, size, size)
 	short := make([]string, size, size)
 	long := make([]string, size, size)

@@ -84,24 +84,21 @@ func Test_All(t *testing.T) {
 		name: "Yog", lvl: 50, class: "Shaman ", race: "Barbarian", acct: "Yog",
 	}
 	txt = c.who()
+	good = []string{}
+	chk(t, "c.who()", good, txt)
+
+	c = Char{
+		name: "Tom", lvl: 1, class: "Warrior ", race: "Drow Elf", acct: "Bob",
+	}
+	txt = c.who()
 	good = []string{
-		"nhc Welcome, Yog. If you have any questions, " +
+		"nhc Welcome, Tom. If you have any questions, " +
 			"feel free to ask on this channel.",
 	}
 	chk(t, "c.who()", good, txt)
 
 	c = Char{
 		name: "Bob", lvl: 50, class: "Bard      ", race: "Human", acct: "Bob",
-	}
-	txt = c.who()
-	good = []string{
-		"nhc Welcome, Bob. If you have any questions, " +
-			"feel free to ask on this channel.",
-	}
-	chk(t, "c.who()", good, txt)
-
-	c = Char{
-		name: "Tom", lvl: 1, class: "Warrior ", race: "Drow Elf", acct: "Bob",
 	}
 	txt = c.who()
 	good = []string{}
@@ -252,7 +249,7 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "find bob"
 	txt = ReplyTo(char, tell)
-	good = []string{"t Yog @Bob is online as Tom\n"}
+	good = []string{"t Yog @Bob is online as Bob\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "find blah"

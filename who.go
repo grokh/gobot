@@ -72,7 +72,7 @@ func (c *Char) who() []string {
 	var txt []string
 	loc, err := time.LoadLocation("America/New_York")
 	ChkErr(err)
-	date := time.Now().In(loc)
+	c.tseen = time.Now().In(loc)
 
 	db := OpenDB()
 	defer db.Close()
@@ -83,9 +83,7 @@ func (c *Char) who() []string {
 	stmt, err := db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
-	var acc string
-	var name string
-	err = stmt.QueryRow(c.name).Scan(&acc, &name)
+	err = stmt.QueryRow(c.name).Scan(&c.acct, &c.name)
 	if err == sql.ErrNoRows {
 		// if no char, check if account exists in DB, create char
 		query = "SELECT account_name FROM accounts " +
@@ -94,7 +92,7 @@ func (c *Char) who() []string {
 		ChkErr(err)
 		defer stmt.Close()
 
-		err = stmt.QueryRow(c.acct).Scan(&acc)
+		err = stmt.QueryRow(c.acct).Scan(&c.acct)
 		if err == sql.ErrNoRows {
 			//if no acct, create acccount
 			tx, err := db.Begin()
@@ -133,9 +131,9 @@ func (c *Char) who() []string {
 
 		log.Printf(
 			"New char: [%d %s] %s (%s) (@%s) seen %s",
-			c.lvl, c.class, c.name, c.race, c.acct, date,
+			c.lvl, c.class, c.name, c.race, c.acct, c.tseen,
 		)
-		_, err = stmt.Exec(c.acct, c.name, c.class, c.race, c.lvl, date)
+		_, err = stmt.Exec(c.acct, c.name, c.class, c.race, c.lvl, c.tseen)
 		ChkErr(err)
 		tx.Commit()
 	} else if err != nil {

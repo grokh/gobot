@@ -61,6 +61,8 @@ func main() {
 		"Restore the toril.db database from backup file. Ex: toril.db.gz")
 	var stats = flag.Bool("s", false,
 		"Run FormatStats() creation for item DB.")
+	var test = flag.Bool("test", false,
+		"Run any current functions under testing.")
 
 	flag.Parse()
 
@@ -91,6 +93,14 @@ func main() {
 		BackupDB()
 	case *restore != "":
 		RestoreDB(*restore)
+	case *test:
+		i := Item{}
+		i.FillItemByID(1)
+		for _, slots := range i.slots {
+			for _, slot := range slots {
+				fmt.Println(slot)
+			}
+		}
 	}
 	for _, cmd := range cmds {
 		fmt.Print(cmd)

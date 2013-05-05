@@ -10,11 +10,58 @@ import (
 )
 
 type Item struct {
-	full, short, long, name, keys, itype, date string
-	id, wt, val                                int
-	slots, effs, flags, restrs, supps          []string
-	attrs, specs, enchs, resis, procs          [][]string
-	tdate                                      time.Time
+	full, short, long, name, keys, itype, zone, date string
+	id, wt, val                                      int
+	slots, effs, flags, restrs, supps                [][]string
+	attrs, specs, enchs, resis, procs                [][]string
+	tdate                                            time.Time
+}
+
+func (i *Item) FillItemByID(id int) {
+	i.id = id
+
+	db := OpenDB()
+	defer db.Close()
+
+	query := "select item_name, keywords, weight, c_value, item_type, " +
+		"from_zone, short_stats, long_stats, last_id " +
+		"from items where item_id = ?"
+	stmt, err := db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
+
+	err = stmt.QueryRow(i.id).Scan(
+		&i.name, &i.keys, &i.wt, &i.val, &i.itype,
+		&i.zone, &i.short, &i.long, &i.date,
+	)
+	ChkErr(err)
+	stmt.Close()
+
+	query = "select i.slot_abbr, worn_slot, slot_display " +
+		"from item_slots i, slots s " +
+		"where i.slot_abbr = s.slot_abbr and item_id = ?"
+	stmt, err = db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
+
+	rows, err := stmt.Query(i.id)
+	ChkErr(err)
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	ChkErr(err)
+	pointers := make([]interface{}, len(cols))
+	container := make([]string, len(cols))
+	for i := range pointers {
+		pointers[i] = &container[i]
+	}
+
+	for rows.Next() {
+		err = rows.Scan(pointers...)
+		i.slots = append(i.slots, container)
+	}
+	ChkRows(rows)
+	stmt.Close()
 }
 
 var i struct {
@@ -76,7 +123,7 @@ func FormatStats() []string {
 	tx, err := db.Begin()
 	ChkErr(err)
 	stmt, err = tx.Prepare(
-		"UPDATE items SET short_stats = ?, long_stats = ? "+
+		"UPDATE items SET short_stats = ?, long_stats = ? " +
 			"WHERE item_id = ?")
 	ChkErr(err)
 	defer stmt.Close()

@@ -10,11 +10,12 @@ import (
 )
 
 type Item struct {
-	full, short, long, name, keys, itype, zone, date string
-	id, wt, val                                      int
-	slots, effs, flags, restrs, supps                [][]string
-	attrs, specs, enchs, resis, procs                [][]string
-	tdate                                            time.Time
+	full, short, long, name, keys, itype string
+	zone, date                           string
+	id, wt, val                          int
+	slots, effs, flags, restrs, supps    [][]string
+	attrs, specs, enchs, resis, procs    [][]string
+	tdate                                time.Time
 }
 
 func (i *Item) FillItemByID(id int) {
@@ -48,6 +49,7 @@ func (i *Item) FillItemByID(id int) {
 	ChkErr(err)
 	defer rows.Close()
 
+	// awkward
 	cols, err := rows.Columns()
 	ChkErr(err)
 	pointers := make([]interface{}, len(cols))

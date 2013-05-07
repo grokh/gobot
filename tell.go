@@ -839,14 +839,23 @@ func ReplyTo(char string, tell string) []string {
 	}
 	for i, t := range txt {
 		if len(t) > 300 {
-			y := strings.Fields(t[:300])
-			x, y := y[len(y)-1], y[:len(y)-1]
-			a := strings.Join(y, " ")
-			b := x + t[300:]
-			txt[i] = fmt.Sprintf("t %s %s\n", char, b)
-			txt = append(txt, "")
-			copy(txt[i+1:], txt[i:])
-			txt[i] = fmt.Sprintf("t %s %s\n", char, a)
+			if strings.LastIndex(t[:300], " ") != 299 {
+				y := strings.Fields(t[:300])
+				x, y := y[len(y)-1], y[:len(y)-1]
+				a := strings.Join(y, " ")
+				b := x + t[300:]
+				txt[i] = fmt.Sprintf("t %s %s\n", char, b)
+				txt = append(txt, "")
+				copy(txt[i+1:], txt[i:])
+				txt[i] = fmt.Sprintf("t %s %s\n", char, a)
+			} else {
+				a := t[:300]
+				b := t[300:]
+				txt[i] = fmt.Sprintf("t %s %s\n", char, b)
+				txt = append(txt, "")
+				copy(txt[i+1:], txt[i:])
+				txt[i] = fmt.Sprintf("t %s %s\n", char, a)
+			}
 		} else {
 			txt[i] = fmt.Sprintf("t %s %s\n", char, t)
 		}

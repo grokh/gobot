@@ -449,7 +449,7 @@ func Identify(filename string) []string {
 			query = "INSERT INTO items " +
 				"(item_name, keywords, weight, c_value, " +
 				"item_type, full_stats, last_id, from_zone) " +
-				"VALUES(?, ?, ?, ?, ?, ?, ?, 'Unknown')"
+				"VALUES(?, ?, ?, ?, ?, ?, ?, 'Unknown');"
 			stmt, err := tx.Prepare(query)
 			ChkErr(err)
 			defer stmt.Close()
@@ -470,73 +470,100 @@ func Identify(filename string) []string {
 					log.Printf("Unmatched: %s", um)
 				}
 			}
-			log.Printf("UPDATE items SET from_zone = '?' "+
-				"WHERE item_id = %d; -- %s", id, item_name)
-			log.Printf("INSERT INTO item_supps VALUES(%d, '?'); -- %s",
-				id, item_name)
-			log.Printf("INSERT INTO item_procs (item_id, proc_name) "+
-				"VALUES(%d, '?'); -- %s", id, item_name)
+			query = "INSERT INTO items " +
+				"(item_id, item_name, keywords, weight, c_value, " +
+				"item_type, full_stats, last_id, from_zone) " +
+				"VALUES(%d, %s, %s, %d, %d, %s, %s, %s, 'Unknown');"
+			sqls := fmt.Sprintf("\n"+query+"\n", id,
+				strconv.Quote(item_name),
+				strconv.Quote(keywords),
+				weight, c_value,
+				strconv.Quote(types[item_type]),
+				strconv.Quote(full_stats),
+				strconv.Quote(date),
+			)
 
 			for _, slot := range item_slots {
-				query = "INSERT INTO item_slots VALUES(?, ?)"
+				query = "INSERT INTO item_slots VALUES(?, ?);"
 				stmt, err := tx.Prepare(query)
 				ChkErr(err)
 				defer stmt.Close()
 
 				_, err = stmt.Exec(id, slots[slot])
 				ChkErr(err)
+				query = strings.Replace(query, "?", "%v", -1)
+				sqls += fmt.Sprintf(query+"\n", id,
+					strconv.Quote(slots[slot]))
 			}
 			for _, eff := range item_effects {
 				if eff != "NOBITS" && eff != "GROUP_CACHED" {
-					query = "INSERT INTO item_effects VALUES(?, ?)"
+					query = "INSERT INTO item_effects VALUES(?, ?);"
 					stmt, err := tx.Prepare(query)
 					ChkErr(err)
 					defer stmt.Close()
 
 					_, err = stmt.Exec(id, effs[eff])
 					ChkErr(err)
+					query = strings.Replace(query, "?", "%v", -1)
+					sqls += fmt.Sprintf(query+"\n", id,
+						strconv.Quote(effs[eff]))
 				}
 			}
 			for _, flag := range item_flags {
 				if flag != "NOBITS" && flag != "NOBITSNOBITS" {
-					query = "INSERT INTO item_flags VALUES(?, ?)"
+					query = "INSERT INTO item_flags VALUES(?, ?);"
 					stmt, err := tx.Prepare(query)
 					ChkErr(err)
 					defer stmt.Close()
 
 					_, err = stmt.Exec(id, iflags[flag])
 					ChkErr(err)
+					query = strings.Replace(query, "?", "%v", -1)
+					sqls += fmt.Sprintf(query+"\n", id,
+						strconv.Quote(iflags[flag]))
 				}
 			}
 			for _, rest := range item_restricts {
-				query = "INSERT INTO item_restricts VALUES(?, ?)"
+				query = "INSERT INTO item_restricts VALUES(?, ?);"
 				stmt, err := tx.Prepare(query)
 				ChkErr(err)
 				defer stmt.Close()
 
 				_, err = stmt.Exec(id, restrs[rest])
 				ChkErr(err)
+				query = strings.Replace(query, "?", "%v", -1)
+				sqls += fmt.Sprintf(query+"\n", id,
+					strconv.Quote(restrs[rest]))
 			}
 			for _, attr := range item_attribs {
-				query = "INSERT INTO item_attribs VALUES(?, ?, ?)"
+				query = "INSERT INTO item_attribs VALUES(?, ?, ?);"
 				stmt, err := tx.Prepare(query)
 				ChkErr(err)
 				defer stmt.Close()
 
 				_, err = stmt.Exec(id, attrs[attr[0]], attr[1])
 				ChkErr(err)
+				query = strings.Replace(query, "?", "%v", -1)
+				sqls += fmt.Sprintf(query+"\n", id,
+					strconv.Quote(attrs[attr[0]]), attr[1])
 			}
 			for _, spec := range item_specials {
-				query = "INSERT INTO item_specials VALUES(?, ?, ?, ?)"
+				query = "INSERT INTO item_specials VALUES(?, ?, ?, ?);"
 				stmt, err := tx.Prepare(query)
 				ChkErr(err)
 				defer stmt.Close()
 
 				_, err = stmt.Exec(id, types[spec[0]], spec[1], spec[2])
 				ChkErr(err)
+				query = strings.Replace(query, "?", "%v", -1)
+				sqls += fmt.Sprintf(query+"\n", id,
+					strconv.Quote(types[spec[0]]),
+					strconv.Quote(spec[1]),
+					strconv.Quote(spec[2]),
+				)
 			}
 			for _, ench := range item_enchants {
-				query = "INSERT INTO item_enchants VALUES(?, ?, ?, ?, ?, ?)"
+				query = "INSERT INTO item_enchants VALUES(?, ?, ?, ?, ?, ?);"
 				stmt, err := tx.Prepare(query)
 				ChkErr(err)
 				defer stmt.Close()
@@ -544,26 +571,41 @@ func Identify(filename string) []string {
 				_, err = stmt.Exec(id,
 					ench[0], ench[1], ench[2], ench[3], ench[4])
 				ChkErr(err)
+				query = strings.Replace(query, "?", "%v", -1)
+				sqls += fmt.Sprintf(query+"\n", id,
+					strconv.Quote(ench[0]),
+					ench[1], ench[2], ench[3], ench[4],
+				)
 			}
 			for _, res := range item_resists {
-				query = "INSERT INTO item_resists VALUES(?, ?, ?)"
+				query = "INSERT INTO item_resists VALUES(?, ?, ?);"
 				stmt, err := tx.Prepare(query)
 				ChkErr(err)
 				defer stmt.Close()
 
 				_, err = stmt.Exec(id, resis[res[0]], res[1])
 				ChkErr(err)
+				query = strings.Replace(query, "?", "%v", -1)
+				sqls += fmt.Sprintf(query+"\n", id,
+					strconv.Quote(resis[res[0]]), res[1])
 			}
 			tx.Commit()
+			sqls += fmt.Sprintf(
+				"--UPDATE items SET from_zone = \"?\" "+
+					"WHERE item_id = %d;\n", id)
+			sqls += fmt.Sprintf(
+				"--INSERT INTO item_supps VALUES(%d, \"?\");\n", id)
+			sqls += fmt.Sprintf(
+				"--INSERT INTO item_procs (item_id, proc_name) "+
+					"VALUES(%d, \"?\");\n", id)
+			log.Print(sqls)
 		} else if err != nil {
 			log.Fatal(err)
 		} else {
 			ignored++
-			log.Printf(
-				"Item already exists: id[%d], name: %s",
+			log.Printf("Item already exists: id[%d], name: %s",
 				id, item_name)
-			log.Printf(
-				"UPDATE items SET last_id = '%s' WHERE item_id = %d;",
+			log.Printf("UPDATE items SET last_id = '%s' WHERE item_id = %d;",
 				date, id)
 			log.Println(short_stats)
 			log.Println(full_stats)

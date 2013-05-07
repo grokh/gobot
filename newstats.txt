@@ -37,7 +37,6 @@ Can affect you as :
     Affects : HITROLL By 6
     Affects : DAMROLL By 6
 
-You feel informed:
 Name 'a vicious looking dagger with a spider shaped pommel'
 Keyword 'vicious dagger spider', Item type: WEAPON
 Item can be worn on:  WIELD 
@@ -616,7 +615,6 @@ Weight: 0, Value: 0
 Can affect you as :
     Affects : CON By 4
 
-You feel informed:
 Name 'a sawtoothed glaive'
 Keyword 'saw sawtoothed toothed glaive', Item type: WEAPON
 Item can be worn on:  WIELD 
@@ -927,3 +925,68 @@ Weight: 1, Value: 500
 AC-apply is 4
 Can affect you as :
     Affects : MOVE By 25
+
+Name 'a huge boar skull'
+Keyword 'skull boar', Item type: ARMOR
+Item can be worn on:  HEAD 
+Item will give you following abilities:  NOBITS
+Item is: NOBITSNOBITS
+Weight: 2, Value: 0
+AC-apply is 8
+Can affect you as :
+    Affects : HITROLL By 2
+    Affects : CON By 4
+Zone: Meilech - regular load
+
+Name 'a dwarven shield with a foaming mug crest'
+Keyword 'dwarven mithril foaming mug shield', Item type: ARMOR
+Item can be worn on:  SHIELD 
+Item will give you following abilities:  NOBITS
+Item is: NOBITSNOBITS
+Weight: 25, Value: 1000
+AC-apply is 15
+Zone: MHP
+
+Name 'a pair of solid magma boots'
+Keyword 'magma boots solid', Item type: ARMOR
+Item can be worn on:  FEET 
+Item will give you following abilities:  NOBITS
+Item is: NO-THIEF NO-MAGE NOBITS
+Weight: 10, Value: 555
+AC-apply is 8
+Can affect you as :
+    Affects : HITROLL By 1
+    Affects : DAMROLL By 2
+Zone: Fire Plane, rare
+
+Name 'a hole of spatial distortion'
+Keyword 'hole spatial distortion', Item type: CONTAINER
+Item can be worn on:  NOBITS
+Item will give you following abilities:  NOBITS
+Item is: FLOAT NOBURN NOBITS
+Weight: 0, Value: 10000
+Can hold 750 more lbs with 750lbs weightless.
+
+Name 'a shield of elemental ice'
+Keyword 'shield ice', Item type: ARMOR
+Item can be worn on:  SHIELD 
+Item will give you following abilities:  NOBITS
+Item is: MAGIC FLOAT NOBURN NO-CLERIC NO-THIEF NO-MAGE NOBITS
+Weight: 50, Value: 20000
+AC-apply is 15
+Resists:
+Cold  :    5% 
+Can affect you as :
+Affects : SV_PARA By -8
+Affects : HITPOINTS By 15
+
+Name 'a pair of sharkskin hand wraps'
+Keyword 'sharkskin hand wraps', Item type: ARMOR
+Item can be worn on:  HANDS 
+Item will give you following abilities:  NOBITS
+Item is: MAGIC NO-CLERIC NO-MAGE NOBITS
+Weight: 3, Value: 100000
+AC-apply is 2
+Can affect you as :
+    Affects : HITPOINTS By 8
+    Affects : DAMROLL By 2

@@ -461,7 +461,8 @@ func Identify(filename string) []string {
 
 			id, err = res.LastInsertId()
 			ChkErr(err)
-			log.Printf("Inserted new item: id[%d], name: %s", id, item_name)
+			sqls := fmt.Sprintf("Inserted new item: id[%d], name: %s\n",
+				id, item_name)
 			inserted++
 			for _, um := range unmatch {
 				if !strings.Contains(um, "Can affect you as :") &&
@@ -474,7 +475,8 @@ func Identify(filename string) []string {
 				"(item_id, item_name, keywords, weight, c_value, " +
 				"item_type, full_stats, last_id, from_zone) " +
 				"VALUES(%d, %s, %s, %d, %d, %s, %s, %s, 'Unknown');"
-			sqls := fmt.Sprintf("\n"+query+"\n", id,
+			sqls += "----------------------------\n"
+			sqls += fmt.Sprintf(query+"\n", id,
 				strconv.Quote(item_name),
 				strconv.Quote(keywords),
 				weight, c_value,
@@ -598,6 +600,7 @@ func Identify(filename string) []string {
 			sqls += fmt.Sprintf(
 				"--INSERT INTO item_procs (item_id, proc_name) "+
 					"VALUES(%d, \"?\");\n", id)
+			sqls += "----------------------------\n"
 			log.Print(sqls)
 		} else if err != nil {
 			log.Fatal(err)

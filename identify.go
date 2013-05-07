@@ -606,13 +606,81 @@ func Identify(filename string) []string {
 			log.Fatal(err)
 		} else {
 			ignored++
-			log.Printf("Item already exists: id[%d], name: %s",
+			for _, um := range unmatch {
+				if !strings.Contains(um, "Can affect you as :") &&
+					!strings.Contains(um, "Enchantments:") &&
+					!strings.Contains(um, "You feel informed:") {
+					log.Printf("Unmatched: %s", um)
+				}
+			}
+			sqls := fmt.Sprintf("Item already exists: id[%d], name: %s\n",
 				id, item_name)
-			log.Printf("UPDATE items SET last_id = '%s' WHERE item_id = %d;",
+			sqls += "----------------------------\n"
+			sqls += fmt.Sprintf(
+				"UPDATE items SET last_id = '%s' WHERE item_id = %d;\n",
 				date, id)
+			sqls += fmt.Sprintf("UPDATE items SET full_stats = %s "+
+				"WHERE item_id = %d;\n",
+				strconv.Quote(full_stats), id)
+			for _, slot := range item_slots {
+				sqls += fmt.Sprintf(
+					"--INSERT INTO item_slots VALUES(%d, %s);\n",
+					id, strconv.Quote(slots[slot]))
+			}
+			for _, eff := range item_effects {
+				if eff != "NOBITS" && eff != "GROUP_CACHED" {
+					sqls += fmt.Sprintf(
+						"--INSERT INTO item_effects VALUES(%d, %s);\n",
+						id, strconv.Quote(effs[eff]))
+				}
+			}
+			for _, flag := range item_flags {
+				if flag != "NOBITS" && flag != "NOBITSNOBITS" {
+					sqls += fmt.Sprintf(
+						"--INSERT INTO item_flags VALUES(%d, %s);\n",
+						id, strconv.Quote(iflags[flag]))
+				}
+			}
+			for _, rest := range item_restricts {
+				sqls += fmt.Sprintf(
+					"--INSERT INTO item_restricts VALUES(%d, %s);\n",
+					id, strconv.Quote(restrs[rest]))
+			}
+			for _, attr := range item_attribs {
+				sqls += fmt.Sprintf(
+					"--INSERT INTO item_attribs VALUES(%d, %s, %s);\n",
+					id, strconv.Quote(attrs[attr[0]]), attr[1])
+			}
+			for _, spec := range item_specials {
+				sqls += fmt.Sprintf(
+					"--INSERT INTO item_specials VALUES(%d, %s, %s, %s);\n",
+					id, strconv.Quote(types[spec[0]]),
+					strconv.Quote(spec[1]),
+					strconv.Quote(spec[2]),
+				)
+			}
+			for _, ench := range item_enchants {
+				sqls += fmt.Sprintf(
+					"--INSERT INTO item_enchants "+
+						"VALUES(%d, %s, %d, %d, %d, %d);\n",
+					id, strconv.Quote(ench[0]),
+					ench[1], ench[2], ench[3], ench[4],
+				)
+			}
+			for _, res := range item_resists {
+				sqls += fmt.Sprintf(
+					"--INSERT INTO item_resists VALUES(%d, %s, %d);\n",
+					id, strconv.Quote(resis[res[0]]), res[1])
+			}
+			sqls += fmt.Sprintf(
+				"--INSERT INTO item_supps VALUES(%d, \"?\");\n", id)
+			sqls += fmt.Sprintf(
+				"--INSERT INTO item_procs (item_id, proc_name) "+
+					"VALUES(%d, \"?\");\n", id)
+
+			sqls += "----------------------------\n"
+			log.Print(sqls)
 			log.Println(short_stats)
-			log.Println(full_stats)
-			// if same name and such, update the date of last_id
 			// manually compare full_stats vs. short_stats for possible update
 		}
 		// send all insert/update queries as a .sql file to review

@@ -849,7 +849,7 @@ func ReplyTo(char string, tell string) []string {
 				copy(txt[i+1:], txt[i:])
 				txt[i] = fmt.Sprintf("t %s %s\n", char, a)
 			} else {
-				a := t[:300]
+				a := strings.TrimSpace(t[:300])
 				b := t[300:]
 				txt[i] = fmt.Sprintf("t %s %s\n", char, b)
 				txt = append(txt, "")

@@ -14,76 +14,119 @@ func NotFound(four string, oper string) string {
 	return "404 " + four + " not found: " + oper
 }
 
-func FindItem(oper string, length string) string {
+func FindItem(oper string, length string) []string {
 	db := OpenDB()
 	defer db.Close()
-	var stats string
 
+	var res []string
+	count := 0
 	// query items table for exact item name
-	item := oper
+	txt := oper
 	query := "SELECT " + length + " FROM items " +
-		"WHERE item_name = ? LIMIT 1"
+		"WHERE item_name = ? LIMIT 12"
 
 	stmt, err := db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
 
-	err = stmt.QueryRow(item).Scan(&stats)
-	if err == sql.ErrNoRows {
+	rows, err := stmt.Query(txt)
+	ChkErr(err)
+	defer rows.Close()
+
+	for rows.Next() {
+		res = append(res, "")
+		err = rows.Scan(&res[count])
+		count++
+	}
+	ChkRows(rows)
+	stmt.Close()
+
+	if count == 0 {
+		//fmt.Println("No exact match")
 		// if no exact match on item name, check LIKE
-		item = "%" + oper + "%"
-		query = "SELECT " + length + " FROM items " +
-			"WHERE item_name LIKE ? LIMIT 1"
+		txt = "%" + oper + "%"
+		query = "SELECT item_name, " + length + " FROM items " +
+			"WHERE item_name LIKE ? LIMIT 12"
 
 		stmt, err = db.Prepare(query)
 		ChkErr(err)
 		defer stmt.Close()
 
-		err = stmt.QueryRow(item).Scan(&stats)
-		if err == sql.ErrNoRows {
-			// if no match on LIKE, check with %'s in place of spaces
-			item = " " + oper + " "
-			item = strings.Replace(item, " ", "%", -1)
-			query = "SELECT " + length + " FROM items " +
-				"WHERE item_name LIKE ? LIMIT 1"
+		rows, err = stmt.Query(txt)
+		ChkErr(err)
+		defer rows.Close()
 
-			stmt, err = db.Prepare(query)
-			ChkErr(err)
-			defer stmt.Close()
-
-			err = stmt.QueryRow(item).Scan(&stats)
-			if err == sql.ErrNoRows {
-				// if no match on %'s, check general strings in any order
-				words := strings.Fields(oper)
-				args := make([]interface{}, len(words))
-				query = "SELECT " + length + " FROM " +
-					"items WHERE "
-				for n, word := range words {
-					query += "item_name LIKE ? AND "
-					args[n] = "%" + word + "%"
-				}
-				query = strings.TrimRight(query, "AND ")
-
-				stmt, err := db.Prepare(query)
-				ChkErr(err)
-				defer stmt.Close()
-
-				err = stmt.QueryRow(args...).Scan(&stats)
-				if err == sql.ErrNoRows {
-					stats = NotFound("item", oper)
-				} else if err != nil {
-					log.Fatal(err)
-				}
-			} else if err != nil {
-				log.Fatal(err)
-			}
-		} else if err != nil {
-			log.Fatal(err)
+		for rows.Next() {
+			res = append(res, "")
+			err = rows.Scan(&txt, &res[count])
+			count++
 		}
-	} else if err != nil {
-		log.Fatal(err)
+		ChkRows(rows)
+		stmt.Close()
 	}
-	return stats
+
+	if count == 0 {
+		//fmt.Println("No like match")
+		// if no match on LIKE, check with %'s in place of spaces
+		txt = " " + oper + " "
+		txt = strings.Replace(txt, " ", "%", -1)
+		query = "SELECT item_name, " + length + " FROM items " +
+			"WHERE item_name LIKE ? LIMIT 12"
+
+		stmt, err = db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+
+		rows, err = stmt.Query(txt)
+		ChkErr(err)
+		defer rows.Close()
+
+		for rows.Next() {
+			res = append(res, "")
+			err = rows.Scan(&txt, &res[count])
+			count++
+		}
+		ChkRows(rows)
+		stmt.Close()
+	}
+
+	if count == 0 {
+		//fmt.Println("No in order match")
+		// if no match on %'s, check general strings in any order
+		words := strings.Fields(oper)
+		args := make([]interface{}, len(words))
+		query = "SELECT item_name, " + length + " FROM " +
+			"items WHERE "
+		for n, word := range words {
+			query += "item_name LIKE ? AND "
+			args[n] = "%" + word + "%"
+		}
+		query = strings.TrimRight(query, "AND ")
+		query += " LIMIT 12"
+
+		stmt, err = db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+
+		rows, err = stmt.Query(args...)
+		ChkErr(err)
+		defer rows.Close()
+
+		for rows.Next() {
+			res = append(res, "")
+			err = rows.Scan(&txt, &res[count])
+			count++
+		}
+		ChkRows(rows)
+		stmt.Close()
+	}
+
+	if count == 0 {
+		//fmt.Println("No out of order match")
+		res = append(res, NotFound("item", oper))
+	}
+
+	return res
 }
 
 func Help(oper string) []string {
@@ -807,9 +850,9 @@ func ReplyTo(char string, tell string) []string {
 			txt = append(txt, char+" is NOT hidden!")
 		}
 	case cmd == "stat" && oper != "":
-		txt = append(txt, FindItem(oper, "short_stats"))
+		txt = FindItem(oper, "short_stats")
 	case cmd == "astat" && oper != "":
-		txt = append(txt, FindItem(oper, "long_stats"))
+		txt = FindItem(oper, "long_stats")
 	case cmd == "fstat" && oper != "":
 		txt = Fstat(oper)
 	case cmd == "who" && oper != "":

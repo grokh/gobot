@@ -349,14 +349,15 @@ func Test_All(t *testing.T) {
 	char, tell = "Yog", "astat destruction sword"
 	txt = ReplyTo(char, tell)
 	good = []string{
-		"t Yog a black longsword of destruction (Wielded), " +
+		"t Yog a black longsword of destruction (Slot: Wielded), " +
 			"Damroll: 8, Hitroll: 5, " +
 			"Fire: 5%, Infravision (Item Type: Weapon) " +
 			"Damage Dice: 8D6, Crit Chance: 6%, " +
 			"Crit Multiplier: 2x, (Class: Martial, Type: Longsword) * " +
 			"Float, Magic, No Burn, No Drop, No Locate, Two Handed " +
-			"NO-MAGE ANTI-PALADIN NO-CLERIC ANTI-RANGER\n",
-		"t Yog NO-THIEF * Keywords:(black sword destruction twilight) " +
+			"NO-MAGE ANTI-PALADIN NO-CLERIC\n",
+		"t Yog ANTI-RANGER NO-THIEF * " +
+			"Keywords:(black sword destruction twilight) " +
 			"* Weight: 15, Value: 10,000 copper * Zone: Unknown * Last ID: " +
 			date + "\n",
 	}

@@ -169,12 +169,21 @@ func ConstructShortStats(db *sql.DB, id int) string {
 	ChkErr(err)
 	defer rows.Close()
 
+	i.tmp1 = 0
 	for rows.Next() {
 		err = rows.Scan(&i.tmp)
-		i.s += " (" + strings.Title(i.tmp) + ")"
+		if i.tmp1 == 0 {
+			i.txt = strings.Title(i.tmp)
+		} else {
+			i.txt += " or " + strings.Title(i.tmp)
+		}
+		i.tmp1++
 	}
 	ChkRows(rows)
 	stmt.Close()
+	if i.tmp1 > 0 {
+		i.s += " (" + i.txt + ")"
+	}
 
 	// collect armor class (i.spec, but only for armor)
 	query = "SELECT spec_value FROM item_specials " +
@@ -521,12 +530,23 @@ func ConstructLongStats(db *sql.DB, id int) string {
 	ChkErr(err)
 	defer rows.Close()
 
+	i.tmp1 = 0
 	for rows.Next() {
 		err = rows.Scan(&i.tmp)
-		i.s += " (" + i.tmp + ")"
+		if i.tmp1 == 0 {
+			i.txt = i.tmp
+		} else {
+			i.txt += " or " + i.tmp
+		}
+		i.tmp1++
 	}
 	ChkRows(rows)
 	stmt.Close()
+	if i.tmp1 == 1 {
+		i.s += " (Slot: " + i.txt + ")"
+	} else if i.tmp1 > 1 {
+		i.s += " (Slots: " + i.txt + ")"
+	}
 
 	// collect armor class (specials, but only for armor)
 	query = "SELECT spec_display, spec_value " +

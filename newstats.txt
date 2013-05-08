@@ -990,3 +990,13 @@ AC-apply is 2
 Can affect you as :
     Affects : HITPOINTS By 8
     Affects : DAMROLL By 2
+
+Name 'an old and battered suit of platemail'
+Keyword 'platemail full plate battered', Item type: ARMOR
+Item can be worn on:  BODY 
+Item will give you following abilities:  NOBITS
+Item is: WHOLE-BODY NOBITS
+Weight: 6, Value: 20000
+AC-apply is 40
+Can affect you as :
+    Affects : HITPOINTS By 20

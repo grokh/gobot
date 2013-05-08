@@ -46,7 +46,7 @@ func FindItem(oper string, length string) []string {
 		// if no exact match on item name, check LIKE
 		txt = "%" + oper + "%"
 		query = "SELECT item_name, " + length + " FROM items " +
-			"WHERE item_name LIKE ? LIMIT 12"
+			"WHERE item_name LIKE ? LIMIT 1"
 
 		stmt, err = db.Prepare(query)
 		ChkErr(err)
@@ -71,7 +71,7 @@ func FindItem(oper string, length string) []string {
 		txt = " " + oper + " "
 		txt = strings.Replace(txt, " ", "%", -1)
 		query = "SELECT item_name, " + length + " FROM items " +
-			"WHERE item_name LIKE ? LIMIT 12"
+			"WHERE item_name LIKE ? LIMIT 1"
 
 		stmt, err = db.Prepare(query)
 		ChkErr(err)
@@ -102,7 +102,7 @@ func FindItem(oper string, length string) []string {
 			args[n] = "%" + word + "%"
 		}
 		query = strings.TrimRight(query, "AND ")
-		query += " LIMIT 12"
+		query += " LIMIT 1"
 
 		stmt, err = db.Prepare(query)
 		ChkErr(err)

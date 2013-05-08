@@ -1000,3 +1000,15 @@ Weight: 6, Value: 20000
 AC-apply is 40
 Can affect you as :
     Affects : HITPOINTS By 20
+
+Name 'a shaggy bugbear mane'
+Keyword 'mane shaggy bugbear fur', Item type: ARMOR
+Item can be worn on:  HEAD 
+Item will give you following abilities:  NOBITS
+Item is: NO-THIEF NO-MAGE NOBITS
+Weight: 2, Value: 1000
+AC-apply is 7
+Can affect you as :
+    Affects : STR By 9
+    Affects : HITROLL By 1
+Zone: Skullport, from quest

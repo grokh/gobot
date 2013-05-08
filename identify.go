@@ -14,7 +14,7 @@ import (
 
 func Identify(filename string) []string {
 	f, err := os.OpenFile(
-		"logs/import.log",
+		"import.sql",
 		os.O_RDWR|os.O_APPEND|os.O_CREATE,
 		0640,
 	)
@@ -471,11 +471,11 @@ func Identify(filename string) []string {
 					log.Printf("Unmatched: %s", um)
 				}
 			}
+			sqls += "----------------------------*/\n"
 			query = "INSERT INTO items " +
 				"(item_id, item_name, keywords, weight, c_value, " +
 				"item_type, full_stats, last_id, from_zone) " +
 				"VALUES(%d, %s, %s, %d, %d, %s, %s, %s, 'Unknown');"
-			sqls += "----------------------------\n"
 			sqls += fmt.Sprintf(query+"\n", id,
 				strconv.Quote(item_name),
 				strconv.Quote(keywords),
@@ -600,7 +600,7 @@ func Identify(filename string) []string {
 			sqls += fmt.Sprintf(
 				"--INSERT INTO item_procs (item_id, proc_name) "+
 					"VALUES(%d, \"?\");\n", id)
-			sqls += "----------------------------\n"
+			sqls += "/*----------------------------\n"
 			log.Print(sqls)
 		} else if err != nil {
 			log.Fatal(err)
@@ -615,7 +615,7 @@ func Identify(filename string) []string {
 			}
 			sqls := fmt.Sprintf("Item already exists: id[%d], name: %s\n",
 				id, item_name)
-			sqls += "----------------------------\n"
+			sqls += "----------------------------*/\n"
 			sqls += fmt.Sprintf(
 				"UPDATE items SET last_id = '%s' WHERE item_id = %d;\n",
 				date, id)
@@ -678,7 +678,7 @@ func Identify(filename string) []string {
 				"--INSERT INTO item_procs (item_id, proc_name) "+
 					"VALUES(%d, \"?\");\n", id)
 
-			sqls += "----------------------------\n"
+			sqls += "/*----------------------------\n"
 			log.Print(sqls)
 			log.Println(short_stats)
 			// manually compare full_stats vs. short_stats for possible update

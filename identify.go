@@ -442,7 +442,23 @@ func Identify(filename string) []string {
 		).Scan(&id, &short_stats)
 
 		if err == sql.ErrNoRows {
-			// if it's not in the DB, compile full insert queries
+			// if it's not in the DB, check for existing items
+			query = "SELECT item_id, long_stats " +
+				"FROM items WHERE item_name = ?"
+			stmt, err = db.Prepare(query)
+			ChkErr(err)
+			defer stmt.Close()
+
+			err = stmt.QueryRow(item_name).Scan(&id, &short_stats)
+			if err == sql.ErrNoRows {
+				log.Print(FindItem(item_name, "long_stats"))
+			} else if err != nil {
+				log.Fatal(err)
+			} else {
+				log.Printf("Name match: id[%d], %s", id, short_stats)
+			}
+
+			//compile full insert queries
 			tx, err := db.Begin()
 			ChkErr(err)
 
@@ -461,8 +477,6 @@ func Identify(filename string) []string {
 
 			id, err = res.LastInsertId()
 			ChkErr(err)
-			sqls := fmt.Sprintf("Inserted new item: id[%d], name: %s\n",
-				id, item_name)
 			inserted++
 			for _, um := range unmatch {
 				if !strings.Contains(um, "Can affect you as :") &&
@@ -471,6 +485,8 @@ func Identify(filename string) []string {
 					log.Printf("Unmatched: %s", um)
 				}
 			}
+			sqls := fmt.Sprintf("Inserted new item: id[%d], name: %s\n",
+				id, item_name)
 			sqls += "----------------------------*/\n"
 			query = "INSERT INTO items " +
 				"(item_id, item_name, keywords, weight, c_value, " +
@@ -662,14 +678,14 @@ func Identify(filename string) []string {
 			for _, ench := range item_enchants {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_enchants "+
-						"VALUES(%d, %s, %d, %d, %d, %d);\n",
+						"VALUES(%d, %s, %s, %s, %s, %s);\n",
 					id, strconv.Quote(ench[0]),
 					ench[1], ench[2], ench[3], ench[4],
 				)
 			}
 			for _, res := range item_resists {
 				sqls += fmt.Sprintf(
-					"--INSERT INTO item_resists VALUES(%d, %s, %d);\n",
+					"--INSERT INTO item_resists VALUES(%d, %s, %s);\n",
 					id, strconv.Quote(resis[res[0]]), res[1])
 			}
 			sqls += fmt.Sprintf(

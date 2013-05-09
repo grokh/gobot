@@ -99,7 +99,7 @@ func Identify(filename string) []string {
 		// Type: Holy     Damage: 100% Frequency: 100% Modifier: 0 Duration: 0 // enchantment
 		`Type: ([[:print:]]+) Damage: ([[:digit:]]+)% ` +
 			`Frequency: ([[:digit:]]+)[ ]?% ` +
-			`Modifier: ([[:digit:]]+) ` +
+			`Modifier: ([[:digit:]]+) [  ]?` +
 			`Duration: ([[:digit:]]+)`)
 	ChkErr(err)
 	chkResis, err := regexp.Compile(
@@ -289,8 +289,14 @@ func Identify(filename string) []string {
 				spells := chkSpells.FindAllStringSubmatch(line, -1)
 				for n, spell := range spells {
 					num := fmt.Sprintf("spell%d", n+1)
-					item_specials = append(item_specials,
-						[]string{item_type, num, spell[1]})
+					item_specials = append(
+						item_specials,
+						[]string{
+							item_type,
+							num,
+							strings.TrimSpace(spell[1]),
+						},
+					)
 				}
 			case chkWand.MatchString(line):
 				m = chkWand.FindStringSubmatch(line)

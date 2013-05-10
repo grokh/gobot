@@ -226,6 +226,20 @@ func Help(oper string) []string {
 			"are a little buggy right now since I haven't put much time "+
 			"into it.")
 	case "fstat":
+		txt = append(txt, "Syntax: tell katumi fstat <fields> -- "+
+			"Attempts to replicate the Advanced Search from TorilEQ website. "+
+			"Katumi provides up to 10 results which match the parameters."+
+			"Valid fields are attributes, resists, and slots. "+
+			"Create a multi-field query using a comma and a space.")
+		txt = append(txt, "Valid symbols: >, <, or = -- Valid stats:"+
+			"-- Syntax: <stat> <sym> <num>")
+		txt = append(txt, "Valid resists: "+
+			"-- Syntax: resist <resist>")
+		txt = append(txt, "Valid slots: "+
+			"-- Syntax: slot <slot>")
+		txt = append(txt, "Example using one attribute, one resist, "+
+			"and one slot in a single combined query -- "+
+			"tell katumi fstat maxagi > 0, resist fire, slot ear")
 		txt = append(txt, "Syntax: tell katumi fstat <stat> <sym> <num>"+
 			"[, <stat2> <sym2> <num2>][, resist <resist>][, slot <slot>] -- "+
 			"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- "+
@@ -815,7 +829,8 @@ func ReplyTo(char string, tell string) []string {
 		"has further help files available at: tell katumi help <cmd>",
 		"Find items: Acronymed stats: stat <item name>, " +
 			"Stats fully spelled out: astat <item name>, " +
-			"Find items by attributes, slots, etc.: fstat <fields>",
+			"Find items by attributes, slots, etc.: (for proper usage, " +
+			"tell katumi help fstat)",
 		"Find people: Provide acct and char info: who <char/acct>, " +
 			"clist <char/acct>, char <char>, Show last online alt: " +
 			"find <char/acct>, Find alts of listed class for people online: " +

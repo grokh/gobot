@@ -130,7 +130,8 @@ func Test_All(t *testing.T) {
 		"has further help files available at: tell katumi help <cmd>\n",
 		"t Yog Find items: Acronymed stats: stat <item name>, " +
 			"Stats fully spelled out: astat <item name>, " +
-			"Find items by attributes, slots, etc.: fstat <fields>\n",
+			"Find items by attributes, slots, etc.: (for proper usage, " +
+			"tell katumi help fstat)\n",
 		"t Yog Find people: Provide acct and char info: who <char/acct>, " +
 			"clist <char/acct>, char <char>, Show last online alt: " +
 			"find <char/acct>, Find alts of listed class for people online: " +

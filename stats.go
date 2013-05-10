@@ -322,14 +322,14 @@ func ConstructShortStats(db *sql.DB, id int) string {
 				i.txt3 += " Charges:" + i.tmpb
 			}
 		case i.txt == "instrument":
-			if i.tmp == "type" {
-				i.txt1 += " Type:" + i.tmpb
-			} else if i.tmp == "quality" {
-				i.txt2 += " Quality:" + i.tmpb
+			if i.tmp == "quality" {
+				i.txt1 += " Quality:" + i.tmpb
 			} else if i.tmp == "stutter" {
-				i.txt3 += " Stuter:" + i.tmpb
+				i.txt2 += " Stutter:" + i.tmpb
 			} else if i.tmp == "min_level" {
-				i.txt4 += " Min_Level:" + i.tmpb
+				i.txt3 += " Min_Level:" + i.tmpb
+			} else if i.tmp == "type" {
+				i.txt4 += " Type:" + i.tmpb
 			}
 		case i.txt == "weapon":
 			if i.tmp == "dice" {
@@ -686,13 +686,13 @@ func ConstructLongStats(db *sql.DB, id int) string {
 				i.txt3 += " " + i.tmpc + ": " + i.tmpb
 			}
 		case i.txt == "instrument":
-			if i.tmp == "type" {
+			if i.tmp == "quality" {
 				i.txt1 += " " + i.tmpc + ": " + i.tmpb
-			} else if i.tmp == "quality" {
-				i.txt2 += ", " + i.tmpc + ": " + i.tmpb
 			} else if i.tmp == "stutter" {
-				i.txt3 += ", " + i.tmpc + ": " + i.tmpb
+				i.txt2 += ", " + i.tmpc + ": " + i.tmpb
 			} else if i.tmp == "min_level" {
+				i.txt3 += ", " + i.tmpc + ": " + i.tmpb
+			} else if i.tmp == "type" {
 				i.txt4 += ", " + i.tmpc + ": " + i.tmpb
 			}
 		case i.txt == "weapon":

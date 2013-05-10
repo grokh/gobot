@@ -12,7 +12,7 @@ Can affect you as :
     Affects : HITROLL by 5
     Affects : DAMROLL by 8
 Special Effects : Battle Rage
-Zone: Jot Invasion
+Zone: Jot (I)
 
 Name 'a tiny mithril stud set with a ruby'
 Keyword 'stud mithril set ruby', Item type: WORN
@@ -25,7 +25,7 @@ Resists:
 Can affect you as :
     Affects : DAMROLL By 3
     Affects : AGI_MAX By 3
-Zone: Skullport, from quest
+Zone: SP (Q)
 
 Name 'the infernal stiletto of bane'
 Keyword 'infernal stiletto bane', Item type: WEAPON
@@ -42,4 +42,4 @@ Called Effects :  (invoked by 'say'ing them)
                   'Dragonslow'    effect: slow         - 2 charge
                   'Dragonblind'   effect: blind        - 3 charge
                   'Dragonstrike'  effect: instant kill - 5 charge
-Zone: Tiamat, rare
+Zone: Tiamat (R)

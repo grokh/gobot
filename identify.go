@@ -93,13 +93,13 @@ func Identify(filename string) []string {
 
 	chkAttr, err := regexp.Compile(
 		//     Affects : HITROLL By 2
-		`Affects : ([[:print:]]+) [B|b]y ([[:digit:]-]+)`)
+		`Affects[ ]?: ([[:print:]]+) [B|b]y ([[:digit:]-]+)`)
 	ChkErr(err)
 	chkEnch, err := regexp.Compile(
 		// Type: Holy     Damage: 100% Frequency: 100% Modifier: 0 Duration: 0 // enchantment
 		`Type: ([[:print:]]+) Damage: ([[:digit:]]+)% ` +
 			`Frequency: ([[:digit:]]+)[ ]?% ` +
-			`Modifier: ([[:digit:]]+) [  ]?` +
+			`Modifier: ([[:digit:]]+)[ ]{1,3}` +
 			`Duration: ([[:digit:]]+)`)
 	ChkErr(err)
 	chkResis, err := regexp.Compile(
@@ -112,7 +112,7 @@ func Identify(filename string) []string {
 	// item specials
 	chkDice, err := regexp.Compile(
 		// Damage Dice are '2D6' // old weapon dice
-		`Damage Dice are '([[:digit:]D]+)'`)
+		`Damage [D|d]ice [are|is] '([[:digit:]D]+)'`)
 	ChkErr(err)
 	chkWeap, err := regexp.Compile(
 		// Type: Morningstar Class: Simple // new weapon, type/class

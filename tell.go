@@ -892,6 +892,8 @@ func ReplyTo(char string, tell string) []string {
 		txt = LoadReport(oper, char)
 	case cmd == "lrdel" && oper != "":
 		txt = append(txt, LRDel(oper))
+	case cmd == "weather" && oper != "":
+		txt = Weather(oper)
 	default:
 		txt = append(txt, BadSyntax)
 	}

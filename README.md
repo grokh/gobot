@@ -7,5 +7,5 @@ Originally created for:
 
 * CentOS 6
 * Tintin++ 2.01.0
-* Go 1.0
+* Go 1.1
 * SQLite 3.6

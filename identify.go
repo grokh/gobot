@@ -502,7 +502,7 @@ func Identify(filename string) []string {
 
 			query = "INSERT INTO items " +
 				"(item_name, keywords, weight, c_value, " +
-				"item_type, full_stats, last_id, from_zone) " +
+				"item_type, last_id, from_zone, full_stats) " +
 				"VALUES(?, ?, ?, ?, ?, ?, ?, ?);"
 			stmt, err := tx.Prepare(query)
 			ChkErr(err)
@@ -510,7 +510,7 @@ func Identify(filename string) []string {
 
 			res, err := stmt.Exec(
 				item_name, keywords, weight, c_value,
-				types[item_type], full_stats, date, from_zone)
+				types[item_type], date, from_zone, full_stats)
 			ChkErr(err)
 
 			id, err = res.LastInsertId()
@@ -528,16 +528,16 @@ func Identify(filename string) []string {
 			sqls += "----------------------------*/\n"
 			query = "INSERT INTO items " +
 				"(item_id, item_name, keywords, weight, c_value, " +
-				"item_type, full_stats, last_id, from_zone) " +
+				"item_type, last_id, from_zone, full_stats) " +
 				"VALUES(%d, %s, %s, %d, %d, %s, %s, %s, %s);"
 			sqls += fmt.Sprintf(query+"\n", id,
 				strconv.Quote(item_name),
 				strconv.Quote(keywords),
 				weight, c_value,
 				strconv.Quote(types[item_type]),
-				strconv.Quote(full_stats),
 				strconv.Quote(date),
 				strconv.Quote(from_zone),
+				strconv.Quote(full_stats),
 			)
 
 			for _, slot := range item_slots {

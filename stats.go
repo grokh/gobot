@@ -49,7 +49,7 @@ func (i *Item) FillItemByID(id int) {
 	ChkErr(err)
 	defer rows.Close()
 
-	// awkward
+	// awkward copypasta, but very generic and repeatable
 	cols, err := rows.Columns()
 	ChkErr(err)
 	pointers := make([]interface{}, len(cols))

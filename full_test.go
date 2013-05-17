@@ -335,7 +335,7 @@ func Test_All(t *testing.T) {
 	txt = ReplyTo(char, tell)
 	good = []string{
 		"t Yog the infernal stiletto of bane (Wield)" +
-			" Dam:4 Hit:5 Haste Slow_Poi " +
+			" Dam:4 Hit:5 HASTE SLOW_POI " +
 			"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
 			"!Mage !Priest * Wt:5 Val:0p * Zone: Tiamat (R) * Last ID: " +
 			date + "\n",
@@ -400,7 +400,7 @@ func Test_All(t *testing.T) {
 			"a tiny mithril stud set with a ruby")
 	good = []string{
 		"a black longsword of destruction (Wield) " +
-			"Dam:8 Hit:5 Fire:5% Infra * (Weapon) Dice:8D6 " +
+			"Dam:8 Hit:5 Fire:5% INFRA * (Weapon) Dice:8D6 " +
 			"Crit:6% Multi:2x (Class: Martial, Type: Longsword) * " +
 			"Float Magic No_Burn No_Drop No_Loc Two_Hand " +
 			"!Mage !Pal !Priest !Rang !Thief * Wt:15 Val:10p * " +

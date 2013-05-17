@@ -18,7 +18,7 @@ type Item struct {
 	tdate                                time.Time
 }
 
-func (i *Item) FillItemByID(id int) {
+func (i *Item) FillItemByID(id int) { // replace with ORM?
 	i.id = id
 
 	db := OpenDB()
@@ -251,16 +251,7 @@ func ConstructShortStats(db *sql.DB, id int) string {
 
 	for rows.Next() {
 		err = rows.Scan(&i.tmp)
-		if strings.Contains(i.tmp, "_") {
-			s := strings.Split(i.tmp, "_")
-			for n, v := range s {
-				s[n] = strings.Title(v)
-			}
-			i.tmp = strings.Join(s, "_")
-			i.s += " " + i.tmp
-		} else {
-			i.s += " " + strings.Title(i.tmp)
-		}
+		i.s += " " + strings.ToUpper(i.tmp)
 	}
 	ChkRows(rows)
 	stmt.Close()

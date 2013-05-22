@@ -50,12 +50,12 @@
 	#split {0} {0};
 }
 #tick {Timer} {time;who} {30}
-#act {^Time elapsed since boot-up: %1} {#system ./gobot -time %1 &}
+#act {^Time elapsed since boot-up: %1} {#system gobot -time %1 &}
 
 #event {PROGRAM START} {login}
 #event {SESSION DISCONNECTED} {login}
 #event {SESSION TIMED OUT} {login}
-#event {TIME 04:00} {#system ./gobot -bak}
+#event {TIME 04:00} {#system gobot -bak}
 
 
 #act {^%w tells you '%2'$} {
@@ -68,7 +68,7 @@
 	#replace {chat} {\} {};
 	#nop Remove account labeling;
 	#replace {chat} {@} {};
-	#script {answer} {./gobot -char "%1" -tell "$chat"};
+	#script {answer} {gobot -char "%1" -tell "$chat"};
 	#foreach {$answer} {cmd} {
 		#if {"$cmd" != "%d"} {$cmd};
 	};
@@ -84,7 +84,7 @@
 
 
 #nop Batch Who Check
-#alias {parsewho} {#script {who} {./gobot -who "$ppl"}}
+#alias {parsewho} {#script {who} {gobot -who "$ppl"}}
 #act {^-=-=-=-=-=-=-=-=-=-=-=-=-$} {
 	#act {^$} {
 		#unact {%%%0};
@@ -111,7 +111,7 @@
 #act {^[ %d %+] %w %*(%*) (@%*)} {
 	#var {race} {%5};
 	#replace {race} {)%*} {};
-	#script {answer} {./gobot -char %3 -class "%2" -lvl %1 -race "$race" -acct %6};
+	#script {answer} {gobot -char %3 -class "%2" -lvl %1 -race "$race" -acct %6};
 	#foreach {$answer} {cmd} {
 		#if {"$cmd" != "%d"} {$cmd};
 	};
@@ -119,7 +119,7 @@
 #act {^[%.%. %+] %w %*(%*) (@%*)} {
 	#var {race} {%6};
 	#replace {race} {)%*} {};
-	#script {answer} {./gobot -char %4 -class "%3" -lvl %1%2 -race "$race" -acct %7};
+	#script {answer} {gobot -char %4 -class "%3" -lvl %1%2 -race "$race" -acct %7};
 	#foreach {$answer} {cmd} {
 		#if {"$cmd" != "%d"} {$cmd};
 	};

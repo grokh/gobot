@@ -109,7 +109,7 @@ func Identify(filename string) []string {
 		// Resists: Fire : 5% Cold : 5% Elect : 5% Acid : 5% Poison: 5% Psi : 5%
 		//     Unarmd:    2% Slash :    2% Bludgn:    2% Pierce:    2%
 		//     Fire  :   10% Mental:    5%
-		`([[:alpha:] ]{6}):[ ]{3,4}([[:digit:]]{1,2})%[ ]?`)
+		`([[:alpha:] ]{6}):[ ]{3,4}([[:digit:]-]{1,3})%[ ]?`)
 	ChkErr(err)
 
 	// item specials

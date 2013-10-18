@@ -63,6 +63,8 @@ func main() {
 		"Run FormatStats() creation for item DB.")
 	var test = flag.Bool("test", false,
 		"Run any current functions under testing.")
+	// port number for API / web server
+	//var port = flag.Int("port", 8080, "API / web server port.")
 
 	flag.Parse()
 

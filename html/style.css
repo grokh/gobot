@@ -1,0 +1,20 @@
+body, input, option, select, textarea, div {
+	font-family: monospace;
+	color: #C0C0C0;
+	background-color: black;
+}
+h1, h2, h3, h4 {
+	font-family: arial, sans-serif;
+	color: #808000;
+}
+a {
+	color: #008000;
+	text-decoration: none;
+}
+a:hover {
+	color: #00FF00;
+	text-decoration: none;
+}
+div.peekaboo {
+	display: none;
+}

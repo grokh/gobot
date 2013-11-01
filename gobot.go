@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 )
 
@@ -64,7 +65,7 @@ func main() {
 	var test = flag.Bool("test", false,
 		"Run any current functions under testing.")
 	// port number for API / web server
-	//var port = flag.Int("port", 8080, "API / web server port.")
+	var port = flag.String("port", "8080", "API / web server port.")
 
 	flag.Parse()
 
@@ -103,6 +104,11 @@ func main() {
 				fmt.Println(slot)
 			}
 		}
+	case *port != "":
+		http.HandleFunc("/torileq/", eqHandler)
+		http.HandleFunc("/todrael/", todHandler)
+		err := http.ListenAndServe(":"+*port, nil)
+		ChkErr(err)
 	}
 	for _, cmd := range cmds {
 		fmt.Print(cmd)

@@ -14,7 +14,8 @@ type Page struct {
 var templates = template.Must(template.ParseFiles(
 	"html/index.html",
 	"html/advanced.html",
-	"html/list.html"))
+	"html/list.html",
+))
 
 func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 	err := templates.ExecuteTemplate(w, tmpl, p)

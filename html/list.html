@@ -11,13 +11,14 @@
 <body>
 	<h1>TorilEQ - {{.Title}}</h1>
 	<p><a href="index.php">Main Page</a> * <a href="advanced.php">Advanced Search</a> * <a href="list.php">Copy/Paste Statter</a></p>
-	<p>Items Updated: {{.Body}}</p>
+	<p>Items Updated: {{.Date}}</p>
 	<form action="list.php" name="searchForm" id="searchForm" method="post">
 		<input type="hidden" name="itemName" id="itemName" />
 		<p>Output from 'glist', 'equip', 'auction list', 'inventory', 'look in bag', or 'storage list':</p>
 		<textarea cols="80" rows="15" name="list" id="list"></textarea>
 		<p><input type="submit" name="submit" id="submit" value="Search" /></p>
 	</form>
+	{{.Results}}
 	<h2>Examples:</h2>
 	<p>The following items exist in the group cache for Band of Mudders:<br />
 	Belathar&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a halfling's loot bag<br />

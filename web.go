@@ -25,16 +25,19 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 }
 
 func eqHandler(w http.ResponseWriter, r *http.Request) {
-	p := &Page{Title: "title", Body: "2013-10-21"}
+	p := &Page{Title: "title", Date: "2013-10-21", Results: ""}
 	switch r.URL.Path[9:] {
 	case "", "index.php":
 		p.Title = "TorilMUD Equipment Database"
+		// if POST, change Results to results of search
 		renderTemplate(w, "index.html", p)
 	case "advanced.php":
 		p.Title = "Advanced Search"
+		// if POST, change Results to results of search
 		renderTemplate(w, "advanced.html", p)
 	case "list.php":
 		p.Title = "Copy/Paste Statter"
+		// if POST, change Results to results of search
 		renderTemplate(w, "list.html", p)
 	}
 }

@@ -7,8 +7,9 @@ import (
 )
 
 type Page struct {
-	Title string
-	Body  string
+	Title   string
+	Date    string
+	Results []string
 }
 
 var templates = template.Must(template.ParseFiles(
@@ -25,19 +26,26 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 }
 
 func eqHandler(w http.ResponseWriter, r *http.Request) {
-	p := &Page{Title: "title", Date: "2013-10-21", Results: ""}
+	p := &Page{Title: "title", Date: "2013-10-21"}
 	switch r.URL.Path[9:] {
 	case "", "index.php":
 		p.Title = "TorilMUD Equipment Database"
-		// if POST, change Results to results of search
+		if r.Method == "POST" {
+			results := FindItem(r.PostFormValue("itemName"), "short_stats")
+			p.Results = results
+		}
 		renderTemplate(w, "index.html", p)
 	case "advanced.php":
 		p.Title = "Advanced Search"
-		// if POST, change Results to results of search
+		if r.Method == "POST" {
+			//p.Results = "success!"
+		}
 		renderTemplate(w, "advanced.html", p)
 	case "list.php":
 		p.Title = "Copy/Paste Statter"
-		// if POST, change Results to results of search
+		if r.Method == "POST" {
+			//p.Results = "success!"
+		}
 		renderTemplate(w, "list.html", p)
 	}
 }

@@ -483,7 +483,7 @@ func Find(oper string) string {
 			c.seen = fmt.Sprintf("%ds", int(secs.Seconds()))
 			online = true
 		} else {
-			log.Printf("'find' error: seconds were %d\n", secs.Seconds())
+			log.Printf("'find' error: seconds were %d\n", int(secs.Seconds()))
 		}
 		// Char.seen = secs.String() // easier :/
 		if !online {

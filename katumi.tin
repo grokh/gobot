@@ -122,7 +122,7 @@
 #act {^[%.%. %+] %w %*(%*) (@%*)} {
 	#var {race} {%6};
 	#replace {race} {)%*} {};
-	#script {answer} {gobot -char %4 -class "%3" -lvl %1%2 -race "$race" -acct %7};
+	#script {answer} {gobot -char %4 -class "%3" -lvl %1"%2" -race "$race" -acct %7};
 	#foreach {$answer} {cmd} {
 		#if {"$cmd" != "%d"} {$cmd};
 	};

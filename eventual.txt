@@ -1,0 +1,3 @@
+--circling band of eldritch fire
+--Zone: Crystal Caverns
+UPDATE items SET from_zone = "Crystal Caverns" WHERE item_id = 7216;

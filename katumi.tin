@@ -1,7 +1,7 @@
 #nop TorilMUD Helper Bot, for use with gobot executable
 
 #CONFIG		{AUTO TAB}		{5000}
-#CONFIG		{BUFFER SIZE}	{65000}
+#CONFIG		{BUFFER SIZE}	{100000}
 #CONFIG		{CHARSET}		{ASCII}
 #CONFIG		{CONNECT RETRY}	{360}
 #CONFIG		{COMMAND COLOR}	{<078>}
@@ -43,9 +43,9 @@
 	#log append logs/$char$dot$logdate${dot}log;
 }
 #alias {login} {
-	#act {     .,:7I::,.     } {
-		logon;$acct;$cpw;$char;time;
-		#unact {     .,:7I::,.     };
+	#act {^Account name:} {
+		#delay (1) {logon;$acct;$cpw;$char;time;};
+		#unact {^Account name:};
 	};
 	#session $char torilmud.com 9999;
 	#split {0} {0};

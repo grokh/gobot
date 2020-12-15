@@ -38,8 +38,7 @@
 
 #var {dot} {.}
 #alias {logon} {
-	#format {time} {%T};
-	#format {logdate} {%Y.%M.%D} {$time $time $time};
+	#format {logdate} {%t} {%Y.%m.%d};
 	#log append logs/$char$dot$logdate${dot}log;
 }
 #alias {login} {

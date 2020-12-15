@@ -16,10 +16,11 @@ func SendBootEmail() {
 	pwd := lines[1]
 	to := lines[2:]
 
-	sub := "Subject: TorilMUD reboot/crash:\r\n\r\n"
+	head := "From: pants_doe@balloonland.org\r\n" +
+		"Subject: TorilMUD reboot/crash:\r\n\r\n"
 	body := "Katumi detected a new TorilMUD boot."
-	msg := []byte(sub + body)
-	server := "smtp.gmail.com"
+	msg := []byte(head + body)
+	server := "mail.gandi.net"
 	tls := ":587"
 	log.Printf("Email: %s\n", body)
 	auth := smtp.PlainAuth("", from, pwd, server)

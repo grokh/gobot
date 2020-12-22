@@ -62,7 +62,7 @@ func Identify(filename string) []string {
 		// Name 'a huge boar skull'
 		`Name '([[:print:]]+)'`)
 	ChkErr(err)
-	chkKey, err := regexp.Compile(
+	chkKeyw, err := regexp.Compile(
 		// Keyword 'skull boar', Item type: ARMOR
 		`Keyword '([[:print:]]+)', Item type: ([[:word:]]+)`)
 	ChkErr(err)
@@ -171,6 +171,10 @@ func Identify(filename string) []string {
 		// Can hold 600 more lbs with 300lbs weightless. // container
 		`Can hold ([[:digit:]]+) more lbs with ([[:digit:]]+)lbs weightless.`)
 	ChkErr(err)
+	chkKey, err := regexp.Compile(
+        // This key has a 0% chance to break when used. // key
+        'This key has a ([[:digit:]]+)\% chance to break when used.')
+    ChkErr(err)
 
 	for _, item := range items {
 		// initialize item variables and slices
@@ -190,8 +194,8 @@ func Identify(filename string) []string {
 			case chkName.MatchString(line):
 				m = chkName.FindStringSubmatch(line)
 				item_name = m[1]
-			case chkKey.MatchString(line):
-				m = chkKey.FindStringSubmatch(line)
+			case chkKeyw.MatchString(line):
+				m = chkKeyw.FindStringSubmatch(line)
 				keywords = m[1]
 				item_type = m[2]
 			case chkWorn.MatchString(line):
@@ -333,6 +337,10 @@ func Identify(filename string) []string {
 					[]string{item_type, "holds", m[1]})
 				item_specials = append(item_specials,
 					[]string{item_type, "wtless", m[2]})
+			case chkKey.MatchString(line):
+				m = chkKey.FindStringSubmatch(line)
+				item_specials = append(item_specials,
+					[]string{item_type, "break", m[1]})
 			default:
 				unmatch = append(unmatch, line)
 			}

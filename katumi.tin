@@ -55,7 +55,7 @@
 #event {PROGRAM START} {login}
 #event {SESSION DISCONNECTED} {login}
 #event {SESSION TIMED OUT} {login}
-#event {TIME 04:00} {#system gobot -bak}
+#event {DAY} {#system gobot -bak}
 #act {That account does not exist. Please enter an account or} {#delay 3 #zap}
 #act {That character doesn't exist! Please try again.} {#delay 3 #zap}
 

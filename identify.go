@@ -173,7 +173,7 @@ func Identify(filename string) []string {
 	ChkErr(err)
 	chkKey, err := regexp.Compile(
         // This key has a 0% chance to break when used. // key
-        'This key has a ([[:digit:]]+)\% chance to break when used.')
+        `This key has a ([[:digit:]]+)\% chance to break when used.`)
     ChkErr(err)
 
 	for _, item := range items {

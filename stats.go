@@ -276,7 +276,8 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		}
 		switch {
 		case i.txt == "crystal" || i.txt == "spellbook" ||
-			i.txt == "comp_bag" || i.txt == "ammo":
+			i.txt == "comp_bag" || i.txt == "ammo" ||
+			i.txt == "key":
 			i.txt1 += " " + strings.Title(i.tmp) + ":" + i.tmpb
 		case i.txt == "container":
 			if i.tmp == "holds" {
@@ -640,7 +641,8 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.txt, &i.tmp, &i.tmpb, &i.tmpc)
 		switch {
 		case i.txt == "crystal" || i.txt == "spellbook" ||
-			i.txt == "comp_bag" || i.txt == "ammo":
+			i.txt == "comp_bag" || i.txt == "ammo" ||
+			i.txt == "key":
 			i.txt1 += " " + i.tmpc + ": " + i.tmpb
 		case i.txt == "container":
 			if i.tmp == "holds" {

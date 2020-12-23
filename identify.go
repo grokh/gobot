@@ -525,7 +525,7 @@ func Identify(filename string) []string {
 			ChkErr(err)
 			inserted++
 			for _, um := range unmatch {
-				if !strings.Contains(um, "Can affect you as :") &&
+				if !strings.Contains(um, "Can affect you as") &&
 					!strings.Contains(um, "Enchantments:") &&
 					!strings.Contains(um, "You feel informed:") {
 					log.Printf("Unmatched: %s", um)
@@ -682,7 +682,7 @@ func Identify(filename string) []string {
 		} else {
 			ignored++
 			for _, um := range unmatch {
-				if !strings.Contains(um, "Can affect you as :") &&
+				if !strings.Contains(um, "Can affect you as") &&
 					!strings.Contains(um, "Enchantments:") &&
 					!strings.Contains(um, "You feel informed:") {
 					log.Printf("Unmatched: %s", um)

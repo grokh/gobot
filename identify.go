@@ -181,7 +181,7 @@ func Identify(filename string) []string {
 	ChkErr(err)
 	chkLBreak, err := regexp.Compile(
 		// This lockpick has a 90% chance to break upon use. // pick
-		`This lockpick as a ([[:digit:]]+)\% chance to break upon use.`)
+		`This lockpick has a ([[:digit:]]+)\% chance to break upon use.`)
 	ChkErr(err)
 
 	for _, item := range items {
@@ -353,6 +353,7 @@ func Identify(filename string) []string {
 				m = chkLock.FindStringSubmatch(line)
 				item_specials = append(item_specials,
 					[]string{item_type, "pick_bonus", m[1]})
+			case chkLBreak.MatchString(line):
 				m = chkLBreak.FindStringSubmatch(line)
 				item_specials = append(item_specials,
 					[]string{item_type, "break", m[1]})

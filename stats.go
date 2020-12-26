@@ -276,14 +276,23 @@ func ConstructShortStats(db *sql.DB, id int) string {
 		}
 		switch {
 		case i.txt == "crystal" || i.txt == "spellbook" ||
-			i.txt == "comp_bag" || i.txt == "ammo" ||
-			i.txt == "key":
+			i.txt == "comp_bag" || i.txt == "ammo":
 			i.txt1 += " " + strings.Title(i.tmp) + ":" + i.tmpb
+		case i.txt == "key":
+			if i.tmp == "break" {
+				i.txt1 += " Break:" + i.tmpb + "%"
+			}
 		case i.txt == "container":
 			if i.tmp == "holds" {
 				i.txt1 += " Holds:" + i.tmpb
 			} else if i.tmp == "wtless" {
 				i.txt2 += " Wtless:" + i.tmpb
+			}
+		case i.txt == "pick":
+			if i.tmp == "pick_bonus" {
+				i.txt1 += " Bonus:" + i.tmpb + "%"
+			} else if i.tmp == "break" {
+				i.txt2 += " Break:" + i.tmpb + "%"
 			}
 		case i.txt == "poison":
 			if i.tmp == "level" {
@@ -641,14 +650,23 @@ func ConstructLongStats(db *sql.DB, id int) string {
 		err = rows.Scan(&i.txt, &i.tmp, &i.tmpb, &i.tmpc)
 		switch {
 		case i.txt == "crystal" || i.txt == "spellbook" ||
-			i.txt == "comp_bag" || i.txt == "ammo" ||
-			i.txt == "key":
+			i.txt == "comp_bag" || i.txt == "ammo":
 			i.txt1 += " " + i.tmpc + ": " + i.tmpb
+		case i.txt == "key":
+			if i.tmp == "break" {
+				i.txt1 += " " + i.tmpc + ": " + i.tmpb + "%"
+			}
 		case i.txt == "container":
 			if i.tmp == "holds" {
 				i.txt1 += " " + i.tmpc + ": " + i.tmpb
 			} else if i.tmp == "wtless" {
 				i.txt2 += ", " + i.tmpc + ": " + i.tmpb
+			}
+		case i.txt == "pick":
+			if i.tmp == "pick_bonus" {
+				i.txt1 += " " + i.tmpc + ": " + i.tmpb + "%"
+			} else if i.tmp == "break" {
+				i.txt2 += ", " + i.tmpc + ": " + i.tmpb + "%"
 			}
 		case i.txt == "poison":
 			if i.tmp == "level" {

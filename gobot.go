@@ -105,8 +105,7 @@ func main() {
 			}
 		}
 	case *port != "":
-		http.HandleFunc("/torileq/", eqHandler)
-		http.HandleFunc("/todrael/", todHandler)
+		http.HandleFunc("/", eqHandler)
 		http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("html/assets"))))
 		err := http.ListenAndServe(":"+*port, nil)
 		ChkErr(err)

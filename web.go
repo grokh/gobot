@@ -24,13 +24,10 @@ func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
 
 func eqHandler(w http.ResponseWriter, r *http.Request) {
 	p := &Page{Title: "title", Date: "2020-12-27"}
-	switch r.URL.Path[9:] {
-	case "", "index.php", "advanced.php", "list.php", "index.html":
-		p.Title = "TorilMUD Equipment Database"
-		if r.Method == "POST" {
-			results := FindItem(r.PostFormValue("itemName"), "short_stats")
-			p.Results = results
-		}
-		renderTemplate(w, "index.html", p)
+	p.Title = "TorilMUD Equipment Database"
+	if r.Method == "POST" {
+		results := FindItem(r.PostFormValue("itemName"), "short_stats")
+		p.Results = results
 	}
+	renderTemplate(w, "index.html", p)
 }

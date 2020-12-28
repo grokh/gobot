@@ -1,0 +1,22 @@
+[Unit]
+Description=grokh.com/torileq/
+ConditionPathExists=/go/src/github.com/grokh/gobot
+After=network.target
+
+[Service]
+Type=simple
+User=trance
+Group=trance
+
+WorkingDirectory=/go/src/github.com/grokh/gobot
+ExecStart=/go/bin/gobot -port 8080
+
+Restart=on-failure
+RestartSec=10
+
+ExecStartPre=/bin/mkdir -p /var/log/torileq
+ExecStartPre=/bin/chown syslog:adm /var/log/torileq
+ExecStartPre=/bin/chmod 775 /go/bin/gobot
+
+[Install]
+WantedBy=multi-user.target

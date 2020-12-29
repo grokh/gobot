@@ -8,13 +8,9 @@ import (
 )
 
 type Page struct {
-	Date    string
-	Results []string
+	Date string
+	Res  []string
 }
-
-var templates = template.Must(template.ParseFiles(
-	"html/index.html",
-))
 
 func mostRecent() string {
 	db := OpenDB()
@@ -35,18 +31,20 @@ func mostRecent() string {
 	return txt
 }
 
-func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
-	err := templates.ExecuteTemplate(w, tmpl, p)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
+var tmpl = template.Must(template.ParseFiles(
+    "html/index.html",
+))
 
 func eqHandler(w http.ResponseWriter, r *http.Request) {
-	p := &Page{Date: mostRecent()}
-	if r.Method == "POST" {
-		results := FindItem(r.PostFormValue("itemName"), "short_stats")
-		p.Results = results
+	p := Page{
+		Date: mostRecent(),
+		Res: nil,
 	}
-	renderTemplate(w, "index.html", p)
+	if r.Method == "POST" {
+		p.Res = FindItem(r.PostFormValue("itemName"), "short_stats")
+	}
+	err := tmpl.Execute(w, p)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
 }

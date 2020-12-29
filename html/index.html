@@ -15,8 +15,10 @@
 		<p>Item name: <input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
 		<p><input type="submit" name="submit" id="submit" value="Search" /></p>
 	</form>
-	{{.Results}}
-		<h2>News and Info</h2>
+	{{range .Res}}
+		<p>{{.}}</p>
+	{{end}}
+	<h2>News and Info</h2>
 	<p>This equipment database is provided by Kegor, Nerun, Katumi, and the players of TorilMUD. The web interface was built by <a href="mailto:system@grokh.com">Todrael</a> and <a href="mailto:kristi.michaels@gmail.com">Katumi</a>. Visit the <a href="http://z15.invisionfree.com/Triterium_BBS">Triterium BBS</a> for instructions on how to get stats in-game. Mwrite stat updates and additions to Katumi.</p>
 	<h3>Current features:</h3>
 	<ul>

@@ -13,19 +13,98 @@
 	<p>Items Updated: {{.Date}}</p>
 	<form action="#" name="searchForm" id="searchForm" method="post">
 		<p>Item name: <input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
+		<p>(the rest of this doesn't do anything yet - only item name works so far)</p>
+		<p>Zone name: <input type="text" size="30" maxlength="30" name="zoneName" id="zoneName" /></p>
+        <p>Attribute 1:
+            <select name="attrib1" id="attrib1"><option value=""></option>
+                {{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>{{end}}
+            </select>
+            <select name="compareAttrib1" id="compareAttrib1"><option value=""></option>
+                <option value=" &gt; ">greater than</option>
+                <option value=" &lt; ">less than</option>
+                <option value=" = ">equal to</option>
+            </select>
+            <input type="text" size="5" maxlength="5" name="valueAttrib1" id="valueAttrib1" />
+        </p>
+        <p>Attribute 2:
+            <select name="attrib2" id="attrib2"><option value=""></option>
+					{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>{{end}}
+            </select>
+            <select name="compareAttrib2" id="compareAttrib2"><option value=""></option>
+                <option value=" &gt; ">greater than</option>
+                <option value=" &lt; ">less than</option>
+                <option value=" = ">equal to</option>
+            </select>
+            <input type="text" size="5" maxlength="5" name="valueAttrib2" id="valueAttrib2" />
+        </p>
+        <p>Worn Slot:
+            <select name="worn" id="worn"><option value=""></option>
+                {{range .Slots}}<option value="{{.SlotAbbr}}">{{.SlotDisp}}</option>{{end}}
+            </select>
+            Item Type:
+            <select name="type" id="type"><option value=""></option>
+                {{range .Types}}<option value="{{.TypeAbbr}}">{{.TypeDisp}}</option>{{end}}
+            </select>
+        </p>
+		<p>Order By:
+            <select name="orderBy" id="orderBy"><option value="varName">Item Name</option>
+                <option value="varZone">Zone Name</option>
+                <option value="attrib1">Attribute 1</option>
+                <option value="attrib2">Attribute 2</option>
+                <option value="varWorn">Worn Slot</option>
+                <option value="varType">Item Type</option>
+            </select>
+            <select name="ascDesc" id="ascDesc">
+                <option value="ASC">Ascending</option>
+                <option value="DESC">Descending</option>
+            </select>
+        </p>
+		<p class="hide">
+			<label for="togRestr" class="toggle">Restrictions</label><input type="checkbox" name="togRestr" id="togRestr" class="hide" /> * 
+			<label for="togEff" class="toggle">Effects</label><input type="checkbox" name="togEff" id="togEff" class="hide" /> * 
+			<label for="togResist" class="toggle">Resists</label><input type="checkbox" name="togResist" id="togResist" class="hide" /> * 
+			<label for="togOther" class="toggle">Other Flags</label><input type="checkbox" name="togOther" id="togOther" class="hide" />
+        </p>
+        <div id="restricts" class="messy">
+            <p>Usable By:</p>
+            <p><label for="fighterUsable">Fighter</label> <input type="checkbox" name="fighterUsable" id="fighterUsable" /> |
+            <label for="priestUsable">Priest</label> <input type="checkbox" name="priestUsable" id="priestUsable" /> |
+            <label for="rogueUsable">Rogue</label> <input type="checkbox" name="rogueUsable" id="rogueUsable" /> |
+            <label for="mageUsable">Mage</label> <input type="checkbox" name="mageUsable" id="mageUsable" /> |
+            <label for="goodUsable">Good Align</label> <input type="checkbox" name="goodUsable" id="goodUsable" /> |
+            <label for="neutralUsable">Neutral Align</label> <input type="checkbox" name="neutralUsable" id="neutralUsable" /> |
+            <label for="evilUsable">Evil Align</label> <input type="checkbox" name="evilUsable" id="evilUsable" /> |
+            <label for="goodRaceUsable">Goodrace</label> <input type="checkbox" name="goodRaceUsable" id="goodRaceUsable" /> |
+            <label for="evilRaceUsable">Evilrace</label> <input type="checkbox" name="evilRaceUsable" id="evilRaceUsable" /> |
+            <label for="maleUsable">Male</label> <input type="checkbox" name="maleUsable" id="maleUsable" /> |
+            <label for="femaleUsable">Female</label> <input type="checkbox" name="femaleUsable" id="femaleUsable" />
+            </p>
+        </div>
+        <div id="effects" class="messy">
+            <p>Item Effect:</p>
+            <p>{{range .Effects}}<label for="{{.EffAbbr}}">{{.EffDisp}}</label> <input type="checkbox" name="{{.EffAbbr}}" id="{{.EffAbbr}}" /> | {{end}}</p>
+        </div>
+        <div id="resists" class="messy">
+            <p>Resistances:</p>
+            <p>{{range .Resists}}<label for="{{.ResAbbr}}">{{.ResDisp}}</label> <input type="checkbox" name="{{.ResAbbr}}" id="{{.ResAbbr}}" /> | {{end}}</p>
+        </div>
+        <div id="other" class="messy">
+            <p>Other Flags:</p>
+            <p>{{range .Flags}}<label for="{{.FlagAbbr}}">{{.FlagDisp}}</label> <input type="checkbox" name="{{.FlagAbbr}}" id="{{.FlagAbbr}}" /> | {{end}}{{range .Supps}}<label for="{{.SuppAbbr}}">{{.SuppDisp}}</label> <input type="checkbox" name="{{.SuppAbbr}}" id="{{.SuppAbbr}}" /> | {{end}}</p>
+        </div>
+        <p>Output from 'glist', 'equip', 'auction list', 'inventory', 'look in bag', or 'storage list':</p>
+        <textarea cols="80" rows="15" name="list" id="list"></textarea>
 		<p><input type="submit" name="submit" id="submit" value="Search" /></p>
 	</form>
-	{{range .Res}}
-		<p>{{.}}</p>
-	{{end}}
+	{{range .Results}}<p>{{.}}</p>{{else}}
+	<div class="hide">
 	<h2>News and Info</h2>
-	<p>This equipment database is provided by Kegor, Nerun, Katumi, and the players of TorilMUD. The web interface was built by <a href="mailto:system@grokh.com">Todrael</a> and <a href="mailto:kristi.michaels@gmail.com">Katumi</a>. Visit the <a href="http://z15.invisionfree.com/Triterium_BBS">Triterium BBS</a> for instructions on how to get stats in-game. Mwrite stat updates and additions to Katumi.</p>
+	<p>This equipment database is provided by Kegor, Nerun, Katumi, and the players of TorilMUD. The web interface was built by <a href="mailto:system@grokh.com">Todrael</a> and <a href="mailto:kristi.michaels@gmail.com">Katumi</a>. Visit the <a href="https://www.tapatalk.com/groups/triteriumbbs/">Triterium BBS</a> for instructions on how to get stats in-game. Mwrite stat updates and additions to Katumi.</p>
 	<h3>Current features:</h3>
 	<ul>
-		<li>Item name search: must be exact, or a portion of the name, ex. 'a silver spoon' or 'ilver s' or 'spoon'. You can also use % as a wildcard character, ex. 'a % spoon'</li>
+		<li>Item name search: can be any portion of the name in any order, ex. 'a silver spoon' or 'sil sp' or 'spo silv'.</li>
 		<li>Full stats on first match, short-hand stats on all matches.</li>
 		<li>Click on the item name in short-hand for full stats.</li>
-		<li>Expand more options in Advanced Search by clicking on the sub-topics (Item Restrictions, etc).</li>
 	</ul>
 	<h3>Changelist:</h3>
 	<ul>
@@ -68,5 +147,7 @@
 		<li>ADDED 2007-10-26: <a href="advanced.php">Advanced Search</a>: by attribute, by zone</li>
 		<li>ADDED 2007-10-22: First set of items loaded into database. Site launched, along with very basic search.</li>
 	</ul>
+	</div>
+	{{end}}
 </body>
 </html>

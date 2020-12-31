@@ -107,6 +107,7 @@ func main() {
 	case *port != "":
 		http.HandleFunc("/", eqHandler)
 		http.Handle("/style.css", http.FileServer(http.Dir("html")))
+		http.Handle("/tabs.css", http.FileServer(http.Dir("html")))
 		http.Handle("/form.js", http.FileServer(http.Dir("html")))
 		http.Handle("/favicon.ico", http.FileServer(http.Dir("html")))
 		err := http.ListenAndServe(":"+*port, nil)

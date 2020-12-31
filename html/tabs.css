@@ -1,14 +1,14 @@
 .tabs {
   position: relative;
-  min-height: 500px; /* This part sucks */
+  min-height: 550px; /* This part sucks */
   clear: both;
   margin: 25px 0;
 }
 .tab {
   float: left;
 }
-.tab label {
-  background: #eee;
+label.toggle {
+  background: #222;
   padding: 10px;
   border: 1px solid #ccc;
   margin-left: -1px;
@@ -22,7 +22,7 @@
   position: absolute;
   top: 28px;
   left: 0;
-  background: white;
+  background: black;
   right: 0;
   bottom: 0;
   padding: 20px;
@@ -38,7 +38,7 @@
   ouline: 2px solid blue;
 }
 [type="radio"]:checked ~ label {
-  background: white;
+  background: black;
   border-bottom: 1px solid white;
   z-index: 2;
 }

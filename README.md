@@ -3,9 +3,9 @@ gobot
 
 TorilMUD Bot for item stat database, account and character tracking, boot tracking, and load reporting.
 
-Originally created for:
+Currently running on:
 
-* CentOS 6
-* Tintin++ 2.01.0
-* Go 1.1
-* SQLite 3.6
+* Debian 10
+* Tintin++ 2.02.05
+* Go 1.11.6
+* SQLite 3.27.2

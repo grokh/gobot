@@ -13,11 +13,6 @@
 	<h1>TorilEQ - TorilMUD Equipment Database</h1>
 	<p>Items Updated: {{.Date}}</p>
 	<form action="#" name="searchForm" id="searchForm" method="post">
-		<div class="tabs">
-		<div class="tab">
-			<input type="radio" id="tab-1" name="tab-group-1" checked>
-			<label for="tab-1">Item Search</label>
-			<div class="content">
 		<p>Item name: <input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
 		<p>(the rest of this doesn't do anything yet - only item name works so far)</p>
 		<p>Zone name: <input type="text" size="30" maxlength="30" name="zoneName" id="zoneName" /></p>
@@ -65,18 +60,6 @@
                 <option value="DESC">Descending</option>
             </select>
         </p>
-			</div>
-		</div>
-		<div class="tab">
-			<input type="radio" id="tab-2" name="tab-group-1">
-			<label for="tab-2">Effects and Flags</label>
-			<div class="content">
-		<p>
-			<label for="togRestr" class="toggle">Restrictions</label><input type="checkbox" name="togRestr" id="togRestr" class="hide" /> * 
-			<label for="togEff" class="toggle">Effects</label><input type="checkbox" name="togEff" id="togEff" class="hide" /> * 
-			<label for="togResist" class="toggle">Resists</label><input type="checkbox" name="togResist" id="togResist" class="hide" /> * 
-			<label for="togOther" class="toggle">Other Flags</label><input type="checkbox" name="togOther" id="togOther" class="hide" />
-        </p>
         <div id="restricts">
             <p>Usable By:</p>
             <p><label for="fighterUsable">Fighter</label> <input type="checkbox" name="fighterUsable" id="fighterUsable" /> |
@@ -104,16 +87,8 @@
             <p>Other Flags:</p>
             <p>{{range .Flags}}<label for="{{.FlagAbbr}}">{{.FlagDisp}}</label> <input type="checkbox" name="{{.FlagAbbr}}" id="{{.FlagAbbr}}" /> | {{end}}{{range .Supps}}<label for="{{.SuppAbbr}}">{{.SuppDisp}}</label> <input type="checkbox" name="{{.SuppAbbr}}" id="{{.SuppAbbr}}" /> | {{end}}</p>
         </div>
-			</div>
-		</div>
-		<div class="tab">
-			<input type="radio" id="tab-3" name="tab-group-1">
-			<label for="tab-3">Copy/Paste</label>
-			<div class="content">
         <p>Output from 'glist', 'equip', 'auction list', 'inventory', 'look in bag', or 'storage list':</p>
         <textarea cols="80" rows="15" name="list" id="list"></textarea>
-			</div>
-		</div>
 		<p><input type="submit" name="submit" id="submit" value="Search" /></p>
 	</form>
 	{{range .Results}}<p>{{.}}</p>{{else}}

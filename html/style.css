@@ -1,4 +1,8 @@
-body, input, option, select, textarea, div {
+body {
+	max-width: 800px;
+	margin: auto;
+}
+body, input, option, select, textarea, div, button {
 	font-family: monospace;
 	color: #C0C0C0;
 	background-color: black;
@@ -7,14 +11,14 @@ h1, h2, h3, h4 {
 	font-family: arial, sans-serif;
 	color: #808000;
 }
-a {
+a, label.toggle {
 	color: #008000;
 	text-decoration: none;
 }
-a:hover {
+a:hover, label.toggle:hover {
 	color: #00FF00;
 	text-decoration: none;
 }
-div.peekaboo {
+.hide {
 	display: none;
 }

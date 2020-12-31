@@ -5,7 +5,6 @@
 	<title>TorilEQ - TorilMUD Equipment Database</title>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<link href="/torileq/style.css" rel="stylesheet" type="text/css" media="all" />
-	<link href="/torileq/tabs.css" rel="stylesheet" type="text/css" media="all" />
 	<script type="text/javascript" src="/torileq/form.js"></script>
 	<link rel="shortcut icon" href="/torileq/favicon.ico" type="image/vnd.microsoft.icon" />
 </head>
@@ -18,7 +17,8 @@
 		<p>Zone name: <input type="text" size="30" maxlength="30" name="zoneName" id="zoneName" /></p>
         <p>Attribute 1:
             <select name="attrib1" id="attrib1"><option value=""></option>
-                {{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>{{end}}
+                {{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
+				{{end}}
             </select>
             <select name="compareAttrib1" id="compareAttrib1"><option value=""></option>
                 <option value=" &gt; ">greater than</option>
@@ -29,7 +29,8 @@
         </p>
         <p>Attribute 2:
             <select name="attrib2" id="attrib2"><option value=""></option>
-					{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>{{end}}
+					{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
+					{{end}}
             </select>
             <select name="compareAttrib2" id="compareAttrib2"><option value=""></option>
                 <option value=" &gt; ">greater than</option>
@@ -40,11 +41,13 @@
         </p>
         <p>Worn Slot:
             <select name="worn" id="worn"><option value=""></option>
-                {{range .Slots}}<option value="{{.SlotAbbr}}">{{.SlotDisp}}</option>{{end}}
+                {{range .Slots}}<option value="{{.SlotAbbr}}">{{.SlotDisp}}</option>
+				{{end}}
             </select>
             Item Type:
             <select name="type" id="type"><option value=""></option>
-                {{range .Types}}<option value="{{.TypeAbbr}}">{{.TypeDisp}}</option>{{end}}
+                {{range .Types}}<option value="{{.TypeAbbr}}">{{.TypeDisp}}</option>
+				{{end}}
             </select>
         </p>
 		<p>Order By:
@@ -77,21 +80,26 @@
         </div>
         <div id="effects">
             <p>Item Effect:</p>
-            <p>{{range .Effects}}<label for="{{.EffAbbr}}">{{.EffDisp}}</label> <input type="checkbox" name="{{.EffAbbr}}" id="{{.EffAbbr}}" /> | {{end}}</p>
+            <p>{{range .Effects}}<label for="{{.EffAbbr}}">{{.EffDisp}}</label> <input type="checkbox" name="{{.EffAbbr}}" id="{{.EffAbbr}}" /> | 
+			{{end}}</p>
         </div>
         <div id="resists">
             <p>Resistances:</p>
-            <p>{{range .Resists}}<label for="{{.ResAbbr}}">{{.ResDisp}}</label> <input type="checkbox" name="{{.ResAbbr}}" id="{{.ResAbbr}}" /> | {{end}}</p>
+            <p>{{range .Resists}}<label for="{{.ResAbbr}}">{{.ResDisp}}</label> <input type="checkbox" name="{{.ResAbbr}}" id="{{.ResAbbr}}" /> | 
+			{{end}}</p>
         </div>
         <div id="other">
             <p>Other Flags:</p>
-            <p>{{range .Flags}}<label for="{{.FlagAbbr}}">{{.FlagDisp}}</label> <input type="checkbox" name="{{.FlagAbbr}}" id="{{.FlagAbbr}}" /> | {{end}}{{range .Supps}}<label for="{{.SuppAbbr}}">{{.SuppDisp}}</label> <input type="checkbox" name="{{.SuppAbbr}}" id="{{.SuppAbbr}}" /> | {{end}}</p>
+            <p>{{range .Flags}}<label for="{{.FlagAbbr}}">{{.FlagDisp}}</label> <input type="checkbox" name="{{.FlagAbbr}}" id="{{.FlagAbbr}}" /> | 
+			{{end}}{{range .Supps}}<label for="{{.SuppAbbr}}">{{.SuppDisp}}</label> <input type="checkbox" name="{{.SuppAbbr}}" id="{{.SuppAbbr}}" /> | 
+			{{end}}</p>
         </div>
         <p>Output from 'glist', 'equip', 'auction list', 'inventory', 'look in bag', or 'storage list':</p>
         <textarea cols="80" rows="15" name="list" id="list"></textarea>
 		<p><input type="submit" name="submit" id="submit" value="Search" /></p>
 	</form>
-	{{range .Results}}<p>{{.}}</p>{{else}}
+	{{range .Results}}<p>{{.}}</p>
+	{{else}}
 	<div class="hide">
 	<h2>News and Info</h2>
 	<p>This equipment database is provided by Kegor, Nerun, Katumi, and the players of TorilMUD. The web interface was built by <a href="mailto:system@grokh.com">Todrael</a> and <a href="mailto:kristi.michaels@gmail.com">Katumi</a>. Visit the <a href="https://www.tapatalk.com/groups/triteriumbbs/">Triterium BBS</a> for instructions on how to get stats in-game. Mwrite stat updates and additions to Katumi.</p>
@@ -133,13 +141,13 @@
 		<li>ADDED 2007-10-31: Can now do an advanced search on item type, and whether a particular class can use it or not. Note: the 'class usable' feature goes off no-warrior, no-mage, no-thief, and no-cleric flags, and is not yet more granular than that.</li>
 		<li>FIXED 2007-10-30: Worn slots now include 'held' and 'can't wear'</li>
 		<li>FIXED 2007-10-30: Copy/paste statter is now much more forgiving, and allows combinations of printing, like equip list, inventory list, and glist all on the same input, with or without headings and blank spaces.</li>
-		<li>ADDED 2007-10-29: <a href="list.php">Copy/Paste Statter</a>: copy/paste from 'equip', 'glist', inventory, look in bag, or storage list, and get full results</li>
+		<li>ADDED 2007-10-29: <a href="">Copy/Paste Statter</a>: copy/paste from 'equip', 'glist', inventory, look in bag, or storage list, and get full results</li>
 		<li>FIXED 2007-10-28: Results from attribute searches that include zero (&lt;1, &gt;-1) are now items that actually affect that attribute</li>
 		<li>ADDED 2007-10-27: Advanced search by worn slot</li>
 		<li>ADDED 2007-10-27: Full ID from advanced search</li>
 		<li>FIXED 2007-10-27: Can now click item names that have an apostrophe in them</li>
 		<li>ADDED 2007-10-27: Count of full results</li>
-		<li>ADDED 2007-10-26: <a href="advanced.php">Advanced Search</a>: by attribute, by zone</li>
+		<li>ADDED 2007-10-26: <a href="">Advanced Search</a>: by attribute, by zone</li>
 		<li>ADDED 2007-10-22: First set of items loaded into database. Site launched, along with very basic search.</li>
 	</ul>
 	</div>

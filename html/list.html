@@ -1,18 +1,4 @@
-<!DOCTYPE html>
-
-<html>
-<head>
-	<title>TorilEQ - {{.Title}}</title>
-	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-	<link href="/torileq/style.css" rel="stylesheet" type="text/css" media="all" />
-	<script type="text/javascript" src="/torileq/form.js"></script>
-	<link rel="shortcut icon" href="/torileq/favicon.ico" type="image/vnd.microsoft.icon" />
-</head>
-<body>
-	<h1>TorilEQ - {{.Title}}</h1>
-	<p><a href="index.php">Main Page</a> * <a href="advanced.php">Advanced Search</a> * <a href="list.php">Copy/Paste Statter</a></p>
-	<p>Items Updated: {{.Date}}</p>
-	<form action="list.php" name="searchForm" id="searchForm" method="post">
+	<form action="#" name="searchForm" id="searchForm" method="post">
 		<input type="hidden" name="itemName" id="itemName" />
 		<p>Output from 'glist', 'equip', 'auction list', 'inventory', 'look in bag', or 'storage list':</p>
 		<textarea cols="80" rows="15" name="list" id="list"></textarea>
@@ -42,5 +28,3 @@
 	&nbsp;&nbsp;&nbsp;12)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;101457&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a&nbsp;tiny&nbsp;platinum&nbsp;earring&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;20&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Rrikis&nbsp;&nbsp;N/A&nbsp;&nbsp;&nbsp;ENDED&nbsp;Nossis<br />
 	&nbsp;&nbsp;&nbsp;13)&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;101458&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;a&nbsp;batskin&nbsp;belt&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;20&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;No&nbsp;Bid&nbsp;Yet&nbsp;&nbsp;N/A&nbsp;&nbsp;SELLER&nbsp;Nossis</p>
 	<p>The input is very forgiving. You can put in pretty much every type of output from the mud that includes an item name, and it should bring back the results, even on a combination of things like glist and eq at the same time, headings or no. You could paste in everything between 'Examples' and this line, and still get every item result.</p>
-</body>
-</html>

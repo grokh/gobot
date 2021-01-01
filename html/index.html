@@ -14,28 +14,33 @@
 	<form action="#" name="searchForm" id="searchForm" method="post">
 		<p>Item name: <input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
 		<p>(the rest of this doesn't do anything yet - only item name works so far)</p>
-		<p>Zone name: <input type="text" size="30" maxlength="30" name="zoneName" id="zoneName" /></p>
+		<p>Zone name: 
+			<select name="zoneName" id="zoneName"><option value=""></option>
+				{{range .Zones}}<option value="{{.ZoneAbbr}}">{{.ZoneDisp}}</option>
+				{{end}}
+			</select>
+		</p>
         <p>Attribute 1:
             <select name="attrib1" id="attrib1"><option value=""></option>
                 {{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
 				{{end}}
             </select>
             <select name="compareAttrib1" id="compareAttrib1"><option value=""></option>
-                <option value=" &gt; ">greater than</option>
-                <option value=" &lt; ">less than</option>
-                <option value=" = ">equal to</option>
+                <option value="gt">greater than</option>
+                <option value="lt">less than</option>
+                <option value="et">equal to</option>
             </select>
             <input type="text" size="5" maxlength="5" name="valueAttrib1" id="valueAttrib1" />
         </p>
         <p>Attribute 2:
             <select name="attrib2" id="attrib2"><option value=""></option>
-					{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
-					{{end}}
+				{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
+				{{end}}
             </select>
             <select name="compareAttrib2" id="compareAttrib2"><option value=""></option>
-                <option value=" &gt; ">greater than</option>
-                <option value=" &lt; ">less than</option>
-                <option value=" = ">equal to</option>
+                <option value="gt">greater than</option>
+                <option value="lt">less than</option>
+                <option value="et">equal to</option>
             </select>
             <input type="text" size="5" maxlength="5" name="valueAttrib2" id="valueAttrib2" />
         </p>

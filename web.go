@@ -185,6 +185,16 @@ func fillStructs() Page {
 	return p
 }
 
+func fillResults(r *http.Request) []string {
+	var res []string
+	sql := "SELECT long_stats FROM items WHERE "
+	if r.PostFormValue("itemName") != "" {
+		sql += "item_name LIKE ?"
+		res = FindItem(r.PostFormValue("itemName"), "long_stats")
+	}
+	return res
+}
+
 var tmpl = template.Must(template.ParseFiles(
     "html/index.html",
 ))
@@ -192,7 +202,7 @@ var tmpl = template.Must(template.ParseFiles(
 func eqHandler(w http.ResponseWriter, r *http.Request) {
 	p := fillStructs()
 	if r.Method == "POST" {
-		p.Results = FindItem(r.PostFormValue("itemName"), "short_stats")
+		p.Results = fillResults(r)
 	}
 	err := tmpl.Execute(w, p)
     if err != nil {

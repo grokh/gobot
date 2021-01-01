@@ -5,7 +5,13 @@ import (
 	"html/template"
 //	"log"
 	"net/http"
+//	"strings"
 )
+
+type Zone struct {
+	ZoneAbbr string
+	ZoneDisp string
+}
 
 type Attrib struct {
 	AttAbbr string
@@ -45,6 +51,7 @@ type Supp struct {
 type Page struct {
 	Date    string
 	Results []string
+	Zones   []Zone
 	Attribs []Attrib
 	Slots   []Slot
 	Types   []IType
@@ -70,12 +77,28 @@ func fillStructs() Page {
     err = stmt.QueryRow().Scan(&p.Date)
 	ChkErr(err)
 
+	query = "SELECT zone_abbr, zone_name FROM zones"
+	stmt, err = db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
+
+	rows, err := stmt.Query()
+	ChkErr(err)
+	defer rows.Close()
+
+	for rows.Next() {
+		var z Zone
+		err = rows.Scan(&z.ZoneAbbr, &z.ZoneDisp)
+		ChkErr(err)
+		p.Zones = append(p.Zones, z)
+	}
+
     query = "SELECT attrib_abbr, attrib_display FROM attribs"
 	stmt, err = db.Prepare(query)
     ChkErr(err)
     defer stmt.Close()
 
-	rows, err := stmt.Query()
+	rows, err = stmt.Query()
     ChkErr(err)
     defer rows.Close()
 
@@ -186,13 +209,99 @@ func fillStructs() Page {
 }
 
 func fillResults(r *http.Request) []string {
-	var res []string
-	sql := "SELECT long_stats FROM items WHERE "
+	results := []string{"none"} // slice holding final results of query
+	query := "SELECT long_stats FROM items WHERE " // query builder
+	var vals []string // slice holding query values to indexed points
+
 	if r.PostFormValue("itemName") != "" {
-		sql += "item_name LIKE ?"
-		res = FindItem(r.PostFormValue("itemName"), "long_stats")
+		query += "item_name LIKE ?" // TODO this needs a lot of work
+		vals = append(vals, "%"+r.PostFormValue("itemName")+"%")
+	//	results = FindItem(r.PostFormValue("itemName"), "long_stats") // placeholder for doing it right
 	}
-	return res
+
+	if r.PostFormValue("zoneName") != "" {
+		if len(query) > 35 {
+			query += " AND "
+		}
+		query += "from_zone = ?"
+		vals = append(vals, r.PostFormValue("zoneName"))
+	}
+
+	if r.PostFormValue("attrib1") != "" {
+		if len(query) > 35 {
+			query += " AND "
+		}
+		query += "item_id IN " +
+			"(SELECT item_id FROM item_attribs " +
+			"WHERE attrib_abbr = ?"
+		vals = append(vals, r.PostFormValue("attrib1"))
+
+		if r.PostFormValue("compareAttrib1") != "" {
+			if r.PostFormValue("valueAttrib1") != "" {
+				switch r.PostFormValue("compareAttrib1") {
+				case "gt":
+					query += "AND attrib_value > ?"
+				case "lt":
+					query += "AND attrib_value < ?"
+				case "et":
+					query += "AND attrib_value = ?"
+				}
+				vals = append(vals, r.PostFormValue("valueAttrib1"))
+			}
+		}
+		query += ")"
+	}
+
+	if r.PostFormValue("attrib2") != "" {
+		if len(query) > 35 {
+			query += " AND "
+		}
+		query += "item_id IN " +
+			"(SELECT item_id FROM item_attribs " +
+			"WHERE attrib_abbr = ?"
+		vals = append(vals, r.PostFormValue("attrib2"))
+
+		if r.PostFormValue("compareAttrib2") != "" {
+			if r.PostFormValue("valueAttrib2") != "" {
+				switch r.PostFormValue("compareAttrib2") {
+				case "gt":
+					query += "AND attrib_value > ?"
+				case "lt":
+					query += "AND attrib_value < ?"
+				case "et":
+					query += "AND attrib_value = ?"
+				}
+				vals = append(vals, r.PostFormValue("valueAttrib2"))
+			}
+		}
+		query += ")"
+	}
+
+	if len(query) > 35 {
+		db := OpenDB()
+		defer db.Close()
+
+		stmt, err := db.Prepare(query)
+		ChkErr(err)
+		defer stmt.Close()
+
+		args := make([]interface{}, len(vals))
+		for n, val := range vals {
+			args[n] = val
+		}
+
+		rows, err := stmt.Query(args...)
+		ChkErr(err)
+		defer rows.Close()
+
+		for rows.Next() {
+			var s string
+			err = rows.Scan(&s)
+			ChkErr(err)
+			results = append(results, s)
+		}
+	}
+	return results
 }
 
 var tmpl = template.Must(template.ParseFiles(

@@ -1,9 +1,9 @@
 package main
 
 import (
-//	"database/sql"
+	//	"database/sql"
 	"html/template"
-//	"log"
+	//	"log"
 	"net/http"
 	"strings"
 )
@@ -63,21 +63,21 @@ type Page struct {
 
 func fillStructs() Page {
 	p := Page{
-        Date: "2020-12-29",
-    }
+		Date: "2020-12-29",
+	}
 
 	db := OpenDB()
-    defer db.Close()
+	defer db.Close()
 
 	query := "SELECT MAX(last_id) FROM items"
-    stmt, err := db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	stmt, err := db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
 
-    err = stmt.QueryRow().Scan(&p.Date)
+	err = stmt.QueryRow().Scan(&p.Date)
 	ChkErr(err)
 
-	query = "SELECT zone_abbr, zone_name FROM zones " + 
+	query = "SELECT zone_abbr, zone_name FROM zones " +
 		"ORDER BY zone_name ASC"
 	stmt, err = db.Prepare(query)
 	ChkErr(err)
@@ -94,14 +94,14 @@ func fillStructs() Page {
 		p.Zones = append(p.Zones, z)
 	}
 
-    query = "SELECT attrib_abbr, attrib_display FROM attribs"
+	query = "SELECT attrib_abbr, attrib_display FROM attribs"
 	stmt, err = db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	ChkErr(err)
+	defer stmt.Close()
 
 	rows, err = stmt.Query()
-    ChkErr(err)
-    defer rows.Close()
+	ChkErr(err)
+	defer rows.Close()
 
 	for rows.Next() {
 		var a Attrib
@@ -112,14 +112,14 @@ func fillStructs() Page {
 
 	query = "SELECT slot_abbr, slot_display FROM slots"
 	stmt, err = db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	ChkErr(err)
+	defer stmt.Close()
 
-    rows, err = stmt.Query()
-    ChkErr(err)
-    defer rows.Close()
+	rows, err = stmt.Query()
+	ChkErr(err)
+	defer rows.Close()
 
-    for rows.Next() {
+	for rows.Next() {
 		var s Slot
 		err = rows.Scan(&s.SlotAbbr, &s.SlotDisp)
 		ChkErr(err)
@@ -128,14 +128,14 @@ func fillStructs() Page {
 
 	query = "SELECT type_abbr, type_display FROM item_types"
 	stmt, err = db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	ChkErr(err)
+	defer stmt.Close()
 
-    rows, err = stmt.Query()
-    ChkErr(err)
-    defer rows.Close()
+	rows, err = stmt.Query()
+	ChkErr(err)
+	defer rows.Close()
 
-    for rows.Next() {
+	for rows.Next() {
 		var t IType
 		err = rows.Scan(&t.TypeAbbr, &t.TypeDisp)
 		ChkErr(err)
@@ -143,81 +143,81 @@ func fillStructs() Page {
 	}
 
 	query = "SELECT effect_abbr, effect_display FROM effects"
-    stmt, err = db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	stmt, err = db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
 
-    rows, err = stmt.Query()
-    ChkErr(err)
-    defer rows.Close()
+	rows, err = stmt.Query()
+	ChkErr(err)
+	defer rows.Close()
 
-    for rows.Next() {
-        var e Effect
-        err = rows.Scan(&e.EffAbbr, &e.EffDisp)
-        ChkErr(err)
-        p.Effects = append(p.Effects, e)
-    }
+	for rows.Next() {
+		var e Effect
+		err = rows.Scan(&e.EffAbbr, &e.EffDisp)
+		ChkErr(err)
+		p.Effects = append(p.Effects, e)
+	}
 
 	query = "SELECT resist_abbr, resist_display FROM resists"
-    stmt, err = db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	stmt, err = db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
 
-    rows, err = stmt.Query()
-    ChkErr(err)
-    defer rows.Close()
+	rows, err = stmt.Query()
+	ChkErr(err)
+	defer rows.Close()
 
-    for rows.Next() {
-        var r Resist
-        err = rows.Scan(&r.ResAbbr, &r.ResDisp)
-        ChkErr(err)
-        p.Resists = append(p.Resists, r)
-    }
+	for rows.Next() {
+		var r Resist
+		err = rows.Scan(&r.ResAbbr, &r.ResDisp)
+		ChkErr(err)
+		p.Resists = append(p.Resists, r)
+	}
 
 	query = "SELECT flag_abbr, flag_display FROM flags"
-    stmt, err = db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	stmt, err = db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
 
-    rows, err = stmt.Query()
-    ChkErr(err)
-    defer rows.Close()
+	rows, err = stmt.Query()
+	ChkErr(err)
+	defer rows.Close()
 
-    for rows.Next() {
-        var f Flag
-        err = rows.Scan(&f.FlagAbbr, &f.FlagDisp)
-        ChkErr(err)
-        p.Flags = append(p.Flags, f)
-    }
+	for rows.Next() {
+		var f Flag
+		err = rows.Scan(&f.FlagAbbr, &f.FlagDisp)
+		ChkErr(err)
+		p.Flags = append(p.Flags, f)
+	}
 
 	query = "SELECT supp_abbr, supp_display FROM supps"
-    stmt, err = db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	stmt, err = db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
 
-    rows, err = stmt.Query()
-    ChkErr(err)
-    defer rows.Close()
+	rows, err = stmt.Query()
+	ChkErr(err)
+	defer rows.Close()
 
-    for rows.Next() {
-        var s Supp
-        err = rows.Scan(&s.SuppAbbr, &s.SuppDisp)
-        ChkErr(err)
-        p.Supps = append(p.Supps, s)
-    }
+	for rows.Next() {
+		var s Supp
+		err = rows.Scan(&s.SuppAbbr, &s.SuppDisp)
+		ChkErr(err)
+		p.Supps = append(p.Supps, s)
+	}
 
 	return p
 }
 
 func parseForm(p Page, r *http.Request) []string {
-	var results []string // slice holding final results of query
+	var results []string                           // slice holding final results of query
 	query := "SELECT long_stats FROM items WHERE " // query builder
-	var vals []string // slice holding query values
+	var vals []string                              // slice holding query values
 
 	if r.PostFormValue("itemName") != "" {
 		query += "item_name LIKE ? " // TODO this needs a lot of work
 		vals = append(vals, "%"+r.PostFormValue("itemName")+"%")
-	//	results = FindItem(r.PostFormValue("itemName"), "long_stats") // placeholder for doing it right
+		//	results = FindItem(r.PostFormValue("itemName"), "long_stats") // placeholder for doing it right
 	}
 
 	if r.PostFormValue("zoneName") != "" {
@@ -428,13 +428,13 @@ func parseList(r *http.Request) []string {
 				v = v[0:n]
 			}
 			if n := strings.Index(v, "] "); n > 0 { // remove everything before the first "] "
-				v = v[n+1:len(v)]
+				v = v[n+1 : len(v)]
 			}
 			if n := strings.Index(v, "   "); n > 0 { // remove everything before the first "   "
-				v = v[n+1:len(v)]
+				v = v[n+1 : len(v)]
 			}
 			if n := strings.Index(v, "> "); n > 0 { // remove everything before the first "> "
-				v = v[n+1:len(v)]
+				v = v[n+1 : len(v)]
 			}
 			v = strings.TrimSpace(v) // remove leading and trailing whitespace
 
@@ -448,7 +448,7 @@ func parseList(r *http.Request) []string {
 }
 
 var tmpl = template.Must(template.ParseFiles(
-    "html/index.html",
+	"html/index.html",
 ))
 
 func eqHandler(w http.ResponseWriter, r *http.Request) {
@@ -463,8 +463,7 @@ func eqHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	err := tmpl.Execute(w, p)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-    }
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
-

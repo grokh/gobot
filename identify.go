@@ -172,9 +172,9 @@ func Identify(filename string) []string {
 		`Can hold ([[:digit:]]+) more lbs with ([[:digit:]]+)lbs weightless.`)
 	ChkErr(err)
 	chkKey, err := regexp.Compile(
-        // This key has a 0% chance to break when used. // key
-        `This key has a ([[:digit:]]+)\% chance to break when used.`)
-    ChkErr(err)
+		// This key has a 0% chance to break when used. // key
+		`This key has a ([[:digit:]]+)\% chance to break when used.`)
+	ChkErr(err)
 	chkLock, err := regexp.Compile(
 		// This lockpick has a 0% bonus chance to successfully pick a lock. // pick
 		`This lockpick has a ([[:digit:]]+)\% bonus chance to successfully pick a lock.`)

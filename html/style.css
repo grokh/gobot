@@ -11,11 +11,11 @@ h1, h2, h3, h4 {
 	font-family: arial, sans-serif;
 	color: #808000;
 }
-a, label.toggle {
+a {
 	color: #008000;
 	text-decoration: none;
 }
-a:hover, label.toggle:hover {
+a:hover {
 	color: #00FF00;
 	text-decoration: none;
 }

@@ -5,7 +5,7 @@ import (
 	"html/template"
 //	"log"
 	"net/http"
-//	"strings"
+	"strings"
 )
 
 type Zone struct {
@@ -77,7 +77,8 @@ func fillStructs() Page {
     err = stmt.QueryRow().Scan(&p.Date)
 	ChkErr(err)
 
-	query = "SELECT zone_abbr, zone_name FROM zones"
+	query = "SELECT zone_abbr, zone_name FROM zones " + 
+		"ORDER BY zone_name ASC"
 	stmt, err = db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
@@ -208,13 +209,13 @@ func fillStructs() Page {
 	return p
 }
 
-func fillResults(r *http.Request) []string {
-	results := []string{"none"} // slice holding final results of query
+func parseForm(p Page, r *http.Request) []string {
+	var results []string // slice holding final results of query
 	query := "SELECT long_stats FROM items WHERE " // query builder
-	var vals []string // slice holding query values to indexed points
+	var vals []string // slice holding query values
 
 	if r.PostFormValue("itemName") != "" {
-		query += "item_name LIKE ?" // TODO this needs a lot of work
+		query += "item_name LIKE ? " // TODO this needs a lot of work
 		vals = append(vals, "%"+r.PostFormValue("itemName")+"%")
 	//	results = FindItem(r.PostFormValue("itemName"), "long_stats") // placeholder for doing it right
 	}
@@ -223,9 +224,11 @@ func fillResults(r *http.Request) []string {
 		if len(query) > 35 {
 			query += " AND "
 		}
-		query += "from_zone = ?"
+		query += "from_zone = ? "
 		vals = append(vals, r.PostFormValue("zoneName"))
 	}
+
+	// TODO add Armor AC somewhere
 
 	if r.PostFormValue("attrib1") != "" {
 		if len(query) > 35 {
@@ -233,7 +236,7 @@ func fillResults(r *http.Request) []string {
 		}
 		query += "item_id IN " +
 			"(SELECT item_id FROM item_attribs " +
-			"WHERE attrib_abbr = ?"
+			"WHERE attrib_abbr = ? "
 		vals = append(vals, r.PostFormValue("attrib1"))
 
 		if r.PostFormValue("compareAttrib1") != "" {
@@ -249,7 +252,7 @@ func fillResults(r *http.Request) []string {
 				vals = append(vals, r.PostFormValue("valueAttrib1"))
 			}
 		}
-		query += ")"
+		query += ") "
 	}
 
 	if r.PostFormValue("attrib2") != "" {
@@ -274,10 +277,120 @@ func fillResults(r *http.Request) []string {
 				vals = append(vals, r.PostFormValue("valueAttrib2"))
 			}
 		}
-		query += ")"
+
+		query += ") "
+	}
+	if r.PostFormValue("worn") != "" {
+		if len(query) > 35 {
+			query += " AND "
+		}
+		query += "item_id IN " +
+			"(SELECT item_id FROM item_slots " +
+			"WHERE slot_abbr = ?) "
+		vals = append(vals, r.PostFormValue("worn"))
+	}
+
+	if r.PostFormValue("type") != "" {
+		if len(query) > 35 {
+			query += " AND "
+		}
+		query += "item_id IN " +
+			"(SELECT item_id FROM items " +
+			"WHERE item_type = ?) "
+		vals = append(vals, r.PostFormValue("type"))
+	}
+
+	// iterate through restricts
+	restricts := []string{
+		"!fighter", "!priest", "!thief", "!mage", "!male", "!female",
+		"!good", "!neut", "!evil", "!goodrace", "!evilrace",
+	}
+	for _, v := range restricts {
+		if r.PostFormValue(v) != "" {
+			if len(query) > 35 {
+				query += " AND "
+			}
+			query += "item_id NOT IN " +
+				"(SELECT item_id FROM item_restricts " +
+				"WHERE restrict_abbr = ?) "
+			vals = append(vals, v)
+		}
+	}
+
+	// iterate through effects
+	for _, v := range p.Effects {
+		if r.PostFormValue(v.EffAbbr) != "" {
+			if len(query) > 35 {
+				query += " AND "
+			}
+			query += "item_id IN " +
+				"(SELECT item_id FROM item_effects " +
+				"WHERE effect_abbr = ?) "
+			vals = append(vals, v.EffAbbr)
+		}
+	}
+
+	// iterate through resists
+	for _, v := range p.Resists {
+		if r.PostFormValue(v.ResAbbr) != "" {
+			if len(query) > 35 {
+				query += " AND "
+			}
+			query += "item_id IN " +
+				"(SELECT item_id FROM item_resists " +
+				"WHERE resist_abbr = ?) "
+			vals = append(vals, v.ResAbbr)
+		}
+	}
+
+	// iterate through flags
+	for _, v := range p.Flags {
+		if r.PostFormValue(v.FlagAbbr) != "" {
+			if len(query) > 35 {
+				query += " AND "
+			}
+			query += "item_id IN " +
+				"(SELECT item_id FROM item_flags " +
+				"WHERE flag_abbr = ?) "
+			vals = append(vals, v.FlagAbbr)
+		}
+	}
+
+	// iterate through supps
+	for _, v := range p.Supps {
+		if r.PostFormValue(v.SuppAbbr) != "" {
+			if len(query) > 35 {
+				query += " AND "
+			}
+			query += "item_id IN " +
+				"(SELECT item_id FROM item_supps " +
+				"WHERE supp_abbr = ?) "
+			vals = append(vals, v.SuppAbbr)
+		}
 	}
 
 	if len(query) > 35 {
+		switch r.PostFormValue("orderBy") {
+		case "name":
+			query += "ORDER BY item_name "
+		case "zone":
+			query += "ORDER BY from_zone "
+		case "attrib1": // TODO fix attribs and slot sorting, if possible
+			query += "ORDER BY attrib_value "
+		case "attrib2":
+			query += "ORDER BY attrib_value "
+		case "worn":
+			query += "ORDER BY slot_abbr "
+		case "type":
+			query += "ORDER BY item_type "
+		}
+		switch r.PostFormValue("ascDesc") {
+		case "up":
+			query += "ASC"
+		case "down":
+			query += "DESC"
+		}
+
 		db := OpenDB()
 		defer db.Close()
 
@@ -304,6 +417,36 @@ func fillResults(r *http.Request) []string {
 	return results
 }
 
+func parseList(r *http.Request) []string {
+	var results []string
+	txt := r.PostFormValue("list")
+	list := strings.Split(strings.Replace(txt, "\r\n", "\n", -1), "\n")
+
+	for _, v := range list {
+		if v != "" && !strings.Contains(v, ":") && !strings.Contains(v, "/") {
+			if n := strings.Index(v, " ("); n > 0 { // remove everything after the first " ("
+				v = v[0:n]
+			}
+			if n := strings.Index(v, "] "); n > 0 { // remove everything before the first "] "
+				v = v[n+1:len(v)]
+			}
+			if n := strings.Index(v, "   "); n > 0 { // remove everything before the first "   "
+				v = v[n+1:len(v)]
+			}
+			if n := strings.Index(v, "> "); n > 0 { // remove everything before the first "> "
+				v = v[n+1:len(v)]
+			}
+			v = strings.TrimSpace(v) // remove leading and trailing whitespace
+
+			for _, result := range FindItem(v, "long_stats") {
+				results = append(results, result)
+			}
+		}
+	}
+
+	return results
+}
+
 var tmpl = template.Must(template.ParseFiles(
     "html/index.html",
 ))
@@ -311,7 +454,13 @@ var tmpl = template.Must(template.ParseFiles(
 func eqHandler(w http.ResponseWriter, r *http.Request) {
 	p := fillStructs()
 	if r.Method == "POST" {
-		p.Results = fillResults(r)
+		if r.PostFormValue("list") != "" {
+			p.Results = parseList(r)
+		} else {
+			p.Results = parseForm(p, r)
+			// TODO make item names javascript link
+			// TODO make first / single result full_stats
+		}
 	}
 	err := tmpl.Execute(w, p)
     if err != nil {

@@ -63,7 +63,7 @@ type Page struct {
 
 func fillStructs() Page {
 	p := Page{
-		Date: "2020-12-29",
+		Date: "2021-01-01",
 	}
 
 	db := OpenDB()
@@ -423,21 +423,38 @@ func parseList(r *http.Request) []string {
 	list := strings.Split(strings.Replace(txt, "\r\n", "\n", -1), "\n")
 
 	for _, v := range list {
-		if v != "" && !strings.Contains(v, ":") && !strings.Contains(v, "/") {
-			if n := strings.Index(v, " ("); n > 0 { // remove everything after the first " ("
+		if v != "" && !strings.Contains(v, ":") && !strings.Contains(v, "h/") &&
+			!strings.Contains(v, ";") && !strings.Contains(v, "[RETURN") &&
+			!strings.Contains(v, "======") && !strings.Contains(v, "#") {
+			// to parse auction results
+			if n := strings.Index(v, ")     "); n > 0 {
+				x := strings.Count(v, "'")
+				v = v[n+12 : 48+x]
+			}
+			// remove everything after the first " ("
+			// to remove (illuminating) or whatever from the end of items
+			if n := strings.Index(v, " ("); n > 0 {
 				v = v[0:n]
 			}
-			if n := strings.Index(v, "] "); n > 0 { // remove everything before the first "] "
+			// remove everything before the first "] "
+			// to parse combined [5]-style items from inv or look in
+			if n := strings.Index(v, "] "); n > 0 {
 				v = v[n+1 : len(v)]
 			}
-			if n := strings.Index(v, "   "); n > 0 { // remove everything before the first "   "
+			// remove everything before the first "   "
+			// to parse items from a 'glist'
+			if n := strings.Index(v, "   "); n > 0 {
 				v = v[n+1 : len(v)]
 			}
-			if n := strings.Index(v, "> "); n > 0 { // remove everything before the first "> "
+			// remove everything before the first "> "
+			// to parse items from an 'eq' list
+			if n := strings.Index(v, "> "); n > 0 {
 				v = v[n+1 : len(v)]
 			}
-			v = strings.TrimSpace(v) // remove leading and trailing whitespace
+			// remove leading and trailing whitespace
+			v = strings.TrimSpace(v)
 
+			// TODO new func FindExactItem
 			for _, result := range FindItem(v, "long_stats") {
 				results = append(results, result)
 			}

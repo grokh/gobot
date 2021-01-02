@@ -7,15 +7,21 @@ body, input, option, select, textarea, div, button {
 	color: #C0C0C0;
 	background-color: black;
 }
-h1, h2, h3, h4 {
+h1, h1 a, h2, h3, h4 {
 	font-family: arial, sans-serif;
 	color: #808000;
+	text-decoration: none;
 }
-a {
+h1 a:hover {
+	font-family: arial, sans-serif;
+    color: #FFFF00;
+    text-decoration: none;
+}
+p a {
 	color: #008000;
 	text-decoration: none;
 }
-a:hover {
+p a:hover {
 	color: #00FF00;
 	text-decoration: none;
 }

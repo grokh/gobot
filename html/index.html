@@ -9,8 +9,8 @@
 	<link rel="shortcut icon" href="/torileq/favicon.ico" type="image/vnd.microsoft.icon" />
 </head>
 <body>
-	<h1>TorilEQ 2.0 - TorilMUD Equipment Database</h1>
-	<p>Items Updated: {{.Date}}</p>
+	<h1><a href="https://www.grokh.com/torileq/">TorilEQ 2.0 - TorilMUD Equipment Database</a></h1>
+	<p>Items Updated: {{.Date}} - Alternate: <a href="https://toril.utopiaprogramming.com/">https://toril.utopiaprogramming.com/</a></p>
 	<form action="#" name="searchForm" id="searchForm" method="post">
 		<p>Item name: <input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
 		<p>Zone name: 
@@ -21,6 +21,7 @@
 		</p>
         <p>Attribute 1:
             <select name="attrib1" id="attrib1"><option value=""></option>
+					<!--				<option value="AC">AC</option>-->
                 {{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
 				{{end}}
             </select>
@@ -33,6 +34,7 @@
         </p>
         <p>Attribute 2:
             <select name="attrib2" id="attrib2"><option value=""></option>
+				<!--	<option value="AC">AC</option>-->
 				{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
 				{{end}}
             </select>

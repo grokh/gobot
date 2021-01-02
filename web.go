@@ -213,11 +213,11 @@ func parseForm(p Page, r *http.Request) []string {
 	var results []string                           // slice holding final results of query
 	query := "SELECT long_stats FROM items WHERE " // query builder
 	var vals []string                              // slice holding query values
+	//baseLen := len(query)                          // base length of the initial query
 
 	if r.PostFormValue("itemName") != "" {
-		query += "item_name LIKE ? " // TODO this needs a lot of work
+		query += "item_name LIKE ? " // TODO needs a lot of work
 		vals = append(vals, "%"+r.PostFormValue("itemName")+"%")
-		//	results = FindItem(r.PostFormValue("itemName"), "long_stats") // placeholder for doing it right
 	}
 
 	if r.PostFormValue("zoneName") != "" {
@@ -227,8 +227,6 @@ func parseForm(p Page, r *http.Request) []string {
 		query += "from_zone = ? "
 		vals = append(vals, r.PostFormValue("zoneName"))
 	}
-
-	// TODO add Armor AC somewhere
 
 	if r.PostFormValue("attrib1") != "" {
 		if len(query) > 35 {
@@ -280,6 +278,9 @@ func parseForm(p Page, r *http.Request) []string {
 
 		query += ") "
 	}
+
+	// TODO add item_specials like AC and damage dice
+
 	if r.PostFormValue("worn") != "" {
 		if len(query) > 35 {
 			query += " AND "

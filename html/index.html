@@ -2,18 +2,17 @@
 
 <html>
 <head>
-	<title>TorilEQ - TorilMUD Equipment Database</title>
+	<title>TorilEQ 2.0 - TorilMUD Equipment Database</title>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<link href="/torileq/style.css" rel="stylesheet" type="text/css" media="all" />
 	<script type="text/javascript" src="/torileq/form.js"></script>
 	<link rel="shortcut icon" href="/torileq/favicon.ico" type="image/vnd.microsoft.icon" />
 </head>
 <body>
-	<h1>TorilEQ - TorilMUD Equipment Database</h1>
+	<h1>TorilEQ 2.0 - TorilMUD Equipment Database</h1>
 	<p>Items Updated: {{.Date}}</p>
 	<form action="#" name="searchForm" id="searchForm" method="post">
 		<p>Item name: <input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
-		<p>(the rest of this doesn't do anything yet - only item name works so far)</p>
 		<p>Zone name: 
 			<select name="zoneName" id="zoneName"><option value=""></option>
 				{{range .Zones}}<option value="{{.ZoneAbbr}}">{{.ZoneDisp}}</option>
@@ -56,53 +55,65 @@
             </select>
         </p>
 		<p>Order By:
-            <select name="orderBy" id="orderBy"><option value="varName">Item Name</option>
-                <option value="varZone">Zone Name</option>
-                <option value="attrib1">Attribute 1</option>
+            <select name="orderBy" id="orderBy">
+				<option value="name">Item Name</option>
+                <option value="zone">Zone Name</option>
+                <!--<option value="attrib1">Attribute 1</option>
                 <option value="attrib2">Attribute 2</option>
-                <option value="varWorn">Worn Slot</option>
-                <option value="varType">Item Type</option>
+				<option value="worn">Worn Slot</option>-->
+                <option value="type">Item Type</option>
             </select>
             <select name="ascDesc" id="ascDesc">
-                <option value="ASC">Ascending</option>
-                <option value="DESC">Descending</option>
+                <option value="up">Ascending</option>
+                <option value="down">Descending</option>
             </select>
         </p>
-        <div id="restricts">
+		<p>
+			<a href="javascript:toggleLayer('restricts');">Restrictions</a> *
+			<a href="javascript:toggleLayer('effects');">Effects</a> *
+			<a href="javascript:toggleLayer('resists');">Resists</a> * 
+			<a href="javascript:toggleLayer('other');">Other Flags</a> * 
+			<a href="javascript:toggleLayer('paste');">Paste Items</a>
+		</p>
+        <div id="restricts" class="hide">
             <p>Usable By:</p>
-            <p><label for="fighterUsable">Fighter</label> <input type="checkbox" name="fighterUsable" id="fighterUsable" /> |
-            <label for="priestUsable">Priest</label> <input type="checkbox" name="priestUsable" id="priestUsable" /> |
-            <label for="rogueUsable">Rogue</label> <input type="checkbox" name="rogueUsable" id="rogueUsable" /> |
-            <label for="mageUsable">Mage</label> <input type="checkbox" name="mageUsable" id="mageUsable" /> |
-            <label for="goodUsable">Good Align</label> <input type="checkbox" name="goodUsable" id="goodUsable" /> |
-            <label for="neutralUsable">Neutral Align</label> <input type="checkbox" name="neutralUsable" id="neutralUsable" /> |
-            <label for="evilUsable">Evil Align</label> <input type="checkbox" name="evilUsable" id="evilUsable" /> |
-            <label for="goodRaceUsable">Goodrace</label> <input type="checkbox" name="goodRaceUsable" id="goodRaceUsable" /> |
-            <label for="evilRaceUsable">Evilrace</label> <input type="checkbox" name="evilRaceUsable" id="evilRaceUsable" /> |
-            <label for="maleUsable">Male</label> <input type="checkbox" name="maleUsable" id="maleUsable" /> |
-            <label for="femaleUsable">Female</label> <input type="checkbox" name="femaleUsable" id="femaleUsable" />
+            <p><label for="!fighter">Fighter</label> <input type="checkbox" name="!fighter" id="!fighter" /> |
+            <label for="!priest">Priest</label> <input type="checkbox" name="!priest" id="!priest" /> |
+            <label for="!thief">Rogue</label> <input type="checkbox" name="!thief" id="!thief" /> |
+            <label for="!mage">Mage</label> <input type="checkbox" name="!mage" id="!mage" /> |
+            <label for="!good">Good Align</label> <input type="checkbox" name="!good" id="!good" /> |
+            <label for="!neut">Neutral Align</label> <input type="checkbox" name="!neut" id="!neut" /> |
+            <label for="!evil">Evil Align</label> <input type="checkbox" name="!evil" id="!evil" /> |
+            <label for="!goodrace">Goodrace</label> <input type="checkbox" name="!goodrace" id="!goodrace" /> |
+            <label for="!evilrace">Evilrace</label> <input type="checkbox" name="!evilrace" id="!evilrace" /> |
+            <label for="!male">Male</label> <input type="checkbox" name="!male" id="!male" /> |
+            <label for="!female">Female</label> <input type="checkbox" name="!female" id="!female" />
             </p>
         </div>
-        <div id="effects">
+        <div id="effects" class="hide">
             <p>Item Effect:</p>
             <p>{{range .Effects}}<label for="{{.EffAbbr}}">{{.EffDisp}}</label> <input type="checkbox" name="{{.EffAbbr}}" id="{{.EffAbbr}}" /> | 
 			{{end}}</p>
         </div>
-        <div id="resists">
+        <div id="resists" class="hide">
             <p>Resistances:</p>
             <p>{{range .Resists}}<label for="{{.ResAbbr}}">{{.ResDisp}}</label> <input type="checkbox" name="{{.ResAbbr}}" id="{{.ResAbbr}}" /> | 
 			{{end}}</p>
         </div>
-        <div id="other">
+        <div id="other" class="hide">
             <p>Other Flags:</p>
             <p>{{range .Flags}}<label for="{{.FlagAbbr}}">{{.FlagDisp}}</label> <input type="checkbox" name="{{.FlagAbbr}}" id="{{.FlagAbbr}}" /> | 
 			{{end}}{{range .Supps}}<label for="{{.SuppAbbr}}">{{.SuppDisp}}</label> <input type="checkbox" name="{{.SuppAbbr}}" id="{{.SuppAbbr}}" /> | 
 			{{end}}</p>
         </div>
-        <p>Output from 'glist', 'equip', 'auction list', 'inventory', 'look in bag', or 'storage list':</p>
-        <textarea cols="80" rows="15" name="list" id="list"></textarea>
+		<div id="paste" class="hide">
+        	<p>Output from 'glist', 'equip', 'auction list', 'inventory', 'look in bag', or 'storage list':</p>
+        	<textarea cols="80" rows="15" name="list" id="list"></textarea>
+		</div>
 		<p><input type="submit" name="submit" id="submit" value="Search" /></p>
 	</form>
+	{{if .Results}}<h2>All Results ({{len .Results}}):</h2>
+	{{end}}
 	{{range .Results}}<p>{{.}}</p>
 	{{else}}
 	<div class="hide">

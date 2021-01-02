@@ -1,6 +1,6 @@
 [Unit]
 Description=grokh.com/torileq/
-ConditionPathExists=/home/trance/go/src/github.com/grokh/gobot
+ConditionPathExists=/srv/web/torileq
 After=network.target
 
 [Service]
@@ -8,8 +8,8 @@ Type=simple
 User=trance
 Group=trance
 
-WorkingDirectory=/home/trance/go/src/github.com/grokh/gobot
-ExecStart=/home/trance/go/bin/gobot -port 8080
+WorkingDirectory=/srv/web/torileq
+ExecStart=/srv/web/torileq/gobot -port 8080
 
 Restart=on-failure
 RestartSec=10

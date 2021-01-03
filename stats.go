@@ -24,9 +24,9 @@ func (i *Item) FillItemByID(id int) { // replace with ORM?
 	db := OpenDB()
 	defer db.Close()
 
-	query := "select item_name, keywords, weight, c_value, item_type, " +
+	query := "SELECT item_name, keywords, weight, c_value, item_type, " +
 		"from_zone, short_stats, long_stats, last_id " +
-		"from items where item_id = ?"
+		"FROM items WHERE item_id = ?"
 	stmt, err := db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
@@ -38,9 +38,8 @@ func (i *Item) FillItemByID(id int) { // replace with ORM?
 	ChkErr(err)
 	stmt.Close()
 
-	query = "select i.slot_abbr, worn_slot, slot_display " +
-		"from item_slots i, slots s " +
-		"where i.slot_abbr = s.slot_abbr and item_id = ?"
+	query = "SELECT slot_abbr, worn_slot, slot_display " +
+		"FROM item_slots WHERE item_id = ?"
 	stmt, err = db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
@@ -95,6 +94,7 @@ func FormatStats() []string {
 	ids := make([]int, size, size)
 	short := make([]string, size, size)
 	long := make([]string, size, size)
+//	full := make([]string, size, size)
 
 	//log.Printf("len(ids) = %d\b", size)
 	query = "SELECT item_id FROM items"
@@ -119,9 +119,10 @@ func FormatStats() []string {
 	for n := range ids {
 		short[n] = ConstructShortStats(db, ids[n])
 		long[n] = ConstructLongStats(db, ids[n])
+		//full[n] = ConstructFullStats(db, ids[n])
 	}
 
-	// put the batched short_stats into the database
+	// put the batched stats into the database
 	tx, err := db.Begin()
 	ChkErr(err)
 	stmt, err = tx.Prepare(
@@ -884,3 +885,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 
 	return i.s
 }
+/*
+func ConstructFullStats(db *sql.DB, id int) string {
+	return i.s
+}*/

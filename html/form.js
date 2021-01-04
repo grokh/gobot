@@ -1,5 +1,5 @@
 function selectItem (selectedItem) {
-	document.searchForm.itemName.value = selectedItem;
+	document.searchForm.exactItem.value = selectedItem;
 	document.searchForm.submit.click();
 };
 

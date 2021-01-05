@@ -1,9 +1,9 @@
 package main
 
 import (
-	//	"database/sql"
+	"database/sql"
 	"html/template"
-	//	"log"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -418,9 +418,9 @@ func parseForm(p Page, r *http.Request) []string {
 	return results
 }
 
-func FindExactItem(itemName string, statType string) []string {
-	var results []string
-	query := "SELECT ? FROM items WHERE item_name = ?"
+func FindExactItem(itemName string) string {
+	var stats string
+	query := "SELECT long_stats FROM items WHERE item_name = ?"
 
 	db := OpenDB()
     defer db.Close()
@@ -429,19 +429,21 @@ func FindExactItem(itemName string, statType string) []string {
     ChkErr(err)
     defer stmt.Close()
 
-	rows, err := stmt.Query(statType, itemName)
-    ChkErr(err)
-    defer rows.Close()
-
-	for rows.Next() {
-		var s string
-		err = rows.Scan(&s)
-		ChkErr(err)
-		results = append(results, s)
+	err = stmt.QueryRow(itemName).Scan(&stats)
+	if err == sql.ErrNoRows {
+		itemName += " 1"
+		err = stmt.QueryRow(itemName).Scan(&stats)
+		if err == sql.ErrNoRows {
+			itemName = strings.Trim(itemName, " 1")
+			stats = NotFound("item", itemName)
+		} else if err != nil {
+			log.Fatal(err)
+		}
+	} else if err != nil {
+		log.Fatal(err)
 	}
-	// TODO search for items with ' 1' on the end if results empty
-	// TODO make sure results is only one item? LIMIT 1? string instead of []string?
-	return results
+
+	return stats
 }
 
 func parseList(r *http.Request) []string {
@@ -481,10 +483,8 @@ func parseList(r *http.Request) []string {
 			// remove leading and trailing whitespace
 			v = strings.TrimSpace(v)
 
-			// TODO new func FindExactItem
-			for _, result := range FindItem(v, "long_stats") {
-				results = append(results, result)
-			}
+			result := FindExactItem(v)
+			results = append(results, result)
 		}
 	}
 

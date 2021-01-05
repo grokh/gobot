@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 
-<html>
+<html lang="en-US">
 <head>
 	<title>TorilEQ 2.0 - TorilMUD Equipment Database</title>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="Description" content="Database of item stats for the game TorilMUD." />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link href="/torileq/style.css" rel="stylesheet" type="text/css" media="all" />
 	<script type="text/javascript" src="/torileq/form.js"></script>
 	<link rel="shortcut icon" href="/torileq/favicon.ico" type="image/vnd.microsoft.icon" />
@@ -13,14 +15,14 @@
 	<p>Items Updated: {{.Date}} - Alternate: <a href="https://toril.utopiaprogramming.com/">https://toril.utopiaprogramming.com/</a></p>
 	<form action="#" name="searchForm" id="searchForm" method="post">
 		<input type="hidden" name="exactItem" id="exactItem" />
-		<p>Item name: <input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
-		<p>Zone name: 
+		<p><label for="itemName">Item name: </label><input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
+		<p><label for="zoneName">Zone name: </label>
 			<select name="zoneName" id="zoneName"><option value=""></option>
 				{{range .Zones}}<option value="{{.ZoneAbbr}}">{{.ZoneDisp}}</option>
 				{{end}}
 			</select>
 		</p>
-        <p>Attribute 1:
+		<p><label for="attrib1">Attribute 1: </label>
             <select name="attrib1" id="attrib1"><option value=""></option>
 					<!--				<option value="AC">AC</option>-->
                 {{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
@@ -33,7 +35,7 @@
             </select>
             <input type="text" size="5" maxlength="5" name="valueAttrib1" id="valueAttrib1" />
         </p>
-        <p>Attribute 2:
+		<p><label for="attrib2">Attribute 2: </label>
             <select name="attrib2" id="attrib2"><option value=""></option>
 				<!--	<option value="AC">AC</option>-->
 				{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
@@ -46,18 +48,18 @@
             </select>
             <input type="text" size="5" maxlength="5" name="valueAttrib2" id="valueAttrib2" />
         </p>
-        <p>Worn Slot:
+		<p><label for="worn">Worn Slot: </label>
             <select name="worn" id="worn"><option value=""></option>
                 {{range .Slots}}<option value="{{.SlotAbbr}}">{{.SlotDisp}}</option>
 				{{end}}
             </select>
-            Item Type:
+			<label for="type">Item Type: </label>
             <select name="type" id="type"><option value=""></option>
                 {{range .Types}}<option value="{{.TypeAbbr}}">{{.TypeDisp}}</option>
 				{{end}}
             </select>
         </p>
-		<p>Order By:
+		<p><label for="orderBy">Order By: </label>
             <select name="orderBy" id="orderBy">
 				<option value="name">Item Name</option>
                 <option value="zone">Zone Name</option>
@@ -80,33 +82,33 @@
 		</p>
         <div id="restricts" class="hide">
             <p>Usable By:</p>
-            <p><label for="!fighter">Fighter</label> <input type="checkbox" name="!fighter" id="!fighter" /> |
-            <label for="!priest">Priest</label> <input type="checkbox" name="!priest" id="!priest" /> |
-            <label for="!thief">Rogue</label> <input type="checkbox" name="!thief" id="!thief" /> |
-            <label for="!mage">Mage</label> <input type="checkbox" name="!mage" id="!mage" /> |
-            <label for="!good">Good Align</label> <input type="checkbox" name="!good" id="!good" /> |
-            <label for="!neut">Neutral Align</label> <input type="checkbox" name="!neut" id="!neut" /> |
-            <label for="!evil">Evil Align</label> <input type="checkbox" name="!evil" id="!evil" /> |
-            <label for="!goodrace">Goodrace</label> <input type="checkbox" name="!goodrace" id="!goodrace" /> |
-            <label for="!evilrace">Evilrace</label> <input type="checkbox" name="!evilrace" id="!evilrace" /> |
-            <label for="!male">Male</label> <input type="checkbox" name="!male" id="!male" /> |
-            <label for="!female">Female</label> <input type="checkbox" name="!female" id="!female" />
+            <p><label for="!fighter">Fighter </label><input type="checkbox" name="!fighter" id="!fighter" /> |
+            <label for="!priest">Priest </label><input type="checkbox" name="!priest" id="!priest" /> |
+            <label for="!thief">Rogue </label><input type="checkbox" name="!thief" id="!thief" /> |
+            <label for="!mage">Mage </label><input type="checkbox" name="!mage" id="!mage" /> |
+            <label for="!good">Good Align </label><input type="checkbox" name="!good" id="!good" /> |
+            <label for="!neut">Neutral Align </label><input type="checkbox" name="!neut" id="!neut" /> |
+            <label for="!evil">Evil Align </label><input type="checkbox" name="!evil" id="!evil" /> |
+            <label for="!goodrace">Goodrace </label><input type="checkbox" name="!goodrace" id="!goodrace" /> |
+            <label for="!evilrace">Evilrace </label><input type="checkbox" name="!evilrace" id="!evilrace" /> |
+            <label for="!male">Male </label><input type="checkbox" name="!male" id="!male" /> |
+            <label for="!female">Female </label><input type="checkbox" name="!female" id="!female" />
             </p>
         </div>
         <div id="effects" class="hide">
             <p>Item Effect:</p>
-            <p>{{range .Effects}}<label for="{{.EffAbbr}}">{{.EffDisp}}</label> <input type="checkbox" name="{{.EffAbbr}}" id="{{.EffAbbr}}" /> | 
+            <p>{{range .Effects}}<label for="{{.EffAbbr}}">{{.EffDisp}} </label><input type="checkbox" name="{{.EffAbbr}}" id="{{.EffAbbr}}" /> | 
 			{{end}}</p>
         </div>
         <div id="resists" class="hide">
             <p>Resistances:</p>
-            <p>{{range .Resists}}<label for="{{.ResAbbr}}">{{.ResDisp}}</label> <input type="checkbox" name="{{.ResAbbr}}" id="{{.ResAbbr}}" /> | 
+            <p>{{range .Resists}}<label for="{{.ResAbbr}}">{{.ResDisp}} </label><input type="checkbox" name="{{.ResAbbr}}" id="{{.ResAbbr}}" /> | 
 			{{end}}</p>
         </div>
         <div id="other" class="hide">
             <p>Other Flags:</p>
-            <p>{{range .Flags}}<label for="{{.FlagAbbr}}">{{.FlagDisp}}</label> <input type="checkbox" name="{{.FlagAbbr}}" id="{{.FlagAbbr}}" /> | 
-			{{end}}{{range .Supps}}<label for="{{.SuppAbbr}}">{{.SuppDisp}}</label> <input type="checkbox" name="{{.SuppAbbr}}" id="{{.SuppAbbr}}" /> | 
+            <p>{{range .Flags}}<label for="{{.FlagAbbr}}">{{.FlagDisp}} </label><input type="checkbox" name="{{.FlagAbbr}}" id="{{.FlagAbbr}}" /> | 
+			{{end}}{{range .Supps}}<label for="{{.SuppAbbr}}">{{.SuppDisp}} </label><input type="checkbox" name="{{.SuppAbbr}}" id="{{.SuppAbbr}}" /> | 
 			{{end}}</p>
         </div>
 		<div id="paste" class="hide">

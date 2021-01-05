@@ -418,6 +418,32 @@ func parseForm(p Page, r *http.Request) []string {
 	return results
 }
 
+func FindExactItem(itemName string, statType string) []string {
+	var results []string
+	query := "SELECT ? FROM items WHERE item_name = ?"
+
+	db := OpenDB()
+    defer db.Close()
+
+    stmt, err := db.Prepare(query)
+    ChkErr(err)
+    defer stmt.Close()
+
+	rows, err := stmt.Query(statType, itemName)
+    ChkErr(err)
+    defer rows.Close()
+
+	for rows.Next() {
+		var s string
+		err = rows.Scan(&s)
+		ChkErr(err)
+		results = append(results, s)
+	}
+	// TODO search for items with ' 1' on the end if results empty
+	// TODO make sure results is only one item? LIMIT 1? string instead of []string?
+	return results
+}
+
 func parseList(r *http.Request) []string {
 	var results []string
 	txt := r.PostFormValue("list")

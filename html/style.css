@@ -2,7 +2,7 @@ body {
 	max-width: 57em;
 	margin: auto;
 }
-body, input, option, select, textarea, div, button {
+body, input, option, select, textarea, div {
 	font-family: monospace;
 	color: #C0C0C0;
 	background-color: black;
@@ -24,6 +24,21 @@ p a {
 p a:hover {
 	color: #00FF00;
 	text-decoration: none;
+}
+input.toggle {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 0%;
+	height: 0%;
+	opacity: 0;
+}
+label.toggle {
+	color: #008000;
+}
+label.toggle:hover {
+	color: #00FF00;
+	cursor: pointer;
 }
 .hide {
 	display: none;

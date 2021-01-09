@@ -7,7 +7,6 @@
 	<meta name="Description" content="Database of item stats for the game TorilMUD." />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link href="/torileq/style.css" rel="stylesheet" type="text/css" media="all" />
-	<script type="text/javascript" src="/torileq/form.js"></script>
 	<link rel="shortcut icon" href="/torileq/favicon.ico" type="image/vnd.microsoft.icon" />
 </head>
 <body>
@@ -74,11 +73,11 @@
             </select>
         </p>
 		<p>
-			<a href="javascript:toggleLayer('restricts');">Restrictions</a> *
-			<a href="javascript:toggleLayer('effects');">Effects</a> *
-			<a href="javascript:toggleLayer('resists');">Resists</a> * 
-			<a href="javascript:toggleLayer('other');">Other Flags</a> * 
-			<a href="javascript:toggleLayer('paste');">Paste Items</a>
+			<input type="checkbox" name="chkRestricts" id="chkRestricts" class="toggle" /><label for="chkRestricts" class="toggle">Restrictions</label> *
+			<input type="checkbox" name="chkEffects" id="chkEffects" class="toggle" /><label for="chkEffects" class="toggle">Effects</label> *
+			<input type="checkbox" name="chkResists" id="chkResists" class="toggle" /><label for="chkResists" class="toggle">Resistances</label> *
+			<input type="checkbox" name="chkOther" id="chkOther" class="toggle" /><label for="chkOther" class="toggle">Other Flags</label> *
+			<input type="checkbox" name="chkPaste" id="chkPaste" class="toggle" /><label for="chkPaste" class="toggle">Paste Items</label>
 		</p>
         <div id="restricts" class="hide">
             <p>Usable By:</p>
@@ -132,5 +131,6 @@
 	</ul>
 	</div>
 	{{end}}
+	<script src="/torileq/form.js"></script>
 </body>
 </html>

@@ -16,3 +16,19 @@ function toggleLayer (whichLayer) {
 	
 	vis.display = (vis.display==''||vis.display=='block')?'none':'block';
 };
+
+document.getElementById('chkRestricts').addEventListener('click', function(event) {
+	toggleLayer('restricts');
+});
+document.getElementById('chkEffects').addEventListener('click', function(event) {
+	toggleLayer('effects');
+});
+document.getElementById('chkResists').addEventListener('click', function(event) {
+	toggleLayer('resists');
+});
+document.getElementById('chkOther').addEventListener('click', function(event) {
+	toggleLayer('other');
+});
+document.getElementById('chkPaste').addEventListener('click', function(event) {
+	toggleLayer('paste');
+});

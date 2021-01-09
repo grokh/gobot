@@ -423,11 +423,11 @@ func FindExactItem(itemName string) string {
 	query := "SELECT long_stats FROM items WHERE item_name = ?"
 
 	db := OpenDB()
-    defer db.Close()
+	defer db.Close()
 
-    stmt, err := db.Prepare(query)
-    ChkErr(err)
-    defer stmt.Close()
+	stmt, err := db.Prepare(query)
+	ChkErr(err)
+	defer stmt.Close()
 
 	err = stmt.QueryRow(itemName).Scan(&stats)
 	if err == sql.ErrNoRows {

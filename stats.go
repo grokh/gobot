@@ -94,7 +94,7 @@ func FormatStats() []string {
 	ids := make([]int, size, size)
 	short := make([]string, size, size)
 	long := make([]string, size, size)
-//	full := make([]string, size, size)
+	//	full := make([]string, size, size)
 
 	//log.Printf("len(ids) = %d\b", size)
 	query = "SELECT item_id FROM items"
@@ -885,6 +885,7 @@ func ConstructLongStats(db *sql.DB, id int) string {
 
 	return i.s
 }
+
 /*
 func ConstructFullStats(db *sql.DB, id int) string {
 	return i.s

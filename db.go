@@ -46,10 +46,3 @@ func RestoreDB(file string) { // this doesn't work on Mac OS X
 		log.Fatalln("Fatal Error: Cannot restore DB: ", err)
 	}
 }
-
-func Weather(oper string) []string {
-	out, err := exec.Command("wu", "-conditions", "-s=\""+oper+"\"").Output()
-	ChkErr(err)
-	weather := strings.Split(strings.TrimSpace(string(out)), "\n")
-	return weather
-}

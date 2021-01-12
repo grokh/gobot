@@ -209,11 +209,18 @@ func fillStructs() Page {
 	return p
 }
 
+func chkAnd(query string, baseLen int) string {
+	if len(query) > baseLen {
+		query += " AND "
+	}
+	return query
+}
+
 func parseForm(p Page, r *http.Request) []string {
 	var results []string                           // slice holding final results of query
 	query := "SELECT long_stats FROM items WHERE " // query builder
 	var vals []string                              // slice holding query values
-	//baseLen := len(query)                          // base length of the initial query
+	baseLen := len(query)                          // base length of the initial query
 
 	if r.PostFormValue("itemName") != "" {
 		query += "item_name LIKE ? " // TODO needs a lot of work
@@ -221,17 +228,13 @@ func parseForm(p Page, r *http.Request) []string {
 	}
 
 	if r.PostFormValue("zoneName") != "" {
-		if len(query) > 35 {
-			query += " AND "
-		}
+		query = chkAnd(query, baseLen)
 		query += "from_zone = ? "
 		vals = append(vals, r.PostFormValue("zoneName"))
 	}
 
 	if r.PostFormValue("attrib1") != "" {
-		if len(query) > 35 {
-			query += " AND "
-		}
+		query = chkAnd(query, baseLen)
 		query += "item_id IN " +
 			"(SELECT item_id FROM item_attribs " +
 			"WHERE attrib_abbr = ? "
@@ -254,9 +257,7 @@ func parseForm(p Page, r *http.Request) []string {
 	}
 
 	if r.PostFormValue("attrib2") != "" {
-		if len(query) > 35 {
-			query += " AND "
-		}
+		query = chkAnd(query, baseLen)
 		query += "item_id IN " +
 			"(SELECT item_id FROM item_attribs " +
 			"WHERE attrib_abbr = ?"
@@ -282,9 +283,7 @@ func parseForm(p Page, r *http.Request) []string {
 	// TODO add item_specials like AC and damage dice
 
 	if r.PostFormValue("worn") != "" {
-		if len(query) > 35 {
-			query += " AND "
-		}
+		query = chkAnd(query, baseLen)
 		query += "item_id IN " +
 			"(SELECT item_id FROM item_slots " +
 			"WHERE slot_abbr = ?) "
@@ -292,9 +291,7 @@ func parseForm(p Page, r *http.Request) []string {
 	}
 
 	if r.PostFormValue("type") != "" {
-		if len(query) > 35 {
-			query += " AND "
-		}
+		query = chkAnd(query, baseLen)
 		query += "item_id IN " +
 			"(SELECT item_id FROM items " +
 			"WHERE item_type = ?) "
@@ -308,9 +305,7 @@ func parseForm(p Page, r *http.Request) []string {
 	}
 	for _, v := range restricts {
 		if r.PostFormValue(v) != "" {
-			if len(query) > 35 {
-				query += " AND "
-			}
+			query = chkAnd(query, baseLen)
 			query += "item_id NOT IN " +
 				"(SELECT item_id FROM item_restricts " +
 				"WHERE restrict_abbr = ?) "
@@ -321,9 +316,7 @@ func parseForm(p Page, r *http.Request) []string {
 	// iterate through effects
 	for _, v := range p.Effects {
 		if r.PostFormValue(v.EffAbbr) != "" {
-			if len(query) > 35 {
-				query += " AND "
-			}
+			query = chkAnd(query, baseLen)
 			query += "item_id IN " +
 				"(SELECT item_id FROM item_effects " +
 				"WHERE effect_abbr = ?) "
@@ -334,9 +327,7 @@ func parseForm(p Page, r *http.Request) []string {
 	// iterate through resists
 	for _, v := range p.Resists {
 		if r.PostFormValue(v.ResAbbr) != "" {
-			if len(query) > 35 {
-				query += " AND "
-			}
+			query = chkAnd(query, baseLen)
 			query += "item_id IN " +
 				"(SELECT item_id FROM item_resists " +
 				"WHERE resist_abbr = ?) "
@@ -347,9 +338,7 @@ func parseForm(p Page, r *http.Request) []string {
 	// iterate through flags
 	for _, v := range p.Flags {
 		if r.PostFormValue(v.FlagAbbr) != "" {
-			if len(query) > 35 {
-				query += " AND "
-			}
+			query = chkAnd(query, baseLen)
 			query += "item_id IN " +
 				"(SELECT item_id FROM item_flags " +
 				"WHERE flag_abbr = ?) "
@@ -360,9 +349,7 @@ func parseForm(p Page, r *http.Request) []string {
 	// iterate through supps
 	for _, v := range p.Supps {
 		if r.PostFormValue(v.SuppAbbr) != "" {
-			if len(query) > 35 {
-				query += " AND "
-			}
+			query = chkAnd(query, baseLen)
 			query += "item_id IN " +
 				"(SELECT item_id FROM item_supps " +
 				"WHERE supp_abbr = ?) "
@@ -370,7 +357,7 @@ func parseForm(p Page, r *http.Request) []string {
 		}
 	}
 
-	if len(query) > 35 {
+	if len(query) > baseLen {
 		switch r.PostFormValue("orderBy") {
 		case "name":
 			query += "ORDER BY item_name "

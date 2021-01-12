@@ -5,7 +5,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"log"
 	"os/exec"
-	"strings"
 )
 
 func OpenDB() *sql.DB {

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 )
 
@@ -21,5 +22,6 @@ func GlistStats(list string) []string {
 			txt = append(txt, fmt.Sprintf("%s - %s\n", idDate, itemName))
 		}
 	}
+	sort.Strings(txt)
 	return txt
 }

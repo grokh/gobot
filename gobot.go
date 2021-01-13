@@ -65,7 +65,7 @@ func main() {
 	var test = flag.Bool("test", false,
 		"Run any current functions under testing.")
 	// port number for API / web server
-	var port = flag.String("port", "8080", "API / web server port.")
+	var port = flag.String("port", "", "API / web server port.")
 
 	flag.Parse()
 

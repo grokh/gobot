@@ -11,7 +11,15 @@ func GlistStats(list string) []string {
 	stats := ParseList(list)
 	var txt []string
 	for _, stat := range stats {
-		txt = append(txt, fmt.Sprintf("%s\n", stat))
+		if strings.Contains(stat, "404 item not found:") {
+			txt = append(txt, fmt.Sprintf("%s\n", stat))
+		} else {
+			n := strings.Index(stat, " (")
+			itemName := stat[0:n]
+			n = strings.Index(stat, "Last ID:")
+			idDate := stat[n : len(stat)]
+			txt = append(txt, fmt.Sprintf("%s - %s\n", idDate, itemName))
+		}
 	}
 	return txt
 }

@@ -433,9 +433,8 @@ func FindExactItem(itemName string) string {
 	return stats
 }
 
-func parseList(r *http.Request) []string {
+func ParseList(txt string) []string {
 	var results []string
-	txt := r.PostFormValue("list")
 	list := strings.Split(strings.Replace(txt, "\r\n", "\n", -1), "\n")
 
 	for _, v := range list {
@@ -486,7 +485,7 @@ func eqHandler(w http.ResponseWriter, r *http.Request) {
 	p := fillStructs()
 	if r.Method == "POST" {
 		if r.PostFormValue("list") != "" {
-			p.Results = parseList(r)
+			p.Results = ParseList(r.PostFormValue("list"))
 		} else {
 			p.Results = parseForm(p, r)
 			// TODO make item names javascript link

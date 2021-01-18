@@ -520,10 +520,10 @@ func Identify(filename string) []string {
 			} else {
 				log.Printf("Name match: item_id=%d; %s", id, short_stats)
 				update = fmt.Sprintf("--UPDATE items SET last_id='%s', "+
-					"keywords='%s', weight=%d, c_value=%d, full_stats='%s' "+
+					"keywords='%s', weight=%d, c_value=%d, full_stats=%s "+
 					"WHERE item_id=%d;\n",
 					date, strings.ReplaceAll(keywords, "'", "''"),
-					weight, c_value, strings.ReplaceAll(full_stats, "'", "''"), id,
+					weight, c_value, strconv.Quote(full_stats), id,
 				)
 			}
 

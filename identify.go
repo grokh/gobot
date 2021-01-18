@@ -505,19 +505,26 @@ func Identify(filename string) []string {
 
 		if err == sql.ErrNoRows {
 			// if it's not in the DB, check for existing items
-			query = "SELECT item_id, long_stats " +
+			query = "SELECT item_id, short_stats " +
 				"FROM items WHERE item_name = ?"
 			stmt, err = db.Prepare(query)
 			ChkErr(err)
 			defer stmt.Close()
 
+			var update string
 			err = stmt.QueryRow(item_name).Scan(&id, &short_stats)
 			if err == sql.ErrNoRows {
-				log.Print(FindItem(item_name, "long_stats"))
+				log.Print(FindItem(item_name, "short_stats"))
 			} else if err != nil {
 				log.Fatal(err)
 			} else {
 				log.Printf("Name match: item_id=%d; %s", id, short_stats)
+				update = fmt.Sprintf("--UPDATE items SET last_id='%s', "+
+					"keywords='%s', weight=%d, c_value=%d, full_stats='%s' "+
+					"WHERE item_id=%d;\n",
+					date, strings.ReplaceAll(keywords, "'", "''"),
+					weight, c_value, strings.ReplaceAll(full_stats, "'", "''"), id,
+				)
 			}
 
 			//compile full insert queries
@@ -550,6 +557,7 @@ func Identify(filename string) []string {
 			sqls := fmt.Sprintf("Inserted new item: id[%d], name: %s\n",
 				id, item_name)
 			sqls += "----------------------------*/\n"
+			sqls += update
 			query = "INSERT INTO items " +
 				"(item_id, item_name, keywords, weight, c_value, " +
 				"item_type, last_id, from_zone, full_stats) " +

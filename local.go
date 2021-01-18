@@ -18,7 +18,7 @@ func GlistStats(list string) []string {
 			n := strings.Index(stat, " (")
 			itemName := stat[0:n]
 			n = strings.Index(stat, "Last ID:")
-			idDate := stat[n : len(stat)]
+			idDate := stat[n:len(stat)]
 			txt = append(txt, fmt.Sprintf("%s - %s\n", idDate, itemName))
 		}
 	}

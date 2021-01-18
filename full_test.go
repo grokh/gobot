@@ -399,16 +399,9 @@ func Test_All(t *testing.T) {
 			"                                " +
 			"a tiny mithril stud set with a ruby")
 	good = []string{
-		"a black longsword of destruction (Wield) " +
-			"Dam:8 Hit:5 Fire:5% INFRA * (Weapon) Dice:8D6 " +
-			"Crit:6% Multi:2x (Class: Martial, Type: Longsword) * " +
-			"Float Magic No_Burn No_Drop No_Loc Two_Hand " +
-			"!Mage !Pal !Priest !Rang !Thief * Wt:15 Val:10p * " +
-			"Zone: Jot (I) * Last ID: " + date + "\n",
-		"the mark of the dragonhunter is not in the database.\n",
-		"a tiny mithril stud set with a ruby (Ear) " +
-			"Dam:3 Maxagi:3 Fire:5% * No_Burn * Wt:0 Val:501p " +
-			"* Zone: SP (Q) * Last ID: " + date + "\n",
+		"404 item not found: the mark of the dragonhunter\n",
+		"Last ID: " + date + " - a black longsword of destruction\n",
+		"Last ID: " + date + " - a tiny mithril stud set with a ruby\n",
 	}
 	chk(t, "GlistStats()", good, txt)
 

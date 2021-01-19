@@ -14,7 +14,7 @@ func GlistStats(list string) []string {
 	for _, stat := range stats {
 		if strings.Contains(stat, "404 item not found:") {
 			txt = append(txt, fmt.Sprintf("%s\n", stat))
-		} else {
+		} else if stat[len(stat)-10:len(stat)] < "2020-11-01" {
 			n := strings.Index(stat, " (")
 			itemName := stat[0:n]
 			n = strings.Index(stat, "Last ID:")

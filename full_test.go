@@ -400,8 +400,6 @@ func Test_All(t *testing.T) {
 			"a tiny mithril stud set with a ruby")
 	good = []string{
 		"404 item not found: the mark of the dragonhunter\n",
-		"Last ID: " + date + " - a black longsword of destruction\n",
-		"Last ID: " + date + " - a tiny mithril stud set with a ruby\n",
 	}
 	chk(t, "GlistStats()", good, txt)
 

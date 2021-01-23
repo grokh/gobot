@@ -691,19 +691,11 @@ func Identify(filename string) []string {
 					strconv.Quote(supps[supp]))
 			}
 			tx.Commit()
-			if from_zone == "Unknown" {
-				sqls += fmt.Sprintf(
-					"--UPDATE items SET from_zone = \"?\" "+
-						"WHERE item_id = %d;\n", id)
-			}
-			sqls += fmt.Sprintf(
-				"--INSERT INTO item_procs (item_id, proc_name) "+
-					"VALUES(%d, \"?\");\n", id)
 			sqls += "/*----------------------------\n"
 			log.Print(sqls)
 		} else if err != nil {
 			log.Fatal(err)
-		} else {
+		} else { // item is in the db
 			ignored++
 			for _, um := range unmatch {
 				if !strings.Contains(um, "Can affect you as") &&
@@ -776,14 +768,6 @@ func Identify(filename string) []string {
 					"--INSERT INTO item_supps VALUES(%d, %s);\n",
 					id, strconv.Quote(supps[supp]))
 			}
-			if from_zone != "Unknown" {
-				sqls += fmt.Sprintf(
-					"--UPDATE items SET from_zone = %s "+
-						"WHERE item_id = %d;\n", strconv.Quote(from_zone), id)
-			}
-			sqls += fmt.Sprintf(
-				"--INSERT INTO item_procs (item_id, proc_name) "+
-					"VALUES(%d, \"?\");\n", id)
 
 			sqls += "/*----------------------------\n"
 			log.Print(sqls)

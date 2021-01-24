@@ -196,6 +196,7 @@ func Identify(filename string) []string {
 		full_stats = item
 		lines := strings.Split(item, "\n")
 		var unmatch []string
+		unmatched := false
 
 		for _, line := range lines {
 			switch {
@@ -552,6 +553,7 @@ func Identify(filename string) []string {
 					!strings.Contains(um, "Enchantments:") &&
 					!strings.Contains(um, "You feel informed:") {
 					log.Printf("Unmatched: %s", um)
+					unmatched = true
 				}
 			}
 			sqls := fmt.Sprintf("Inserted new item: id[%d], name: %s\n",
@@ -690,6 +692,11 @@ func Identify(filename string) []string {
 				sqls += fmt.Sprintf(query+"\n", id,
 					strconv.Quote(supps[supp]))
 			}
+			if unmatched {
+				sqls += fmt.Sprintf(
+					"--INSERT INTO item_procs (item_id, proc_name) " +
+					"VALUES(%d, \"?\");", id)
+			}
 			tx.Commit()
 			sqls += "/*----------------------------\n"
 			log.Print(sqls)
@@ -702,6 +709,7 @@ func Identify(filename string) []string {
 					!strings.Contains(um, "Enchantments:") &&
 					!strings.Contains(um, "You feel informed:") {
 					log.Printf("Unmatched: %s", um)
+					unmatched = true
 				}
 			}
 			sqls := fmt.Sprintf("Item already exists: item_id=%d; name: %s\n",
@@ -767,6 +775,11 @@ func Identify(filename string) []string {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_supps VALUES(%d, %s);\n",
 					id, strconv.Quote(supps[supp]))
+			}
+			if unmatched {
+				sqls += fmt.Sprintf(
+					"--INSERT INTO item_procs (item_id, proc_name) " +
+					"VALUES(%d, \"?\");", id)
 			}
 
 			sqls += "/*----------------------------\n"

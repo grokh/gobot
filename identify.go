@@ -694,8 +694,8 @@ func Identify(filename string) []string {
 			}
 			if unmatched {
 				sqls += fmt.Sprintf(
-					"--INSERT INTO item_procs (item_id, proc_name) " +
-					"VALUES(%d, \"?\");\n", id)
+					"--INSERT INTO item_procs (item_id, proc_name) "+
+						"VALUES(%d, \"?\");\n", id)
 			}
 			tx.Commit()
 			sqls += "/*----------------------------\n"
@@ -778,8 +778,8 @@ func Identify(filename string) []string {
 			}
 			if unmatched {
 				sqls += fmt.Sprintf(
-					"--INSERT INTO item_procs (item_id, proc_name) " +
-					"VALUES(%d, \"?\");\n", id)
+					"--INSERT INTO item_procs (item_id, proc_name) "+
+						"VALUES(%d, \"?\");\n", id)
 			}
 
 			sqls += "/*----------------------------\n"

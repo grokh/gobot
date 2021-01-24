@@ -217,9 +217,9 @@ func chkAnd(query string, baseLen int) string {
 }
 
 func parseForm(p Page, r *http.Request) []string {
-	var results []string   // slice holding final results of query
-	var query string       // query builder
-	var vals []string      // slice holding query values
+	var results []string // slice holding final results of query
+	var query string     // query builder
+	var vals []string    // slice holding query values
 
 	if r.PostFormValue("format") == "long" {
 		query = "SELECT long_stats FROM items WHERE "
@@ -229,7 +229,7 @@ func parseForm(p Page, r *http.Request) []string {
 		query = "SELECT full_stats FROM items WHERE "
 	}
 
-	baseLen := len(query)  // base length of the initial query
+	baseLen := len(query) // base length of the initial query
 
 	if r.PostFormValue("itemName") != "" {
 		query += "item_name LIKE ? " // TODO needs a lot of work

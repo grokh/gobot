@@ -23,7 +23,6 @@
 		</p>
 		<p><label for="attrib1">Attribute 1: </label>
             <select name="attrib1" id="attrib1"><option value=""></option>
-					<!--				<option value="AC">AC</option>-->
                 {{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
 				{{end}}
             </select>
@@ -36,7 +35,6 @@
         </p>
 		<p><label for="attrib2">Attribute 2: </label>
             <select name="attrib2" id="attrib2"><option value=""></option>
-				<!--	<option value="AC">AC</option>-->
 				{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
 				{{end}}
             </select>

@@ -256,6 +256,14 @@ func Help(oper string) []string {
 	return txt
 }
 
+// fstatOps lists the comparison operators fstat accepts. The operator is
+// written into the SQL text (it can't be a ? parameter), so it must only
+// ever be one of these exact strings, never raw text from a tell.
+var fstatOps = map[string]bool{
+	"=": true, "==": true, "!=": true, "<>": true,
+	"<": true, "<=": true, ">": true, ">=": true,
+}
+
 func Fstat(oper string) []string {
 	var txts []string
 	opers := strings.Split(oper, ", ")
@@ -267,7 +275,7 @@ func Fstat(oper string) []string {
 		case 3:
 			fop[0] = strings.ToLower(fop[0])
 			comp := fop[1]
-			if strings.ContainsAny(comp, "=<>") {
+			if fstatOps[comp] {
 				if !strings.Contains(query, "WHERE") {
 					query += " WHERE item_id IN"
 				} else {

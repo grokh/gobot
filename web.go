@@ -209,6 +209,14 @@ func fillStructs() Page {
 	return p
 }
 
+// compareSQL maps the form's attribute comparisons to SQL. Any other value
+// is ignored, so the query never gets a ? without a value to go with it.
+var compareSQL = map[string]string{
+	"gt": "AND attrib_value > ?",
+	"lt": "AND attrib_value < ?",
+	"et": "AND attrib_value = ?",
+}
+
 func chkAnd(query string, baseLen int) string {
 	if len(query) > baseLen {
 		query += " AND "
@@ -221,12 +229,13 @@ func parseForm(p Page, r *http.Request) []string {
 	var query string     // query builder
 	var vals []string    // slice holding query values
 
-	if r.PostFormValue("format") == "long" {
-		query = "SELECT long_stats FROM items WHERE "
-	} else if r.PostFormValue("format") == "short" {
+	switch r.PostFormValue("format") {
+	case "short":
 		query = "SELECT short_stats FROM items WHERE "
-	} else if r.PostFormValue("format") == "full" {
+	case "full":
 		query = "SELECT full_stats FROM items WHERE "
+	default: // "long" is the form's default; also covers a missing value
+		query = "SELECT long_stats FROM items WHERE "
 	}
 
 	baseLen := len(query) // base length of the initial query
@@ -249,18 +258,10 @@ func parseForm(p Page, r *http.Request) []string {
 			"WHERE attrib_abbr = ? "
 		vals = append(vals, r.PostFormValue("attrib1"))
 
-		if r.PostFormValue("compareAttrib1") != "" {
-			if r.PostFormValue("valueAttrib1") != "" {
-				switch r.PostFormValue("compareAttrib1") {
-				case "gt":
-					query += "AND attrib_value > ?"
-				case "lt":
-					query += "AND attrib_value < ?"
-				case "et":
-					query += "AND attrib_value = ?"
-				}
-				vals = append(vals, r.PostFormValue("valueAttrib1"))
-			}
+		cmp, ok := compareSQL[r.PostFormValue("compareAttrib1")]
+		if ok && r.PostFormValue("valueAttrib1") != "" {
+			query += cmp
+			vals = append(vals, r.PostFormValue("valueAttrib1"))
 		}
 		query += ") "
 	}
@@ -269,23 +270,14 @@ func parseForm(p Page, r *http.Request) []string {
 		query = chkAnd(query, baseLen)
 		query += "item_id IN " +
 			"(SELECT item_id FROM item_attribs " +
-			"WHERE attrib_abbr = ?"
+			"WHERE attrib_abbr = ? "
 		vals = append(vals, r.PostFormValue("attrib2"))
 
-		if r.PostFormValue("compareAttrib2") != "" {
-			if r.PostFormValue("valueAttrib2") != "" {
-				switch r.PostFormValue("compareAttrib2") {
-				case "gt":
-					query += "AND attrib_value > ?"
-				case "lt":
-					query += "AND attrib_value < ?"
-				case "et":
-					query += "AND attrib_value = ?"
-				}
-				vals = append(vals, r.PostFormValue("valueAttrib2"))
-			}
+		cmp, ok := compareSQL[r.PostFormValue("compareAttrib2")]
+		if ok && r.PostFormValue("valueAttrib2") != "" {
+			query += cmp
+			vals = append(vals, r.PostFormValue("valueAttrib2"))
 		}
-
 		query += ") "
 	}
 
@@ -367,25 +359,26 @@ func parseForm(p Page, r *http.Request) []string {
 	}
 
 	if len(query) > baseLen {
+		ordered := true
 		switch r.PostFormValue("orderBy") {
 		case "name":
 			query += "ORDER BY item_name "
 		case "zone":
 			query += "ORDER BY from_zone "
-		case "attrib1": // TODO fix attribs and slot sorting, if possible
-			query += "ORDER BY attrib_value "
-		case "attrib2":
-			query += "ORDER BY attrib_value "
-		case "worn":
-			query += "ORDER BY slot_abbr "
 		case "type":
 			query += "ORDER BY item_type "
+		default:
+			// TODO attrib1, attrib2 and worn sorting: those columns live in
+			// other tables, so they need a join before the form can offer them
+			ordered = false
 		}
-		switch r.PostFormValue("ascDesc") {
-		case "up":
-			query += "ASC"
-		case "down":
-			query += "DESC"
+		if ordered {
+			switch r.PostFormValue("ascDesc") {
+			case "up":
+				query += "ASC"
+			case "down":
+				query += "DESC"
+			}
 		}
 
 		db := OpenDB()
@@ -433,10 +426,10 @@ func FindExactItem(itemName string) string {
 			itemName = strings.Trim(itemName, " 1")
 			stats = NotFound("item", itemName)
 		} else if err != nil {
-			log.Fatal(err)
+			fatal(err)
 		}
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 
 	return stats
@@ -453,7 +446,9 @@ func ParseList(txt string) []string {
 			// to parse auction results
 			if n := strings.Index(v, ")     "); n > 0 {
 				x := strings.Count(v, "'")
-				v = v[n+12 : 48+x]
+				if n+12 <= 48+x && 48+x <= len(v) { // short lines: leave as is
+					v = v[n+12 : 48+x]
+				}
 			}
 			// remove everything after the first " ("
 			// to remove (illuminating) or whatever from the end of items
@@ -491,6 +486,15 @@ var tmpl = template.Must(template.ParseFiles(
 ))
 
 func eqHandler(w http.ResponseWriter, r *http.Request) {
+	// Errors while serving a request panic (see fatal); answer them with a
+	// 500 instead of letting one bad request take the whole site down.
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("web: %s %s failed: %v", r.Method, r.URL.Path, err)
+			http.Error(w, "Sorry, that search failed. Please try again.",
+				http.StatusInternalServerError)
+		}
+	}()
 	p := fillStructs()
 	if r.Method == "POST" {
 		if r.PostFormValue("list") != "" {

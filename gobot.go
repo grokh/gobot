@@ -8,9 +8,23 @@ import (
 	"os"
 )
 
+// webServer is true when gobot is running as the TorilEQ site (-port).
+var webServer bool
+
+// fatal stops on an unrecoverable error. The bot runs one command per
+// process, so exiting is fine there. In the web server, exiting would take
+// the whole site down, so it panics instead and eqHandler turns that into an
+// HTTP 500 for just the one request.
+func fatal(v ...interface{}) {
+	if webServer {
+		panic(fmt.Sprintln(v...))
+	}
+	log.Fatalln(v...)
+}
+
 func ChkErr(err error) {
 	if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 }
 
@@ -105,6 +119,7 @@ func main() {
 			}
 		}
 	case *port != "":
+		webServer = true
 		http.HandleFunc("/", eqHandler)
 		http.Handle("/style.css", http.FileServer(http.Dir("html")))
 		http.Handle("/form.js", http.FileServer(http.Dir("html")))

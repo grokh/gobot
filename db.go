@@ -10,11 +10,11 @@ import (
 func OpenDB() *sql.DB {
 	db, err := sql.Open("sqlite3", "toril.db")
 	if err != nil {
-		log.Fatalln("Fatal Error: Cannot open DB: ", err)
+		fatal("Fatal Error: Cannot open DB: ", err)
 	}
 	_, err = db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
-		log.Fatalln("Fatal Error: Cannot enforce foreign keys: ", err)
+		fatal("Fatal Error: Cannot enforce foreign keys: ", err)
 	}
 	return db
 }
@@ -22,7 +22,7 @@ func OpenDB() *sql.DB {
 func ChkRows(rows *sql.Rows) {
 	err := rows.Err()
 	if err != nil {
-		log.Fatalln("Fatal Error: Rows returned error: ", err)
+		fatal("Fatal Error: Rows returned error: ", err)
 	}
 	rows.Close()
 }

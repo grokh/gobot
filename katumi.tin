@@ -37,6 +37,18 @@
 
 
 #var {dot} {.}
+
+#nop #script and #system hand their command line to /bin/sh, so any MUD text
+#nop put on that line must be made shell-safe first. Inside "double quotes"
+#nop sh only treats " ` $ and \ specially, so neutralize exactly those and
+#nop always put the variable inside double quotes. Usage: shellsafe <varname>
+#alias {shellsafe %1} {
+	#replace {%1} {"} {'};
+	#replace {%1} {`} {'};
+	#replace {%1} {\$} {};
+	#replace {%1} {\\} {};
+}
+
 #alias {logon} {
 	#format {logdate} {%t} {%Y.%m.%d};
 	#log append logs/$char$dot$logdate${dot}log;
@@ -50,7 +62,8 @@
 	#split {0} {0};
 }
 #tick {Timer} {time;who} {30}
-#act {^Time elapsed since boot-up: %1} {#system gobot -time %1 &}
+#nop Capture digits only, so nothing but H:M:S can reach the shell
+#act {^Time elapsed since boot-up: %d:%d:%d} {#system gobot -time %1:%2:%3 &}
 
 #event {PROGRAM START} {login}
 #event {SESSION DISCONNECTED} {login}
@@ -66,8 +79,7 @@
 
 	#var {chat} {%2};
 	#nop Prevent script hacking;
-	#replace {chat} {"} {'};
-	#replace {chat} {\} {};
+	shellsafe chat;
 	#nop Remove account labeling;
 	#replace {chat} {@} {};
 	#script {answer} {gobot -char "%1" -tell "$chat"};
@@ -86,7 +98,7 @@
 
 
 #nop Batch Who Check
-#alias {parsewho} {#script {who} {gobot -who "$ppl"}}
+#alias {parsewho} {shellsafe ppl;#script {who} {gobot -who "$ppl"}}
 #act {^-=-=-=-=-=-=-=-=-=-=-=-=-$} {
 	#act {^$} {
 		#unact {%%%0};
@@ -111,17 +123,30 @@
 
 #nop Individual Checks
 #act {^[ %d %+] %w %*(%*) (@%*)} {
+	#var {wclass} {%2};
 	#var {race} {%5};
 	#replace {race} {)%*} {};
-	#script {answer} {gobot -char %3 -class "%2" -lvl %1 -race "$race" -acct %6};
+	#var {wacct} {%6};
+	shellsafe wclass;
+	shellsafe race;
+	shellsafe wacct;
+	#script {answer} {gobot -char "%3" -class "$wclass" -lvl "%1" -race "$race" -acct "$wacct"};
 	#foreach {$answer} {cmd} {
 		#if {"$cmd" != "%d"} {$cmd};
 	};
 }
 #act {^[%.%. %+] %w %*(%*) (@%*)} {
+	#var {wlvl} {%1%2};
+	#replace {wlvl} { } {};
+	#var {wclass} {%3};
 	#var {race} {%6};
 	#replace {race} {)%*} {};
-	#script {answer} {gobot -char %4 -class "%3" -lvl %1"%2" -race "$race" -acct %7};
+	#var {wacct} {%7};
+	shellsafe wlvl;
+	shellsafe wclass;
+	shellsafe race;
+	shellsafe wacct;
+	#script {answer} {gobot -char "%4" -class "$wclass" -lvl "$wlvl" -race "$race" -acct "$wacct"};
 	#foreach {$answer} {cmd} {
 		#if {"$cmd" != "%d"} {$cmd};
 	};

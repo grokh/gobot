@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"flag"
 	"log"
 	"os"
@@ -52,6 +53,16 @@ func Test_All(t *testing.T) {
 		"echo '.read init_db.sql' | sqlite3 toril.db")
 	err = cmd.Run()
 	chkErr(t, err)
+
+	// set any real TorilDB.db aside, so the checks see toril.db alone
+	// until testTorilDB makes a small one of its own
+	if _, err := os.Stat(torilDBFile); err == nil {
+		chkErr(t, os.Rename(torilDBFile, torilDBFile+".bak"))
+		defer func() {
+			os.Remove(torilDBFile)
+			chkErr(t, os.Rename(torilDBFile+".bak", torilDBFile))
+		}()
+	}
 
 	date := time.Now().UTC().Format("2006-01-02 15:04:05")
 
@@ -403,6 +414,8 @@ func Test_All(t *testing.T) {
 	}
 	chk(t, "GlistStats()", good, txt)
 
+	testTorilDB(t, date)
+
 	if *email {
 		up = "0:01:00"
 		Uptime(up)
@@ -414,4 +427,119 @@ func Test_All(t *testing.T) {
 	cmd = exec.Command("sh", "-c", "mv toril.db.bak toril.db")
 	err = cmd.Run()
 	chkErr(t, err)
+}
+
+// writeTorilDB makes a small TorilDB.db holding only the eq columns the bot
+// reads: name, short_stats, long_stats.
+func writeTorilDB(t *testing.T, items [][3]string) {
+	os.Remove(torilDBFile)
+	db, err := sql.Open("sqlite3", torilDBFile)
+	chkErr(t, err)
+	defer db.Close()
+	_, err = db.Exec("CREATE TABLE eq (name VARCHAR PRIMARY KEY UNIQUE NOT NULL, " +
+		"short_stats VARCHAR (5000), long_stats VARCHAR (5000))")
+	chkErr(t, err)
+	for _, item := range items {
+		_, err = db.Exec("INSERT INTO eq VALUES(?, ?, ?)",
+			item[0], item[1], item[2])
+		chkErr(t, err)
+	}
+}
+
+// testTorilDB checks the TorilDB.db fallback for stat and astat, run once
+// toril.db holds the three items from testItems.txt.
+func testTorilDB(t *testing.T, date string) {
+	writeTorilDB(t, [][3]string{
+		// only in TorilDB.db, with a double quote that katumi.tin would drop
+		{"the mark of the dragonhunter",
+			`the mark of the dragonhunter (NECK) * "Hunter" * Wt:1 Val:0 ` +
+				`* Somewhere (Q)`,
+			`the mark of the dragonhunter (mark dragonhunter) * WORN (NECK) ` +
+				`* "Hunter" * Wt:1 Val:0 * Somewhere (Q) * 2026-11-01`},
+		// in both: toril.db answers
+		{"the infernal stiletto of bane",
+			"the infernal stiletto of bane (WIELD) * 4D4 5/4 * Tiamat (R)",
+			"the infernal stiletto of bane (infernal stiletto bane) " +
+				"* WEAPON (WIELD) * Tiamat (R) * 2021-11-13"},
+		// exact here, only a looser match in toril.db
+		{"a tiny mithril stud",
+			"a tiny mithril stud (EAR) * Dam:1 * Wt:0 Val:1p * Somewhere (Q)",
+			"a tiny mithril stud (stud mithril) * WORN (EAR) * Dam:1 " +
+				"* Wt:0 Val:1000 * Somewhere (Q) * 2026-11-01"},
+		// would end the tell and run a command if passed along as is
+		{"an evil ring",
+			"an evil ring\n#showme pwned; say $cpw @x {y} \\z",
+			"an evil ring"},
+	})
+
+	stiletto := "t Yog the infernal stiletto of bane (Wield)" +
+		" Dam:4 Hit:5 HASTE SLOW_POI " +
+		"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
+		"!Mage !Priest * Wt:5 Val:0p * Zone: Tiamat (R) * Last ID: " +
+		date + "\n"
+	stud := "t Yog a tiny mithril stud set with a ruby (Ear) " +
+		"Dam:3 Maxagi:3 Fire:5% " +
+		"* No_Burn * Wt:0 Val:501p * Zone: SP (Q) * Last ID: " +
+		date + "\n"
+	notFound := "t Yog 404 item not found: dragonhunter mark\n"
+
+	checks := []struct {
+		tell string
+		good []string
+	}{
+		{"stat the mark of the dragonhunter", []string{
+			"t Yog the mark of the dragonhunter (NECK) * 'Hunter' " +
+				"* Wt:1 Val:0 * Somewhere (Q)\n"}},
+		{"astat dragonhunter mark", []string{
+			"t Yog the mark of the dragonhunter (mark dragonhunter) " +
+				"* WORN (NECK) * 'Hunter' * Wt:1 Val:0 * Somewhere (Q) " +
+				"* 2026-11-01\n"}},
+		{"stat the infernal stiletto of bane", []string{stiletto}},
+		{"stat bane stiletto", []string{stiletto}},
+		{"stat a tiny mithril stud", []string{
+			"t Yog a tiny mithril stud (EAR) * Dam:1 * Wt:0 Val:1p " +
+				"* Somewhere (Q)\n"}},
+		{"stat mithril stud ruby", []string{stud}},
+		{"stat an evil ring", []string{
+			"t Yog an evil ring #showme pwned, say cpw x (y) z\n"}},
+		{"stat blah", []string{"t Yog 404 item not found: blah\n"}},
+	}
+	for _, c := range checks {
+		txt := ReplyTo("Yog", c.tell)
+		chk(t, "TorilDB.db ReplyTo(Yog, "+c.tell+")", c.good, txt)
+	}
+
+	// glist (and the website) still read toril.db alone
+	txt := GlistStats("|                                " +
+		"the mark of the dragonhunter")
+	good := []string{"404 item not found: the mark of the dragonhunter\n"}
+	chk(t, "TorilDB.db GlistStats()", good, txt)
+
+	// so does the closest-match lookup Identify logs
+	txt = findItem("the mark of the dragonhunter", "short_stats", false)
+	good = []string{"404 item not found: the mark of the dragonhunter"}
+	chk(t, "TorilDB.db findItem(no fallback)", good, txt)
+
+	// the bot can't write to TorilDB.db
+	fdb := OpenTorilDB()
+	if _, err := fdb.Exec("CREATE TABLE written (x)"); err == nil {
+		t.Errorf("TorilDB.db check failed: opened writable")
+	}
+	fdb.Close()
+
+	// a broken or missing TorilDB.db is a plain miss, not a crash
+	chkErr(t, os.WriteFile(torilDBFile, []byte("half a download\n"), 0644))
+	txt = ReplyTo("Yog", "stat dragonhunter mark")
+	chk(t, "TorilDB.db not a database", []string{notFound}, txt)
+
+	chkErr(t, os.WriteFile(torilDBFile, nil, 0644))
+	txt = ReplyTo("Yog", "stat dragonhunter mark")
+	chk(t, "TorilDB.db empty file", []string{notFound}, txt)
+
+	chkErr(t, os.Remove(torilDBFile))
+	txt = ReplyTo("Yog", "stat dragonhunter mark")
+	chk(t, "TorilDB.db missing", []string{notFound}, txt)
+	if _, err := os.Stat(torilDBFile); !os.IsNotExist(err) {
+		t.Errorf("TorilDB.db check failed: lookup created the file")
+	}
 }

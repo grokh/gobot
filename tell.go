@@ -14,119 +14,152 @@ func NotFound(four string, oper string) string {
 	return "404 " + four + " not found: " + oper
 }
 
-func FindItem(oper string, length string) []string {
-	db := OpenDB()
-	defer db.Close()
+// itemSource is a table FindItem reads item stats from: items in toril.db,
+// or eq in TorilDB.db, which has its own short_stats and long_stats
+// columns, written in its own format.
+type itemSource struct {
+	db       *sql.DB
+	table    string // one row per item
+	nameCol  string // column holding the item name
+	fallback bool   // true for TorilDB.db
+}
 
-	var res []string
-	count := 0
-	// query items table for exact item name
-	txt := oper
-	query := "SELECT " + length + " FROM items " +
-		"WHERE item_name = ? LIMIT 12"
+// nameMatch is one way of matching the requested item name: the name
+// column has to match every arg using op.
+type nameMatch struct {
+	op    string
+	args  []string
+	limit int
+}
 
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
+// nameMatches lists the ways FindItem matches a name, best match first.
+func nameMatches(oper string) []nameMatch {
+	var words []string
+	for _, word := range strings.Fields(oper) {
+		words = append(words, "%"+word+"%")
+	}
+	return []nameMatch{
+		// exact item name
+		{"=", []string{oper}, 12},
+		// LIKE, anywhere in the name
+		{"LIKE", []string{"%" + oper + "%"}, 1},
+		// LIKE with %'s in place of spaces
+		{"LIKE", []string{strings.Replace(" "+oper+" ", " ", "%", -1)}, 1},
+		// every word, in any order
+		{"LIKE", words, 1},
+	}
+}
 
-	rows, err := stmt.Query(txt)
-	ChkErr(err)
+// find runs one name match against the table, returning the stats found
+// in the length asked for (short_stats or long_stats).
+func (s itemSource) find(m nameMatch, length string) ([]string, error) {
+	if len(m.args) == 0 {
+		return nil, nil
+	}
+	query := "SELECT " + length + " FROM " + s.table + " WHERE "
+	args := make([]interface{}, len(m.args))
+	for n, arg := range m.args {
+		query += s.nameCol + " " + m.op + " ? AND "
+		args[n] = arg
+	}
+	// a row without stats yet (imported, -s not run) isn't an answer
+	query += length + " != '' LIMIT " + strconv.Itoa(m.limit)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 
+	var res []string
 	for rows.Next() {
-		res = append(res, "")
-		err = rows.Scan(&res[count])
-		count++
-	}
-	ChkRows(rows)
-	stmt.Close()
-
-	if count == 0 {
-		//fmt.Println("No exact match")
-		// if no exact match on item name, check LIKE
-		txt = "%" + oper + "%"
-		query = "SELECT item_name, " + length + " FROM items " +
-			"WHERE item_name LIKE ? LIMIT 1"
-
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		rows, err = stmt.Query(txt)
-		ChkErr(err)
-		defer rows.Close()
-
-		for rows.Next() {
-			res = append(res, "")
-			err = rows.Scan(&txt, &res[count])
-			count++
+		var stats string
+		if err := rows.Scan(&stats); err != nil {
+			return nil, err
 		}
-		ChkRows(rows)
-		stmt.Close()
+		res = append(res, stats)
 	}
+	return res, rows.Err()
+}
 
-	if count == 0 {
-		//fmt.Println("No like match")
-		// if no match on LIKE, check with %'s in place of spaces
-		txt = " " + oper + " "
-		txt = strings.Replace(txt, " ", "%", -1)
-		query = "SELECT item_name, " + length + " FROM items " +
-			"WHERE item_name LIKE ? LIMIT 1"
+// tintinChars are the characters tintin++ treats specially. katumi.tin
+// runs every line gobot prints as a tintin command, and drops a line with
+// a double quote in it at its #if check, so that becomes a single quote,
+// as shellsafe does for the shell. The rest are neutralized because
+// TorilDB.db is someone else's file, refreshed daily.
+var tintinChars = strings.NewReplacer(
+	`"`, `'`,
+	`;`, `,`,
+	`{`, `(`,
+	`}`, `)`,
+	`\`, ``,
+	`$`, ``,
+	`@`, ``,
+)
 
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		rows, err = stmt.Query(txt)
-		ChkErr(err)
-		defer rows.Close()
-
-		for rows.Next() {
-			res = append(res, "")
-			err = rows.Scan(&txt, &res[count])
-			count++
+// tintinSafe readies TorilDB.db text for katumi.tin. It also turns control
+// characters into spaces: a newline would end the tell, and katumi.tin
+// would run whatever followed it as a command of its own.
+func tintinSafe(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r < ' ' || r == 0x7f {
+			return ' '
 		}
-		ChkRows(rows)
-		stmt.Close()
-	}
+		return r
+	}, tintinChars.Replace(s))
+}
 
-	if count == 0 {
-		//fmt.Println("No in order match")
-		// if no match on %'s, check general strings in any order
-		words := strings.Fields(oper)
-		args := make([]interface{}, len(words))
-		query = "SELECT item_name, " + length + " FROM " +
-			"items WHERE "
-		for n, word := range words {
-			query += "item_name LIKE ? AND "
-			args[n] = "%" + word + "%"
+// FindItem returns stats for the item named in oper, in the length asked
+// for (short_stats or long_stats). Each way of matching the name is tried
+// in turn, from exact to loosest, first against toril.db and then against
+// TorilDB.db, so toril.db answers whenever both match equally well, but
+// an exact name in TorilDB.db beats a loose guess from toril.db.
+func FindItem(oper string, length string) []string {
+	return findItem(oper, length, true)
+}
+
+// findItem is FindItem, leaving TorilDB.db out when fallback is false.
+func findItem(oper string, length string, fallback bool) []string {
+	db := OpenDB()
+	defer db.Close()
+	srcs := []itemSource{{db: db, table: "items", nameCol: "item_name"}}
+
+	if fallback {
+		if fdb := OpenTorilDB(); fdb != nil {
+			defer fdb.Close()
+			srcs = append(srcs, itemSource{
+				db: fdb, table: "eq", nameCol: "name", fallback: true,
+			})
 		}
-		query = strings.TrimRight(query, "AND ")
-		query += " LIMIT 1"
+	}
 
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		rows, err = stmt.Query(args...)
-		ChkErr(err)
-		defer rows.Close()
-
-		for rows.Next() {
-			res = append(res, "")
-			err = rows.Scan(&txt, &res[count])
-			count++
+	for _, m := range nameMatches(oper) {
+		for n, src := range srcs {
+			if src.db == nil {
+				continue // TorilDB.db failed earlier in this lookup
+			}
+			res, err := src.find(m, length)
+			if err != nil && src.fallback {
+				// TorilDB.db is extra: if it can't be read (no eq table,
+				// a half-copied file), answer from toril.db alone
+				log.Printf("TorilDB.db: skipped for %s: %v\n", oper, err)
+				srcs[n].db = nil
+				continue
+			}
+			ChkErr(err)
+			if len(res) > 0 {
+				if src.fallback {
+					log.Printf("TorilDB.db: %s\n", oper)
+					for i := range res {
+						res[i] = tintinSafe(res[i])
+					}
+				}
+				return res
+			}
 		}
-		ChkRows(rows)
-		stmt.Close()
 	}
 
-	if count == 0 {
-		//fmt.Println("No out of order match")
-		res = append(res, NotFound("item", oper))
-	}
-
-	return res
+	return []string{NotFound("item", oper)}
 }
 
 func Help(oper string) []string {

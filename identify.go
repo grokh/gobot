@@ -515,7 +515,8 @@ func Identify(filename string) []string {
 			var update string
 			err = stmt.QueryRow(item_name).Scan(&id, &short_stats)
 			if err == sql.ErrNoRows {
-				log.Print(FindItem(item_name, "short_stats"))
+				// closest item already in toril.db; TorilDB.db left out
+				log.Print(findItem(item_name, "short_stats", false))
 			} else if err != nil {
 				log.Fatal(err)
 			} else {

@@ -388,7 +388,7 @@ func Identify(filename string) []string {
 		// back to full item
 
 		// check if exact name, keywords, type, weight, value is already in DB
-		query := "SELECT item_id, short_stats " +
+		query := "SELECT item_id, COALESCE(short_stats, '') " +
 			"FROM items WHERE item_name = ? " +
 			"AND keywords = ? AND item_type = ? " +
 			"AND weight = ? AND c_value = ?"
@@ -401,7 +401,7 @@ func Identify(filename string) []string {
 
 		if err == sql.ErrNoRows {
 			// if it's not in the DB, check for existing items
-			query = "SELECT item_id, short_stats " +
+			query = "SELECT item_id, COALESCE(short_stats, '') " +
 				"FROM items WHERE item_name = ?"
 
 			var update string
@@ -414,10 +414,10 @@ func Identify(filename string) []string {
 			} else {
 				log.Printf("Name match: item_id=%d; %s", id, short_stats)
 				update = fmt.Sprintf("--UPDATE items SET last_id='%s', "+
-					"keywords='%s', weight=%d, c_value=%d, full_stats=%s "+
+					"keywords=%s, weight=%d, c_value=%d, full_stats=%s "+
 					"WHERE item_id=%d;\n",
-					date, strings.ReplaceAll(keywords, "'", "''"),
-					weight, c_value, strconv.Quote(full_stats), id,
+					date, sqlQuote(keywords),
+					weight, c_value, sqlQuote(full_stats), id,
 				)
 			}
 
@@ -454,13 +454,13 @@ func Identify(filename string) []string {
 				"item_type, last_id, from_zone, full_stats) " +
 				"VALUES(%d, %s, %s, %d, %d, %s, %s, %s, %s);"
 			sqls += fmt.Sprintf(query+"\n", id,
-				strconv.Quote(item_name),
-				strconv.Quote(keywords),
+				sqlQuote(item_name),
+				sqlQuote(keywords),
 				weight, c_value,
-				strconv.Quote(types[item_type]),
-				strconv.Quote(date),
-				strconv.Quote(from_zone),
-				strconv.Quote(full_stats),
+				sqlQuote(types[item_type]),
+				sqlQuote(date),
+				sqlQuote(from_zone),
+				sqlQuote(full_stats),
 			)
 
 			for _, slot := range item_slots {
@@ -469,7 +469,7 @@ func Identify(filename string) []string {
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
-					strconv.Quote(slots[slot]))
+					sqlQuote(slots[slot]))
 			}
 			for _, eff := range item_effects {
 				if eff != "NOBITS" && eff != "GROUP_CACHED" {
@@ -478,7 +478,7 @@ func Identify(filename string) []string {
 					ChkErr(err)
 					query = strings.Replace(query, "?", "%v", -1)
 					sqls += fmt.Sprintf(query+"\n", id,
-						strconv.Quote(effs[eff]))
+						sqlQuote(effs[eff]))
 				}
 			}
 			for _, flag := range item_flags {
@@ -488,7 +488,7 @@ func Identify(filename string) []string {
 					ChkErr(err)
 					query = strings.Replace(query, "?", "%v", -1)
 					sqls += fmt.Sprintf(query+"\n", id,
-						strconv.Quote(iflags[flag]))
+						sqlQuote(iflags[flag]))
 				}
 			}
 			for _, rest := range item_restricts {
@@ -497,7 +497,7 @@ func Identify(filename string) []string {
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
-					strconv.Quote(restrs[rest]))
+					sqlQuote(restrs[rest]))
 			}
 			for _, attr := range item_attribs {
 				query = "INSERT INTO item_attribs VALUES(?, ?, ?);"
@@ -505,7 +505,7 @@ func Identify(filename string) []string {
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
-					strconv.Quote(attrs[attr[0]]), attr[1])
+					sqlQuote(attrs[attr[0]]), attr[1])
 			}
 			for _, spec := range item_specials {
 				query = "INSERT INTO item_specials VALUES(?, ?, ?, ?);"
@@ -513,9 +513,9 @@ func Identify(filename string) []string {
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
-					strconv.Quote(types[spec[0]]),
-					strconv.Quote(spec[1]),
-					strconv.Quote(spec[2]),
+					sqlQuote(types[spec[0]]),
+					sqlQuote(spec[1]),
+					sqlQuote(spec[2]),
 				)
 			}
 			for _, ench := range item_enchants {
@@ -525,7 +525,7 @@ func Identify(filename string) []string {
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
-					strconv.Quote(ench[0]),
+					sqlQuote(ench[0]),
 					ench[1], ench[2], ench[3], ench[4],
 				)
 			}
@@ -535,7 +535,7 @@ func Identify(filename string) []string {
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
-					strconv.Quote(resis[res[0]]), res[1])
+					sqlQuote(resis[res[0]]), res[1])
 			}
 			for _, supp := range item_supps {
 				query = "INSERT INTO item_supps VALUES(?, ?);"
@@ -543,12 +543,12 @@ func Identify(filename string) []string {
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
-					strconv.Quote(supps[supp]))
+					sqlQuote(supps[supp]))
 			}
 			if unmatched {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_procs (item_id, proc_name) "+
-						"VALUES(%d, \"?\");\n", id)
+						"VALUES(%d, '?');\n", id)
 			}
 			tx.Commit()
 			sqls += "/*----------------------------\n"
@@ -573,66 +573,66 @@ func Identify(filename string) []string {
 				date, id)
 			sqls += fmt.Sprintf("UPDATE items SET full_stats = %s "+
 				"WHERE item_id = %d;\n",
-				strconv.Quote(full_stats), id)
+				sqlQuote(full_stats), id)
 			for _, slot := range item_slots {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_slots VALUES(%d, %s);\n",
-					id, strconv.Quote(slots[slot]))
+					id, sqlQuote(slots[slot]))
 			}
 			for _, eff := range item_effects {
 				if eff != "NOBITS" && eff != "GROUP_CACHED" {
 					sqls += fmt.Sprintf(
 						"--INSERT INTO item_effects VALUES(%d, %s);\n",
-						id, strconv.Quote(effs[eff]))
+						id, sqlQuote(effs[eff]))
 				}
 			}
 			for _, flag := range item_flags {
 				if flag != "NOBITS" && flag != "NOBITSNOBITS" {
 					sqls += fmt.Sprintf(
 						"--INSERT INTO item_flags VALUES(%d, %s);\n",
-						id, strconv.Quote(iflags[flag]))
+						id, sqlQuote(iflags[flag]))
 				}
 			}
 			for _, rest := range item_restricts {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_restricts VALUES(%d, %s);\n",
-					id, strconv.Quote(restrs[rest]))
+					id, sqlQuote(restrs[rest]))
 			}
 			for _, attr := range item_attribs {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_attribs VALUES(%d, %s, %s);\n",
-					id, strconv.Quote(attrs[attr[0]]), attr[1])
+					id, sqlQuote(attrs[attr[0]]), attr[1])
 			}
 			for _, spec := range item_specials {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_specials VALUES(%d, %s, %s, %s);\n",
-					id, strconv.Quote(types[spec[0]]),
-					strconv.Quote(spec[1]),
-					strconv.Quote(spec[2]),
+					id, sqlQuote(types[spec[0]]),
+					sqlQuote(spec[1]),
+					sqlQuote(spec[2]),
 				)
 			}
 			for _, ench := range item_enchants {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_enchants "+
 						"VALUES(%d, %s, %s, %s, %s, %s);\n",
-					id, strconv.Quote(ench[0]),
+					id, sqlQuote(ench[0]),
 					ench[1], ench[2], ench[3], ench[4],
 				)
 			}
 			for _, res := range item_resists {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_resists VALUES(%d, %s, %s);\n",
-					id, strconv.Quote(resis[res[0]]), res[1])
+					id, sqlQuote(resis[res[0]]), res[1])
 			}
 			for _, supp := range item_supps {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_supps VALUES(%d, %s);\n",
-					id, strconv.Quote(supps[supp]))
+					id, sqlQuote(supps[supp]))
 			}
 			if unmatched {
 				sqls += fmt.Sprintf(
 					"--INSERT INTO item_procs (item_id, proc_name) "+
-						"VALUES(%d, \"?\");\n", id)
+						"VALUES(%d, '?');\n", id)
 			}
 
 			sqls += "/*----------------------------\n"
@@ -663,4 +663,15 @@ func lookup(db *sql.DB, query string) map[string]string {
 	}
 	ChkRows(rows)
 	return m
+}
+
+// sqlQuote writes s as an SQL string literal for the statements Identify
+// logs to import.sql: single quotes, with any ' doubled. Line breaks become
+// char(10) and char(13), so every statement stays on one line, a -- in
+// front of it still comments all of it out, and running it stores the
+// real line breaks rather than a backslash and an n.
+func sqlQuote(s string) string {
+	s = "'" + strings.ReplaceAll(s, "'", "''") + "'"
+	s = strings.ReplaceAll(s, "\r", "' || char(13) || '")
+	return strings.ReplaceAll(s, "\n", "' || char(10) || '")
 }

@@ -35,9 +35,7 @@ func WhoBatch(batch string) []string {
 	ChkErr(err)
 	defer stmt.Close()
 
-	loc, err := time.LoadLocation("America/New_York")
-	ChkErr(err)
-	date := time.Now().In(loc)
+	date := time.Now().UTC()
 	var lvl string
 	var name string
 	for _, who := range ppl {
@@ -96,9 +94,7 @@ func newClass(tx *sql.Tx, name string, abbr string) bool {
 
 func (c *Char) who() []string {
 	var txt []string
-	loc, err := time.LoadLocation("America/New_York")
-	ChkErr(err)
-	c.tseen = time.Now().In(loc)
+	c.tseen = time.Now().UTC()
 	c.race = strings.TrimSpace(c.race)
 
 	db := OpenDB()

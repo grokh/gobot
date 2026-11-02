@@ -28,8 +28,6 @@ func parseUptime(up string) time.Duration {
 
 func Uptime(curup string) {
 	curtime := parseUptime(curup)
-	loc, err := time.LoadLocation("America/New_York")
-	ChkErr(err)
 
 	db := OpenDB()
 	defer db.Close()
@@ -41,7 +39,7 @@ func Uptime(curup string) {
 	var oldid int
 	var oldup string
 	var started sql.NullInt64
-	err = db.QueryRow(query).Scan(&oldid, &oldup, &started)
+	err := db.QueryRow(query).Scan(&oldid, &oldup, &started)
 	ChkErr(err)
 	oldtime := parseUptime(oldup)
 
@@ -49,7 +47,7 @@ func Uptime(curup string) {
 	// the old boot was last seen running. The second case catches a reboot
 	// while the bot was offline for longer than the old boot had lasted,
 	// when the new uptime can already be past the old one.
-	boottime := time.Now().In(loc).Add(-curtime)
+	boottime := time.Now().UTC().Add(-curtime)
 	lastSeen := time.Unix(started.Int64, 0).Add(oldtime)
 	newBoot := curtime < oldtime ||
 		(started.Valid && boottime.After(lastSeen.Add(bootSlack)))

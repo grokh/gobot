@@ -459,7 +459,7 @@ func Clist(oper string) []string {
 		err = rows.Scan(&c.lvl, &c.class, &c.name,
 			&c.race, &c.acct, &c.seen)
 		char := fmt.Sprintf(
-			"[%d %s] %s (%s) (@%s) seen %s",
+			"[%d %s] %s (%s) (@%s) seen %s UTC",
 			c.lvl, c.class, c.name, c.race, c.acct, c.seen,
 		)
 		txts = append(txts, char)
@@ -494,7 +494,7 @@ func CharInfo(oper string) string {
 		log.Fatal(err)
 	} else {
 		txt = fmt.Sprintf(
-			"[%d %s] %s (%s) (@%s) seen %s",
+			"[%d %s] %s (%s) (@%s) seen %s UTC",
 			c.lvl, c.class, c.name, c.race, c.acct, c.seen,
 		)
 	}
@@ -512,7 +512,7 @@ func Find(oper string) string {
 		"(SELECT account_name FROM chars " +
 		"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
 		"OR LOWER(account_name) = LOWER(?)) " +
-		"ORDER BY last_seen DESC LIMIT 1"
+		"ORDER BY JULIANDAY(last_seen) DESC LIMIT 1"
 	stmt, err := db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
@@ -612,20 +612,20 @@ func FindClass(oper string) []string {
 	db := OpenDB()
 	defer db.Close()
 
-	loc, err := time.LoadLocation("America/New_York")
-	ChkErr(err)
-	date := time.Now().In(loc).Add(-time.Minute)
+	// stored times carry different offsets (or none), so compare them as
+	// times, not as text: as text, the hour after clocks fall back sorts
+	// ahead of the hour before it
 	query := "SELECT char_name, class_name, char_race, " +
 		"char_level, account_name " +
 		"FROM chars WHERE LOWER(class_name) = LOWER(?) " +
 		"AND vis = 't' " +
 		"AND account_name IN " +
 		"(SELECT account_name FROM chars " +
-		"WHERE last_seen > ? " +
+		"WHERE JULIANDAY(last_seen) > JULIANDAY('now', '-1 minute') " +
 		"AND vis = 't') " +
 		"ORDER BY char_level DESC"
 
-	rows, err := db.Query(query, oper, date)
+	rows, err := db.Query(query, oper)
 	ChkErr(err)
 	defer rows.Close()
 
@@ -776,8 +776,8 @@ func LoadReport(oper string, char string) []string {
 		query := "SELECT char_name, report_text, " +
 			"DATETIME(report_time) " +
 			"FROM loads WHERE boot_id = " +
-			"(SELECT MAX(boot_id) FROM boots)" +
-			"AND deleted = 'f'"
+			"(SELECT MAX(boot_id) FROM boots) " +
+			"AND deleted = 'f' ORDER BY rowid"
 
 		rows, err := db.Query(query)
 		ChkErr(err)
@@ -790,7 +790,7 @@ func LoadReport(oper string, char string) []string {
 			var date string
 			err = rows.Scan(&c.name, &report, &date)
 			txt = fmt.Sprintf(
-				"%d: %s [%s at %s]",
+				"%d: %s [%s at %s UTC]",
 				counter, report, c.name, date,
 			)
 			txts = append(txts, txt)
@@ -804,10 +804,8 @@ func LoadReport(oper string, char string) []string {
 	} else if strings.Contains(oper, " ") {
 		tx, err := db.Begin()
 		ChkErr(err)
-		loc, err := time.LoadLocation("America/New_York")
-		ChkErr(err)
 
-		date := time.Now().In(loc)
+		date := time.Now().UTC()
 		query := "INSERT INTO loads " +
 			"VALUES((SELECT MAX(boot_id) FROM boots), ?, ?, ?, 'f')"
 
@@ -829,31 +827,30 @@ func LRDel(oper string) string {
 	db := OpenDB()
 	defer db.Close()
 
-	query := "SELECT boot_id, report_time, report_text FROM loads " +
+	num, err := strconv.Atoi(oper)
+	if err != nil {
+		return BadSyntax
+	}
+
+	// the same reports, in the same order, that lr lists
+	query := "SELECT rowid, report_text FROM loads " +
 		"WHERE deleted = 'f' " +
-		"AND boot_id = (SELECT MAX(boot_id) FROM boots)"
+		"AND boot_id = (SELECT MAX(boot_id) FROM boots) ORDER BY rowid"
 
 	rows, err := db.Query(query)
 	ChkErr(err)
 	defer rows.Close()
 
 	var txt string
-	num, err := strconv.Atoi(oper)
-	if err != nil {
-		return BadSyntax
-	}
-	var curboot string
-	var rtime time.Time
+	var row int64
 	report := ""
 	counter := 1
 	for rows.Next() {
-		var boot string
-		var date time.Time
+		var id int64
 		var text string
-		err = rows.Scan(&boot, &date, &text)
+		ChkErr(rows.Scan(&id, &text))
 		if counter == num {
-			curboot = boot
-			rtime = date
+			row = id
 			report = text
 		}
 		counter++
@@ -861,18 +858,11 @@ func LRDel(oper string) string {
 	ChkRows(rows)
 	if counter > 1 {
 		if report != "" {
-			query = "UPDATE loads SET deleted = 't' " +
-				"WHERE boot_id = ? AND report_time = ?"
-
-			tx, err := db.Begin()
+			// by rowid: matching on report_time needed the stored time read
+			// back in exactly the form it was written
+			_, err = db.Exec("UPDATE loads SET deleted = 't' WHERE rowid = ?",
+				row)
 			ChkErr(err)
-			stmt, err := tx.Prepare(query)
-			ChkErr(err)
-			defer stmt.Close()
-
-			_, err = stmt.Exec(curboot, rtime)
-			ChkErr(err)
-			tx.Commit()
 			txt = fmt.Sprintf("Load deleted: %s", report)
 		} else {
 			txt = "Invalid load report number."

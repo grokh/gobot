@@ -1,9 +1,12 @@
 package main
 
 import (
+	"compress/gzip"
+	"context"
 	"database/sql"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -189,14 +192,14 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "char bob"
 	txt = ReplyTo(char, tell)
-	good = []string{"t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + "\n"}
+	good = []string{"t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + " UTC\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "clist bob"
 	txt = ReplyTo(char, tell)
 	good = []string{
-		"t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + "\n",
-		"t Yog [1 Warrior] Tom (Drow Elf) (@Bob) seen " + date + "\n",
+		"t Yog [50 Bard] Bob (Human) (@Bob) seen " + date + " UTC\n",
+		"t Yog [1 Warrior] Tom (Drow Elf) (@Bob) seen " + date + " UTC\n",
 	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
@@ -243,8 +246,8 @@ func Test_All(t *testing.T) {
 
 	char, tell = "Yog", "lr"
 	txt = ReplyTo(char, tell)
-	good = []string{"t Yog 1: ogre in space [Yog at " + date + "]\n",
-		"t Yog 2: thing at place [Yog at " + date + "]\n"}
+	good = []string{"t Yog 1: ogre in space [Yog at " + date + " UTC]\n",
+		"t Yog 2: thing at place [Yog at " + date + " UTC]\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lrdel 2"
@@ -441,6 +444,9 @@ func Test_All(t *testing.T) {
 	testReboot(t)
 	testSplit(t)
 	testBulkImport(t, items)
+	testImportSQL(t, db)
+	testTimes(t, db, filepath.Join(src, "fix_times_and_stats.sql"))
+	testBackup(t)
 
 	if *email {
 		up = "0:01:00"
@@ -773,4 +779,250 @@ func Test_NoHTML(t *testing.T) {
 		t.Errorf("NoHTML check failed: gobot needs html/ outside -port: "+
 			"%v\n%s", err, out)
 	}
+}
+
+// testImportSQL checks that the SQL Identify writes to import.sql runs as
+// written and stores an item exactly as -import did, with its quotes and
+// line breaks.
+func testImportSQL(t *testing.T, db *sql.DB) {
+	item := "Name 'an old book entitled \"The Awakening''\n" +
+		"Keyword 'book old awakening', Item type: SPELLBOOK\n" +
+		"Item can be worn on:  HOLD \n" +
+		"Item is: MAGIC \n" +
+		"Weight: 1, Value: 0\n" +
+		"Zone: Unknown"
+	chkErr(t, os.WriteFile("book.txt", []byte(item+"\n"), 0640))
+	os.Remove("import.sql")
+	chk(t, "Identify() book", []string{"Items Inserted: 1, Items Ignored: 0\n"},
+		Identify("book.txt"))
+	// again before -s has filled in short_stats, which used to crash it
+	chk(t, "Identify() book again",
+		[]string{"Items Inserted: 0, Items Ignored: 1\n"}, Identify("book.txt"))
+
+	var id int64
+	var name, full string
+	chkErr(t, db.QueryRow("SELECT item_id, item_name, full_stats FROM items "+
+		"WHERE keywords = 'book old awakening'").Scan(&id, &name, &full))
+
+	// the statements import.sql gives for review, between its comments
+	content, err := os.ReadFile("import.sql")
+	chkErr(t, err)
+	var stmts []string
+	in := false
+	for _, line := range strings.Split(string(content), "\n") {
+		switch {
+		case strings.HasSuffix(line, "----------------------------*/"):
+			in = true
+		case strings.HasPrefix(line, "/*----------------------------"):
+			in = false
+		case in && line != "" && !strings.HasPrefix(line, "--"):
+			stmts = append(stmts, line)
+		}
+	}
+	// clear the item, then rebuild it from those statements
+	for _, table := range []string{"item_slots", "item_flags", "items"} {
+		_, err = db.Exec("DELETE FROM "+table+" WHERE item_id = ?", id)
+		chkErr(t, err)
+	}
+	for _, stmt := range stmts {
+		if _, err := db.Exec(stmt); err != nil {
+			t.Errorf("import.sql check failed: %v: %s", err, stmt)
+		}
+	}
+	var name2, full2 string
+	chkErr(t, db.QueryRow("SELECT item_name, full_stats FROM items "+
+		"WHERE item_id = ?", id).Scan(&name2, &full2))
+	if name2 != name || full2 != full || !strings.Contains(full2, "\n") {
+		t.Errorf("import.sql check failed: rebuilt %q / %q, -import "+
+			"stored %q / %q", name2, full2, name, full)
+	}
+}
+
+// testTimes checks that times are stored in UTC and compared as times, so
+// the hour after clocks fall back can't make an old sighting look new, and
+// that the one-time fix converts old rows without moving them.
+func testTimes(t *testing.T, db *sql.DB, fix string) {
+	for _, q := range []string{
+		"SELECT CAST(last_seen AS TEXT) FROM chars WHERE char_name = 'Bob'",
+		"SELECT CAST(boot_time AS TEXT) FROM boots " +
+			"ORDER BY boot_id DESC LIMIT 1",
+		"SELECT CAST(report_time AS TEXT) FROM loads " +
+			"ORDER BY rowid DESC LIMIT 1",
+	} {
+		var when string
+		chkErr(t, db.QueryRow(q).Scan(&when))
+		if !strings.HasSuffix(when, "+00:00") {
+			t.Errorf("UTC check failed: %s gave %s", q, when)
+		}
+	}
+
+	// two alts stored the way the bot used to, in New York time: Dsta 40
+	// minutes ago with the offset from before clocks fell back, Dstb 10
+	// minutes ago with today's. As text, Dsta's time sorts later.
+	loc, err := time.LoadLocation("America/New_York")
+	chkErr(t, err)
+	_, off := time.Now().In(loc).Zone()
+	older := time.Now().Add(-40 * time.Minute).In(time.FixedZone("", off+3600))
+	newer := time.Now().Add(-10 * time.Minute).In(time.FixedZone("", off))
+	_, err = db.Exec("INSERT INTO accounts (account_name) VALUES ('Dst')")
+	chkErr(t, err)
+	_, err = db.Exec("INSERT INTO chars VALUES "+
+		"('Dst', 'Dsta', 'Cleric', 'Human', 50, ?, 't'), "+
+		"('Dst', 'Dstb', 'Warrior', 'Human', 50, ?, 't')", older, newer)
+	chkErr(t, err)
+	chk(t, "class after fall-back", []string{
+		"t Yog 404 class not found: cleric\n"}, ReplyTo("Yog", "class cleric"))
+	if txt := ReplyTo("Yog", "find dst"); len(txt) != 1 ||
+		!strings.HasPrefix(txt[0], "t Yog @Dst last seen ") ||
+		!strings.HasSuffix(txt[0], " as Dstb\n") {
+		t.Errorf("find after fall-back check failed: %q", txt)
+	}
+
+	// a report in the oldest format, with no offset: lrdel still finds it
+	_, err = db.Exec("INSERT INTO loads VALUES " +
+		"((SELECT MAX(boot_id) FROM boots), '2013-03-21 09:35:40', " +
+		"'old report here', 'Yog', 'f')")
+	chkErr(t, err)
+	num := ""
+	for _, line := range ReplyTo("Yog", "lr") {
+		if n := strings.Index(line, ": old report here [Yog at "+
+			"2013-03-21 09:35:40 UTC]"); n > 0 {
+			num = strings.TrimPrefix(line[:n], "t Yog ")
+		}
+	}
+	if num == "" {
+		t.Errorf("lr check failed: old report not listed")
+	}
+	chk(t, "lrdel old report", []string{
+		"t Yog Load deleted: old report here\n"}, ReplyTo("Yog", "lrdel "+num))
+	for _, line := range ReplyTo("Yog", "lr") {
+		if strings.Contains(line, "old report here") {
+			t.Errorf("lrdel check failed: old report still listed")
+		}
+	}
+
+	// the one-time fix: every time to UTC without moving it, literal \n in
+	// full_stats to real line breaks, and nothing changes a second time
+	_, err = db.Exec("UPDATE chars SET last_seen = '2013-04-18 10:31:52.862423' " +
+		"WHERE char_name = 'Tom'")
+	chkErr(t, err)
+	_, err = db.Exec("UPDATE items SET full_stats = ? "+
+		"WHERE item_id = (SELECT MIN(item_id) FROM items)",
+		`Name 'x'\nKeyword 'x'\tok`)
+	chkErr(t, err)
+	instants := func() map[string]float64 {
+		m := make(map[string]float64)
+		for _, c := range [][2]string{{"chars", "last_seen"},
+			{"boots", "boot_time"}, {"loads", "report_time"}} {
+			rows, err := db.Query("SELECT rowid, JULIANDAY(" + c[1] +
+				") FROM " + c[0])
+			chkErr(t, err)
+			for rows.Next() {
+				var id int64
+				var jd float64
+				chkErr(t, rows.Scan(&id, &jd))
+				m[fmt.Sprintf("%s %d", c[0], id)] = jd
+			}
+			ChkRows(rows)
+		}
+		return m
+	}
+	before := instants()
+	script, err := os.ReadFile(fix)
+	chkErr(t, err)
+	_, err = db.Exec(string(script))
+	chkErr(t, err)
+	for k, jd := range instants() {
+		if diff := (jd - before[k]) * 86400; diff > 0.002 || diff < -0.002 {
+			t.Errorf("fix check failed: %s moved %.3fs", k, diff)
+		}
+	}
+	var left, stats int
+	chkErr(t, db.QueryRow("SELECT "+
+		"(SELECT COUNT(*) FROM chars WHERE last_seen NOT LIKE '%+00:00') + "+
+		"(SELECT COUNT(*) FROM boots WHERE boot_time NOT LIKE '%+00:00') + "+
+		"(SELECT COUNT(*) FROM loads WHERE report_time NOT LIKE '%+00:00'), "+
+		"(SELECT COUNT(*) FROM items WHERE full_stats = ?)",
+		"Name 'x'\nKeyword 'x'\tok").Scan(&left, &stats))
+	if left != 0 || stats != 1 {
+		t.Errorf("fix check failed: %d times not UTC, %d stats fixed",
+			left, stats)
+	}
+	after := instants()
+	_, err = db.Exec(string(script))
+	chkErr(t, err)
+	for k, jd := range instants() {
+		if jd != after[k] {
+			t.Errorf("fix check failed: second run changed %s", k)
+		}
+	}
+}
+
+// testBackup checks that -bak saves a whole dump, refuses to save one that
+// stopped partway, and prunes old dailies but keeps the first of each month.
+func testBackup(t *testing.T) {
+	chkErr(t, os.MkdirAll("bak", 0750))
+	now := time.Now()
+	ago := func(days int) string {
+		return now.AddDate(0, 0, -days).Format("2006-01-02")
+	}
+	for _, day := range []string{"2019-12-31", "2020-03-05", "2020-03-12",
+		"2020-03-20", "2020-04-15", ago(59), ago(1)} {
+		chkErr(t, os.WriteFile(filepath.Join("bak", "toril.db."+day+".gz"),
+			[]byte("old"), 0640))
+	}
+	chkErr(t, os.WriteFile(filepath.Join("bak", "notes.txt"),
+		[]byte("keep"), 0640))
+
+	BackupDB()
+
+	// today's backup is a whole dump, and nothing temporary is left over
+	today := filepath.Join("bak", "toril.db."+now.Format("2006-01-02")+".gz")
+	f, err := os.Open(today)
+	chkErr(t, err)
+	zr, err := gzip.NewReader(f)
+	chkErr(t, err)
+	dump, err := io.ReadAll(zr)
+	chkErr(t, err)
+	f.Close()
+	if !strings.Contains(string(dump), "CREATE TABLE items") ||
+		!strings.HasSuffix(strings.TrimSpace(string(dump)), "COMMIT;") {
+		t.Errorf("backup check failed: %d bytes, not a whole dump", len(dump))
+	}
+	if _, err := os.Stat(today + ".tmp"); !os.IsNotExist(err) {
+		t.Errorf("backup check failed: temp file left behind")
+	}
+
+	// dailies past 60 days go, the first of each month stays
+	for name, keep := range map[string]bool{
+		"toril.db.2019-12-31.gz": true, "toril.db.2020-03-05.gz": true,
+		"toril.db.2020-03-12.gz": false, "toril.db.2020-03-20.gz": false,
+		"toril.db.2020-04-15.gz": true, "toril.db." + ago(59) + ".gz": true,
+		"toril.db." + ago(1) + ".gz": true, "notes.txt": true,
+	} {
+		_, err := os.Stat(filepath.Join("bak", name))
+		if kept := err == nil; kept != keep {
+			t.Errorf("backup prune check failed: %s kept %v, want %v",
+				name, kept, keep)
+		}
+	}
+
+	// a locked database: the dump fails instead of saving a stub
+	lock, err := sql.Open("sqlite3", "toril.db")
+	chkErr(t, err)
+	defer lock.Close()
+	ctx := context.Background()
+	conn, err := lock.Conn(ctx)
+	chkErr(t, err)
+	defer conn.Close()
+	_, err = conn.ExecContext(ctx, "BEGIN EXCLUSIVE")
+	chkErr(t, err)
+	wait := dumpWait
+	dumpWait = 100 * time.Millisecond
+	if err := writeDump(filepath.Join("bak", "locked.gz")); err == nil {
+		t.Errorf("backup check failed: a dump of a locked database passed")
+	}
+	dumpWait = wait
+	_, err = conn.ExecContext(ctx, "ROLLBACK")
+	chkErr(t, err)
 }

@@ -481,9 +481,13 @@ func ParseList(txt string) []string {
 	return results
 }
 
-var tmpl = template.Must(template.ParseFiles(
-	"html/index.html",
-))
+// tmpl is the TorilEQ page. Only the web server (-port) uses it, so main
+// loads it there with loadPage, and the bot's commands don't need html/.
+var tmpl *template.Template
+
+func loadPage() {
+	tmpl = template.Must(template.ParseFiles("html/index.html"))
+}
 
 func eqHandler(w http.ResponseWriter, r *http.Request) {
 	// Errors while serving a request panic (see fatal); answer them with a

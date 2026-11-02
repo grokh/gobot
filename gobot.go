@@ -120,6 +120,7 @@ func main() {
 		}
 	case *port != "":
 		webServer = true
+		loadPage()
 		http.HandleFunc("/", eqHandler)
 		http.Handle("/style.css", http.FileServer(http.Dir("html")))
 		http.Handle("/form.js", http.FileServer(http.Dir("html")))

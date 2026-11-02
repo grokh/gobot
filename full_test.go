@@ -3,11 +3,14 @@ package main
 import (
 	"database/sql"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -38,8 +41,11 @@ var email = flag.Bool("email", false, "Test sending email/SMS.")
 
 func Test_All(t *testing.T) {
 	flag.Parse()
+	src, err := os.Getwd()
+	chkErr(t, err)
+	chkErr(t, os.MkdirAll(filepath.Join(src, "logs"), 0750))
 	f, err := os.OpenFile(
-		"logs/test.log",
+		filepath.Join(src, "logs", "test.log"),
 		os.O_RDWR|os.O_APPEND|os.O_CREATE,
 		0640,
 	)
@@ -47,23 +53,20 @@ func Test_All(t *testing.T) {
 	chkErr(t, err)
 	log.SetOutput(f)
 
-	cmd := exec.Command("sh", "-c", "mv toril.db toril.db.bak")
-	err = cmd.Run()
-	chkErr(t, err)
-	cmd = exec.Command("sh", "-c",
-		"echo '.read init_db.sql' | sqlite3 toril.db")
-	err = cmd.Run()
-	chkErr(t, err)
-
-	// set any real TorilDB.db aside, so the checks see toril.db alone
-	// until testTorilDB makes a small one of its own
-	if _, err := os.Stat(torilDBFile); err == nil {
-		chkErr(t, os.Rename(torilDBFile, torilDBFile+".bak"))
-		defer func() {
-			os.Remove(torilDBFile)
-			chkErr(t, os.Rename(torilDBFile+".bak", torilDBFile))
-		}()
+	// Run in a temp folder with a fresh toril.db, so the test never touches
+	// the toril.db, TorilDB.db or import.sql in the folder it's run from.
+	chkErr(t, os.Chdir(t.TempDir()))
+	defer os.Chdir(src)
+	cmd := exec.Command("sqlite3", "toril.db",
+		".read "+strconv.Quote(filepath.Join(src, "init_db.sql")))
+	chkErr(t, cmd.Run())
+	if *email {
+		// the reboot email reads its account from tokens.txt
+		tokens, err := os.ReadFile(filepath.Join(src, "tokens.txt"))
+		chkErr(t, err)
+		chkErr(t, os.WriteFile("tokens.txt", tokens, 0600))
 	}
+	items := filepath.Join(src, "testItems.txt")
 
 	date := time.Now().UTC().Format("2006-01-02 15:04:05")
 
@@ -326,10 +329,11 @@ func Test_All(t *testing.T) {
 	good = []string{"t Yog 404 help file not found: blah\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
+	testHelp(t)
 	testCharChanges(t)
 
 	// test item importing and statting
-	txt = Identify("testItems.txt")
+	txt = Identify(items)
 	good = []string{"Items Inserted: 3, Items Ignored: 0\n"}
 	chk(t, "Identify()", good, txt)
 
@@ -337,7 +341,7 @@ func Test_All(t *testing.T) {
 	good = []string{"Runtime: "}
 	//chk(t, "FormatStats()", good, txt)
 
-	txt = Identify("testItems.txt")
+	txt = Identify(items)
 	good = []string{"Items Inserted: 0, Items Ignored: 3\n"}
 	chk(t, "Identify() run 2", good, txt)
 
@@ -405,6 +409,22 @@ func Test_All(t *testing.T) {
 	good = []string{"t Yog 404 item(s) not found: resist blah\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
+	// the attribs table has MR in capitals; fstat used to miss it
+	_, err = db.Exec("INSERT INTO item_attribs SELECT item_id, 'MR', 2 " +
+		"FROM items WHERE item_name = 'a tiny mithril stud set with a ruby'")
+	chkErr(t, err)
+	char, tell = "Yog", "fstat mr > 0"
+	txt = ReplyTo(char, tell)
+	good = []string{
+		"t Yog a tiny mithril stud set with a ruby (Ear) " +
+			"Dam:3 Maxagi:3 Fire:5% " +
+			"* No_Burn * Wt:0 Val:501p * Zone: SP (Q) * Last ID: " +
+			date + "\n",
+	}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
+	_, err = db.Exec("DELETE FROM item_attribs WHERE attrib_abbr = 'MR'")
+	chkErr(t, err)
+
 	txt = GlistStats(
 		"|Ynndchiarhlizz                  " +
 			"a black longsword of destruction|" +
@@ -420,18 +440,12 @@ func Test_All(t *testing.T) {
 	testTorilDB(t, date)
 	testReboot(t)
 	testSplit(t)
+	testBulkImport(t, items)
 
 	if *email {
 		up = "0:01:00"
 		Uptime(up)
 	}
-
-	cmd = exec.Command("sh", "-c", "rm toril.db")
-	err = cmd.Run()
-	chkErr(t, err)
-	cmd = exec.Command("sh", "-c", "mv toril.db.bak toril.db")
-	err = cmd.Run()
-	chkErr(t, err)
 }
 
 // writeTorilDB makes a small TorilDB.db holding only the eq columns the bot
@@ -686,5 +700,77 @@ func testSplit(t *testing.T) {
 		!strings.Contains(all, "1: "+long+" [Yog at ") ||
 		!strings.Contains(all, "2: short report here [Bob at ") {
 		t.Errorf("lr split check failed: %d tells: %q", len(txt), all)
+	}
+}
+
+// testHelp checks that each command the ? menu names has a help entry, and
+// that help fstat lists the stats, resists and slots fstat accepts.
+func testHelp(t *testing.T) {
+	for _, cmd := range []string{"?", "help", "hidden", "hidden?", "stat",
+		"astat", "fstat", "who", "clist", "char", "find", "class", "name",
+		"addname", "delalt", "addalt", "lr", "lrdel"} {
+		for _, line := range ReplyTo("Yog", "help "+cmd) {
+			if strings.Contains(line, "not found") {
+				t.Errorf("help check failed: %s", strings.TrimSpace(line))
+			}
+		}
+	}
+	fstat := strings.Join(ReplyTo("Yog", "help fstat"), "")
+	for _, want := range []string{"Stats: age, agi, ", " maxagi, ", " mr, ",
+		"Resists: acid, ", " fire, ", "Slots: about, ", " ear, ", " on_body, "} {
+		if !strings.Contains(fstat, want) {
+			t.Errorf("help fstat check failed: no %q in %q", want, fstat)
+		}
+	}
+	astat := strings.Join(ReplyTo("Yog", "help astat"), "")
+	if strings.Contains(astat, "buggy") {
+		t.Errorf("help astat check failed: %q", astat)
+	}
+}
+
+// testBulkImport imports more items than the test may have files open,
+// which -import used to run out of: it held a DB connection per item. If
+// that comes back, the test binary dies here with "exit status 1", and
+// "too many open files" is in the temp folder's import.sql.
+func testBulkImport(t *testing.T, items string) {
+	content, err := os.ReadFile(items)
+	chkErr(t, err)
+	src := strings.Split(strings.TrimSpace(string(content)), "\n\n")
+	var bulk []string
+	for n := 0; n < 400; n++ {
+		// a copy of a test item under a new name: Name 'x' becomes 'x n'
+		item := src[n%len(src)]
+		end := strings.Index(item, "'\n")
+		bulk = append(bulk, item[:end]+fmt.Sprintf(" %d", n)+item[end:])
+	}
+	chkErr(t, os.WriteFile("bulk.txt",
+		[]byte(strings.Join(bulk, "\n\n")+"\n"), 0640))
+
+	var lim syscall.Rlimit
+	chkErr(t, syscall.Getrlimit(syscall.RLIMIT_NOFILE, &lim))
+	old := lim
+	lim.Cur = 128
+	chkErr(t, syscall.Setrlimit(syscall.RLIMIT_NOFILE, &lim))
+	defer syscall.Setrlimit(syscall.RLIMIT_NOFILE, &old)
+
+	txt := Identify("bulk.txt")
+	good := []string{"Items Inserted: 400, Items Ignored: 0\n"}
+	chk(t, "Identify() 400 items, 128 files", good, txt)
+}
+
+// Test_NoHTML runs this test binary from a folder without html/, the way
+// the bot runs from its own folder: only the web server should need it.
+func Test_NoHTML(t *testing.T) {
+	if os.Getenv("GOBOT_NO_HTML") == "1" {
+		return // the copy started below: getting here is the test
+	}
+	exe, err := os.Executable()
+	chkErr(t, err)
+	cmd := exec.Command(exe, "-test.run=^Test_NoHTML$")
+	cmd.Dir = t.TempDir()
+	cmd.Env = append(os.Environ(), "GOBOT_NO_HTML=1")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Errorf("NoHTML check failed: gobot needs html/ outside -port: "+
+			"%v\n%s", err, out)
 	}
 }

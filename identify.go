@@ -20,6 +20,8 @@ func Identify(filename string) []string {
 	)
 	defer f.Close()
 	ChkErr(err)
+	// log to import.sql for the review, then put the log back as it was
+	defer log.SetOutput(log.Writer())
 	log.SetOutput(f)
 
 	inserted, ignored := 0, 0
@@ -183,6 +185,27 @@ func Identify(filename string) []string {
 		// This lockpick has a 90% chance to break upon use. // pick
 		`This lockpick has a ([[:digit:]]+)\% chance to break upon use.`)
 	ChkErr(err)
+
+	// one DB connection and one set of lookups for the whole file: opening
+	// them per item ran out of open files on big imports
+	db := OpenDB()
+	defer db.Close()
+
+	// translate from long form to abbreviated form
+	types := lookup(db, "SELECT item_type, type_abbr FROM item_types")
+	slots := lookup(db, "SELECT worn_slot, slot_abbr FROM slots")
+	effs := lookup(db, "SELECT effect_name, effect_abbr FROM effects")
+	iflags := lookup(db, "SELECT flag_name, flag_abbr FROM flags")
+	restrs := lookup(db, "SELECT restrict_name, restrict_abbr FROM restricts")
+	attrs := lookup(db, "SELECT attrib_name, attrib_abbr FROM attribs")
+	resis := lookup(db, "SELECT resist_name, resist_abbr FROM resists")
+	supps := lookup(db, "SELECT supp_value, supp_abbr FROM supps")
+
+	loc, err := time.LoadLocation("America/New_York")
+	ChkErr(err)
+	date := time.Now().In(loc).Format("2006-01-02")
+	// when using time.Format(), you need to make the format text
+	// from this exact datetime: Mon Jan 2 15:04:05 -0700 MST 2006
 
 	for _, item := range items {
 		// initialize item variables and slices
@@ -364,143 +387,15 @@ func Identify(filename string) []string {
 		}
 		// back to full item
 
-		// translate from long form to abbreviated form
-		// by building maps to match DB structure?
-		db := OpenDB()
-		defer db.Close()
-
-		var a, b string
-		query := "SELECT item_type, type_abbr FROM item_types"
-		stmt, err := db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-		rows, err := stmt.Query()
-		ChkErr(err)
-		defer rows.Close()
-		types := make(map[string]string)
-		for rows.Next() {
-			err = rows.Scan(&a, &b)
-			types[a] = b
-		}
-		ChkRows(rows)
-		stmt.Close()
-		query = "SELECT worn_slot, slot_abbr FROM slots"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-		rows, err = stmt.Query()
-		ChkErr(err)
-		defer rows.Close()
-		slots := make(map[string]string)
-		for rows.Next() {
-			err = rows.Scan(&a, &b)
-			slots[a] = b
-		}
-		ChkRows(rows)
-		stmt.Close()
-		query = "SELECT effect_name, effect_abbr FROM effects"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-		rows, err = stmt.Query()
-		ChkErr(err)
-		defer rows.Close()
-		effs := make(map[string]string)
-		for rows.Next() {
-			err = rows.Scan(&a, &b)
-			effs[a] = b
-		}
-		ChkRows(rows)
-		stmt.Close()
-		query = "SELECT flag_name, flag_abbr FROM flags"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-		rows, err = stmt.Query()
-		ChkErr(err)
-		defer rows.Close()
-		iflags := make(map[string]string)
-		for rows.Next() {
-			err = rows.Scan(&a, &b)
-			iflags[a] = b
-		}
-		ChkRows(rows)
-		stmt.Close()
-		query = "SELECT restrict_name, restrict_abbr FROM restricts"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-		rows, err = stmt.Query()
-		ChkErr(err)
-		defer rows.Close()
-		restrs := make(map[string]string)
-		for rows.Next() {
-			err = rows.Scan(&a, &b)
-			restrs[a] = b
-		}
-		ChkRows(rows)
-		stmt.Close()
-		query = "SELECT attrib_name, attrib_abbr FROM attribs"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-		rows, err = stmt.Query()
-		ChkErr(err)
-		defer rows.Close()
-		attrs := make(map[string]string)
-		for rows.Next() {
-			err = rows.Scan(&a, &b)
-			attrs[a] = b
-		}
-		ChkRows(rows)
-		stmt.Close()
-		query = "SELECT resist_name, resist_abbr FROM resists"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-		rows, err = stmt.Query()
-		ChkErr(err)
-		defer rows.Close()
-		resis := make(map[string]string)
-		for rows.Next() {
-			err = rows.Scan(&a, &b)
-			resis[a] = b
-		}
-		ChkRows(rows)
-		stmt.Close()
-		query = "SELECT supp_value, supp_abbr FROM supps"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-		rows, err = stmt.Query()
-		ChkErr(err)
-		defer rows.Close()
-		supps := make(map[string]string)
-		for rows.Next() {
-			err = rows.Scan(&a, &b)
-			supps[a] = b
-		}
-		ChkRows(rows)
-		stmt.Close()
-
-		loc, err := time.LoadLocation("America/New_York")
-		ChkErr(err)
-		date := time.Now().In(loc).Format("2006-01-02")
-		// when using time.Format(), you need to make the format text
-		// from this exact datetime: Mon Jan 2 15:04:05 -0700 MST 2006
-
 		// check if exact name, keywords, type, weight, value is already in DB
-		query = "SELECT item_id, short_stats " +
+		query := "SELECT item_id, short_stats " +
 			"FROM items WHERE item_name = ? " +
 			"AND keywords = ? AND item_type = ? " +
 			"AND weight = ? AND c_value = ?"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
 
 		var id int64
 		var short_stats string
-		err = stmt.QueryRow(
+		err = db.QueryRow(query,
 			item_name, keywords, types[item_type], weight, c_value,
 		).Scan(&id, &short_stats)
 
@@ -508,12 +403,9 @@ func Identify(filename string) []string {
 			// if it's not in the DB, check for existing items
 			query = "SELECT item_id, short_stats " +
 				"FROM items WHERE item_name = ?"
-			stmt, err = db.Prepare(query)
-			ChkErr(err)
-			defer stmt.Close()
 
 			var update string
-			err = stmt.QueryRow(item_name).Scan(&id, &short_stats)
+			err = db.QueryRow(query, item_name).Scan(&id, &short_stats)
 			if err == sql.ErrNoRows {
 				// closest item already in toril.db; TorilDB.db left out
 				log.Print(findItem(item_name, "short_stats", false))
@@ -537,11 +429,7 @@ func Identify(filename string) []string {
 				"(item_name, keywords, weight, c_value, " +
 				"item_type, last_id, from_zone, full_stats) " +
 				"VALUES(?, ?, ?, ?, ?, ?, ?, ?);"
-			stmt, err := tx.Prepare(query)
-			ChkErr(err)
-			defer stmt.Close()
-
-			res, err := stmt.Exec(
+			res, err := tx.Exec(query,
 				item_name, keywords, weight, c_value,
 				types[item_type], date, from_zone, full_stats)
 			ChkErr(err)
@@ -577,11 +465,7 @@ func Identify(filename string) []string {
 
 			for _, slot := range item_slots {
 				query = "INSERT INTO item_slots VALUES(?, ?);"
-				stmt, err := tx.Prepare(query)
-				ChkErr(err)
-				defer stmt.Close()
-
-				_, err = stmt.Exec(id, slots[slot])
+				_, err = tx.Exec(query, id, slots[slot])
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
@@ -590,11 +474,7 @@ func Identify(filename string) []string {
 			for _, eff := range item_effects {
 				if eff != "NOBITS" && eff != "GROUP_CACHED" {
 					query = "INSERT INTO item_effects VALUES(?, ?);"
-					stmt, err := tx.Prepare(query)
-					ChkErr(err)
-					defer stmt.Close()
-
-					_, err = stmt.Exec(id, effs[eff])
+					_, err = tx.Exec(query, id, effs[eff])
 					ChkErr(err)
 					query = strings.Replace(query, "?", "%v", -1)
 					sqls += fmt.Sprintf(query+"\n", id,
@@ -604,11 +484,7 @@ func Identify(filename string) []string {
 			for _, flag := range item_flags {
 				if flag != "NOBITS" && flag != "NOBITSNOBITS" {
 					query = "INSERT INTO item_flags VALUES(?, ?);"
-					stmt, err := tx.Prepare(query)
-					ChkErr(err)
-					defer stmt.Close()
-
-					_, err = stmt.Exec(id, iflags[flag])
+					_, err = tx.Exec(query, id, iflags[flag])
 					ChkErr(err)
 					query = strings.Replace(query, "?", "%v", -1)
 					sqls += fmt.Sprintf(query+"\n", id,
@@ -617,11 +493,7 @@ func Identify(filename string) []string {
 			}
 			for _, rest := range item_restricts {
 				query = "INSERT INTO item_restricts VALUES(?, ?);"
-				stmt, err := tx.Prepare(query)
-				ChkErr(err)
-				defer stmt.Close()
-
-				_, err = stmt.Exec(id, restrs[rest])
+				_, err = tx.Exec(query, id, restrs[rest])
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
@@ -629,11 +501,7 @@ func Identify(filename string) []string {
 			}
 			for _, attr := range item_attribs {
 				query = "INSERT INTO item_attribs VALUES(?, ?, ?);"
-				stmt, err := tx.Prepare(query)
-				ChkErr(err)
-				defer stmt.Close()
-
-				_, err = stmt.Exec(id, attrs[attr[0]], attr[1])
+				_, err = tx.Exec(query, id, attrs[attr[0]], attr[1])
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
@@ -641,11 +509,7 @@ func Identify(filename string) []string {
 			}
 			for _, spec := range item_specials {
 				query = "INSERT INTO item_specials VALUES(?, ?, ?, ?);"
-				stmt, err := tx.Prepare(query)
-				ChkErr(err)
-				defer stmt.Close()
-
-				_, err = stmt.Exec(id, types[spec[0]], spec[1], spec[2])
+				_, err = tx.Exec(query, id, types[spec[0]], spec[1], spec[2])
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
@@ -656,11 +520,7 @@ func Identify(filename string) []string {
 			}
 			for _, ench := range item_enchants {
 				query = "INSERT INTO item_enchants VALUES(?, ?, ?, ?, ?, ?);"
-				stmt, err := tx.Prepare(query)
-				ChkErr(err)
-				defer stmt.Close()
-
-				_, err = stmt.Exec(id,
+				_, err = tx.Exec(query, id,
 					ench[0], ench[1], ench[2], ench[3], ench[4])
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
@@ -671,11 +531,7 @@ func Identify(filename string) []string {
 			}
 			for _, res := range item_resists {
 				query = "INSERT INTO item_resists VALUES(?, ?, ?);"
-				stmt, err := tx.Prepare(query)
-				ChkErr(err)
-				defer stmt.Close()
-
-				_, err = stmt.Exec(id, resis[res[0]], res[1])
+				_, err = tx.Exec(query, id, resis[res[0]], res[1])
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
@@ -683,11 +539,7 @@ func Identify(filename string) []string {
 			}
 			for _, supp := range item_supps {
 				query = "INSERT INTO item_supps VALUES(?, ?);"
-				stmt, err := tx.Prepare(query)
-				ChkErr(err)
-				defer stmt.Close()
-
-				_, err = stmt.Exec(id, supps[supp])
+				_, err = tx.Exec(query, id, supps[supp])
 				ChkErr(err)
 				query = strings.Replace(query, "?", "%v", -1)
 				sqls += fmt.Sprintf(query+"\n", id,
@@ -796,4 +648,19 @@ func Identify(filename string) []string {
 		fmt.Sprintf("Items Inserted: %d, Items Ignored: %d\n",
 			inserted, ignored)}
 	return txt
+}
+
+// lookup reads a two-column table into a map from the first column to the
+// second, like the long names in identify output to the DB's abbreviations.
+func lookup(db *sql.DB, query string) map[string]string {
+	rows, err := db.Query(query)
+	ChkErr(err)
+	m := make(map[string]string)
+	for rows.Next() {
+		var a, b string
+		ChkErr(rows.Scan(&a, &b))
+		m[a] = b
+	}
+	ChkRows(rows)
+	return m
 }

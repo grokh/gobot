@@ -169,8 +169,13 @@ func Help(oper string) []string {
 	case "?":
 		txt = append(txt, "Syntax: tell katumi ? -- "+
 			"Katumi provides a full listing of valid commands.")
-	case "hidden?":
-		txt = append(txt, "Syntax: tell katumi hidden? -- "+
+	case "help":
+		txt = append(txt, "Syntax: tell katumi help <cmd> -- "+
+			"Example: tell katumi help stat -- "+
+			"Katumi explains the command named. "+
+			"For a list of every command: tell katumi ?")
+	case "hidden", "hidden?":
+		txt = append(txt, "Syntax: tell katumi hidden -- "+
 			"Katumi sends a tell in reply "+
 			"if she can see you. If you receive no reply, you are hidden. "+
 			"Katumi has permanent detect invis to ensure that won't cause "+
@@ -209,6 +214,18 @@ func Help(oper string) []string {
 			"list of alts matching the named class for characters who "+
 			"are currently online, letting group leaders find useful "+
 			"alts from the 'who' list.")
+	case "name":
+		txt = append(txt, "Syntax: tell katumi name <acct/char> -- "+
+			"Example: tell katumi name rynshana -- "+
+			"Katumi provides the real name the account's player shared "+
+			"with 'addname', if they've shared one. Also works with "+
+			"account names.")
+	case "addname":
+		txt = append(txt, "Syntax: tell katumi addname <name> -- "+
+			"Example: tell katumi addname Pat -- "+
+			"Katumi records <name> as the real name for your account, "+
+			"which anyone can then see with 'name'. Use addname again "+
+			"to change it.")
 	case "delalt":
 		txt = append(txt, "Syntax: tell katumi delalt <char> -- "+
 			"Example: tell katumi delalt rynshana -- "+
@@ -252,41 +269,45 @@ func Help(oper string) []string {
 			"in an mwrite to katumi or email to kristi.michaels@gmail.com")
 	case "astat":
 		txt = append(txt, "Syntax: tell katumi astat <item> -- "+
-			"Example tell katumi astat destruction sword -- "+
+			"Example: tell katumi astat destruction sword -- "+
 			"Katumi provides full "+
 			"stat information for the item named. Use 'stat' for short "+
-			"text. The name search is fairly forgiving, though the stats "+
-			"are a little buggy right now since I haven't put much time "+
-			"into it.")
+			"text. The name search is fairly forgiving.")
 	case "fstat":
-		txt = append(txt, "Syntax: tell katumi fstat <fields> -- "+
-			"Attempts to replicate the Advanced Search from TorilEQ website. "+
-			"Katumi provides up to 10 results which match the parameters."+
-			"Valid fields are attributes, resists, and slots. "+
-			"Create a multi-field query using a comma and a space.")
-		txt = append(txt, "Valid symbols: >, <, or = -- Valid stats:"+
-			"-- Syntax: <stat> <sym> <num>")
-		txt = append(txt, "Valid resists: "+
-			"-- Syntax: resist <resist>")
-		txt = append(txt, "Valid slots: "+
-			"-- Syntax: slot <slot>")
-		txt = append(txt, "Example using one attribute, one resist, "+
-			"and one slot in a single combined query -- "+
-			"tell katumi fstat maxagi > 0, resist fire, slot ear")
-		txt = append(txt, "Syntax: tell katumi fstat <stat> <sym> <num>"+
-			"[, <stat2> <sym2> <num2>][, resist <resist>][, slot <slot>] -- "+
+		txt = append(txt, "Syntax: tell katumi fstat <stat> <op> <num>"+
+			"[, more stats][, resist <resist>][, slot <slot>] -- "+
 			"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- "+
-			"Katumi provides up to 10 results which match the parameters.")
-		txt = append(txt,
-			"Type attribs as they appear in stats: str, maxstr, svsp, "+
-				"dam, sf_illu, fire, unarm, ear, on_body, etc. "+
-				"Valid comparisons are >, <, and =. "+
-				"Resists check for a positive value. "+
-				"Other options will be added later.")
+			"Lists up to 10 items matching every field. Separate fields "+
+			"with a comma and a space. <op> is > < = >= <= or !=. "+
+			"Resists match above 0.")
+		txt = append(txt, "Stats: "+
+			fstatList("SELECT LOWER(attrib_abbr) FROM attribs ORDER BY 1"))
+		txt = append(txt, "Resists: "+
+			fstatList("SELECT LOWER(resist_abbr) FROM resists ORDER BY 1"))
+		txt = append(txt, "Slots: "+
+			fstatList("SELECT LOWER(slot_abbr) FROM slots ORDER BY 1"))
 	default:
 		txt = append(txt, NotFound("help file", oper))
 	}
 	return txt
+}
+
+// fstatList is the comma-separated list of one kind of field fstat accepts,
+// read from the table that defines them, so help fstat can't fall behind.
+func fstatList(query string) string {
+	db := OpenDB()
+	defer db.Close()
+
+	rows, err := db.Query(query)
+	ChkErr(err)
+	var list []string
+	for rows.Next() {
+		var abbr string
+		ChkErr(rows.Scan(&abbr))
+		list = append(list, abbr)
+	}
+	ChkRows(rows)
+	return strings.Join(list, ", ")
 }
 
 // fstatOps lists the comparison operators fstat accepts. The operator is
@@ -316,7 +337,7 @@ func Fstat(oper string) []string {
 				}
 				query += " (SELECT i.item_id FROM items i, item_attribs a " +
 					"WHERE i.item_id = a.item_id " +
-					"AND attrib_abbr = ? AND attrib_value " + comp + " ?)"
+					"AND LOWER(attrib_abbr) = ? AND attrib_value " + comp + " ?)"
 				args = append(args, fop[0], fop[2])
 			}
 		case 2:
@@ -329,7 +350,7 @@ func Fstat(oper string) []string {
 				}
 				query += " (SELECT i.item_id FROM items i, item_resists r " +
 					"WHERE i.item_id = r.item_id " +
-					"AND resist_abbr = ? AND resist_value > 0)"
+					"AND LOWER(resist_abbr) = ? AND resist_value > 0)"
 				args = append(args, res)
 			} else if strings.ToLower(fop[0]) == "slot" {
 				slot := strings.ToLower(fop[1])

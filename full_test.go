@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 )
@@ -69,7 +68,6 @@ func Test_All(t *testing.T) {
 		chkErr(t, err)
 		chkErr(t, os.WriteFile("tokens.txt", tokens, 0600))
 	}
-	items := filepath.Join(src, "testItems.txt")
 
 	date := time.Now().UTC().Format("2006-01-02 15:04:05")
 
@@ -335,237 +333,15 @@ func Test_All(t *testing.T) {
 	testHelp(t)
 	testCharChanges(t)
 
-	// test item importing and statting
-	txt = Identify(items)
-	good = []string{"Items Inserted: 3, Items Ignored: 0\n"}
-	chk(t, "Identify()", good, txt)
-
-	txt = FormatStats()
-	good = []string{"Runtime: "}
-	//chk(t, "FormatStats()", good, txt)
-
-	txt = Identify(items)
-	good = []string{"Items Inserted: 0, Items Ignored: 3\n"}
-	chk(t, "Identify() run 2", good, txt)
-
-	loc, err := time.LoadLocation("America/New_York")
-	chkErr(t, err)
-	date = time.Now().In(loc).Format("2006-01-02")
-
-	char, tell = "Yog", "stat bane stiletto"
-	txt = ReplyTo(char, tell)
-	good = []string{
-		"t Yog the infernal stiletto of bane (Wield)" +
-			" Dam:4 Hit:5 HASTE SLOW_POI " +
-			"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
-			"!Mage !Priest * Wt:5 Val:0p * Zone: Tiamat (R) * Last ID: " +
-			date + "\n",
-	}
-	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
-
-	char, tell = "Yog", "stat blah"
-	txt = ReplyTo(char, tell)
-	good = []string{"t Yog 404 item not found: blah\n"}
-	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
-
-	char, tell = "Yog", "astat destruction sword"
-	txt = ReplyTo(char, tell)
-	good = []string{
-		"t Yog a black longsword of destruction (Slot: Wielded), " +
-			"Damroll: 8, Hitroll: 5, " +
-			"Fire: 5%, Infravision (Item Type: Weapon) " +
-			"Damage Dice: 8D6, Crit Chance: 6%, " +
-			"Crit Multiplier: 2x, (Class: Martial, Type: Longsword) * " +
-			"Float, Magic, No Burn, No Drop, No Locate, Two Handed " +
-			"NO-MAGE ANTI-PALADIN NO-CLERIC\n",
-		"t Yog ANTI-RANGER NO-THIEF * " +
-			"Keywords:(black sword destruction twilight) " +
-			"* Weight: 15, Value: 10,000 copper * Zone: Jotunheim " +
-			"(From Invasion) * Last ID: " +
-			date + "\n",
-	}
-	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
-
-	char, tell = "Yog", "astat blah"
-	txt = ReplyTo(char, tell)
-	good = []string{"t Yog 404 item not found: blah\n"}
-	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
-
-	char, tell = "Yog", "fstat resist fire, maxagi > 0, slot ear"
-	txt = ReplyTo(char, tell)
-	good = []string{
-		"t Yog a tiny mithril stud set with a ruby (Ear) " +
-			"Dam:3 Maxagi:3 Fire:5% " +
-			"* No_Burn * Wt:0 Val:501p * Zone: SP (Q) * Last ID: " +
-			date + "\n",
-	}
-	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
-
-	char, tell = "Yog", "fstat blah"
-	txt = ReplyTo(char, tell)
-	good = []string{"t Yog Invalid syntax. For valid syntax: " +
-		"tell katumi ?, tell katumi help <cmd>\n"}
-	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
-
-	char, tell = "Yog", "fstat resist blah"
-	txt = ReplyTo(char, tell)
-	good = []string{"t Yog 404 item(s) not found: resist blah\n"}
-	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
-
-	// the attribs table has MR in capitals; fstat used to miss it
-	_, err = db.Exec("INSERT INTO item_attribs SELECT item_id, 'MR', 2 " +
-		"FROM items WHERE item_name = 'a tiny mithril stud set with a ruby'")
-	chkErr(t, err)
-	char, tell = "Yog", "fstat mr > 0"
-	txt = ReplyTo(char, tell)
-	good = []string{
-		"t Yog a tiny mithril stud set with a ruby (Ear) " +
-			"Dam:3 Maxagi:3 Fire:5% " +
-			"* No_Burn * Wt:0 Val:501p * Zone: SP (Q) * Last ID: " +
-			date + "\n",
-	}
-	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
-	_, err = db.Exec("DELETE FROM item_attribs WHERE attrib_abbr = 'MR'")
-	chkErr(t, err)
-
-	txt = GlistStats(
-		"|Ynndchiarhlizz                  " +
-			"a black longsword of destruction|" +
-			"                                " +
-			"the mark of the dragonhunter|" +
-			"                                " +
-			"a tiny mithril stud set with a ruby")
-	good = []string{
-		"404 item not found: the mark of the dragonhunter\n",
-	}
-	chk(t, "GlistStats()", good, txt)
-
-	testTorilDB(t, date)
+	testItems(t, src)
 	testReboot(t)
 	testSplit(t)
-	testBulkImport(t, items)
-	testImportSQL(t, db)
 	testTimes(t, db, filepath.Join(src, "fix_times_and_stats.sql"))
 	testBackup(t)
 
 	if *email {
 		up = "0:01:00"
 		Uptime(up)
-	}
-}
-
-// writeTorilDB makes a small TorilDB.db holding only the eq columns the bot
-// reads: name, short_stats, long_stats.
-func writeTorilDB(t *testing.T, items [][3]string) {
-	os.Remove(torilDBFile)
-	db, err := sql.Open("sqlite3", torilDBFile)
-	chkErr(t, err)
-	defer db.Close()
-	_, err = db.Exec("CREATE TABLE eq (name VARCHAR PRIMARY KEY UNIQUE NOT NULL, " +
-		"short_stats VARCHAR (5000), long_stats VARCHAR (5000))")
-	chkErr(t, err)
-	for _, item := range items {
-		_, err = db.Exec("INSERT INTO eq VALUES(?, ?, ?)",
-			item[0], item[1], item[2])
-		chkErr(t, err)
-	}
-}
-
-// testTorilDB checks the TorilDB.db fallback for stat and astat, run once
-// toril.db holds the three items from testItems.txt.
-func testTorilDB(t *testing.T, date string) {
-	writeTorilDB(t, [][3]string{
-		// only in TorilDB.db, with a double quote that katumi.tin would drop
-		{"the mark of the dragonhunter",
-			`the mark of the dragonhunter (NECK) * "Hunter" * Wt:1 Val:0 ` +
-				`* Somewhere (Q)`,
-			`the mark of the dragonhunter (mark dragonhunter) * WORN (NECK) ` +
-				`* "Hunter" * Wt:1 Val:0 * Somewhere (Q) * 2026-11-01`},
-		// in both: toril.db answers
-		{"the infernal stiletto of bane",
-			"the infernal stiletto of bane (WIELD) * 4D4 5/4 * Tiamat (R)",
-			"the infernal stiletto of bane (infernal stiletto bane) " +
-				"* WEAPON (WIELD) * Tiamat (R) * 2021-11-13"},
-		// exact here, only a looser match in toril.db
-		{"a tiny mithril stud",
-			"a tiny mithril stud (EAR) * Dam:1 * Wt:0 Val:1p * Somewhere (Q)",
-			"a tiny mithril stud (stud mithril) * WORN (EAR) * Dam:1 " +
-				"* Wt:0 Val:1000 * Somewhere (Q) * 2026-11-01"},
-		// would end the tell and run a command if passed along as is
-		{"an evil ring",
-			"an evil ring\n#showme pwned; say $cpw @x {y} \\z",
-			"an evil ring"},
-	})
-
-	stiletto := "t Yog the infernal stiletto of bane (Wield)" +
-		" Dam:4 Hit:5 HASTE SLOW_POI " +
-		"* (Weapon) Dice:4D4 * Float Magic No_Burn No_Loc !Fighter " +
-		"!Mage !Priest * Wt:5 Val:0p * Zone: Tiamat (R) * Last ID: " +
-		date + "\n"
-	stud := "t Yog a tiny mithril stud set with a ruby (Ear) " +
-		"Dam:3 Maxagi:3 Fire:5% " +
-		"* No_Burn * Wt:0 Val:501p * Zone: SP (Q) * Last ID: " +
-		date + "\n"
-	notFound := "t Yog 404 item not found: dragonhunter mark\n"
-
-	checks := []struct {
-		tell string
-		good []string
-	}{
-		{"stat the mark of the dragonhunter", []string{
-			"t Yog the mark of the dragonhunter (NECK) * 'Hunter' " +
-				"* Wt:1 Val:0 * Somewhere (Q)\n"}},
-		{"astat dragonhunter mark", []string{
-			"t Yog the mark of the dragonhunter (mark dragonhunter) " +
-				"* WORN (NECK) * 'Hunter' * Wt:1 Val:0 * Somewhere (Q) " +
-				"* 2026-11-01\n"}},
-		{"stat the infernal stiletto of bane", []string{stiletto}},
-		{"stat bane stiletto", []string{stiletto}},
-		{"stat a tiny mithril stud", []string{
-			"t Yog a tiny mithril stud (EAR) * Dam:1 * Wt:0 Val:1p " +
-				"* Somewhere (Q)\n"}},
-		{"stat mithril stud ruby", []string{stud}},
-		{"stat an evil ring", []string{
-			"t Yog an evil ring #showme pwned, say cpw x (y) z\n"}},
-		{"stat blah", []string{"t Yog 404 item not found: blah\n"}},
-	}
-	for _, c := range checks {
-		txt := ReplyTo("Yog", c.tell)
-		chk(t, "TorilDB.db ReplyTo(Yog, "+c.tell+")", c.good, txt)
-	}
-
-	// glist (and the website) still read toril.db alone
-	txt := GlistStats("|                                " +
-		"the mark of the dragonhunter")
-	good := []string{"404 item not found: the mark of the dragonhunter\n"}
-	chk(t, "TorilDB.db GlistStats()", good, txt)
-
-	// so does the closest-match lookup Identify logs
-	txt = findItem("the mark of the dragonhunter", "short_stats", false)
-	good = []string{"404 item not found: the mark of the dragonhunter"}
-	chk(t, "TorilDB.db findItem(no fallback)", good, txt)
-
-	// the bot can't write to TorilDB.db
-	fdb := OpenTorilDB()
-	if _, err := fdb.Exec("CREATE TABLE written (x)"); err == nil {
-		t.Errorf("TorilDB.db check failed: opened writable")
-	}
-	fdb.Close()
-
-	// a broken or missing TorilDB.db is a plain miss, not a crash
-	chkErr(t, os.WriteFile(torilDBFile, []byte("half a download\n"), 0644))
-	txt = ReplyTo("Yog", "stat dragonhunter mark")
-	chk(t, "TorilDB.db not a database", []string{notFound}, txt)
-
-	chkErr(t, os.WriteFile(torilDBFile, nil, 0644))
-	txt = ReplyTo("Yog", "stat dragonhunter mark")
-	chk(t, "TorilDB.db empty file", []string{notFound}, txt)
-
-	chkErr(t, os.Remove(torilDBFile))
-	txt = ReplyTo("Yog", "stat dragonhunter mark")
-	chk(t, "TorilDB.db missing", []string{notFound}, txt)
-	if _, err := os.Stat(torilDBFile); !os.IsNotExist(err) {
-		t.Errorf("TorilDB.db check failed: lookup created the file")
 	}
 }
 
@@ -722,7 +498,7 @@ func testHelp(t *testing.T) {
 		}
 	}
 	fstat := strings.Join(ReplyTo("Yog", "help fstat"), "")
-	for _, want := range []string{"Stats: age, agi, ", " maxagi, ", " mr, ",
+	for _, want := range []string{"Stats: ac, age, agi, ", " maxagi, ", " mr, ",
 		"Resists: acid, ", " fire, ", "Slots: about, ", " ear, ", " on_body, "} {
 		if !strings.Contains(fstat, want) {
 			t.Errorf("help fstat check failed: no %q in %q", want, fstat)
@@ -732,36 +508,6 @@ func testHelp(t *testing.T) {
 	if strings.Contains(astat, "buggy") {
 		t.Errorf("help astat check failed: %q", astat)
 	}
-}
-
-// testBulkImport imports more items than the test may have files open,
-// which -import used to run out of: it held a DB connection per item. If
-// that comes back, the test binary dies here with "exit status 1", and
-// "too many open files" is in the temp folder's import.sql.
-func testBulkImport(t *testing.T, items string) {
-	content, err := os.ReadFile(items)
-	chkErr(t, err)
-	src := strings.Split(strings.TrimSpace(string(content)), "\n\n")
-	var bulk []string
-	for n := 0; n < 400; n++ {
-		// a copy of a test item under a new name: Name 'x' becomes 'x n'
-		item := src[n%len(src)]
-		end := strings.Index(item, "'\n")
-		bulk = append(bulk, item[:end]+fmt.Sprintf(" %d", n)+item[end:])
-	}
-	chkErr(t, os.WriteFile("bulk.txt",
-		[]byte(strings.Join(bulk, "\n\n")+"\n"), 0640))
-
-	var lim syscall.Rlimit
-	chkErr(t, syscall.Getrlimit(syscall.RLIMIT_NOFILE, &lim))
-	old := lim
-	lim.Cur = 128
-	chkErr(t, syscall.Setrlimit(syscall.RLIMIT_NOFILE, &lim))
-	defer syscall.Setrlimit(syscall.RLIMIT_NOFILE, &old)
-
-	txt := Identify("bulk.txt")
-	good := []string{"Items Inserted: 400, Items Ignored: 0\n"}
-	chk(t, "Identify() 400 items, 128 files", good, txt)
 }
 
 // Test_NoHTML runs this test binary from a folder without html/, the way
@@ -778,63 +524,6 @@ func Test_NoHTML(t *testing.T) {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Errorf("NoHTML check failed: gobot needs html/ outside -port: "+
 			"%v\n%s", err, out)
-	}
-}
-
-// testImportSQL checks that the SQL Identify writes to import.sql runs as
-// written and stores an item exactly as -import did, with its quotes and
-// line breaks.
-func testImportSQL(t *testing.T, db *sql.DB) {
-	item := "Name 'an old book entitled \"The Awakening''\n" +
-		"Keyword 'book old awakening', Item type: SPELLBOOK\n" +
-		"Item can be worn on:  HOLD \n" +
-		"Item is: MAGIC \n" +
-		"Weight: 1, Value: 0\n" +
-		"Zone: Unknown"
-	chkErr(t, os.WriteFile("book.txt", []byte(item+"\n"), 0640))
-	os.Remove("import.sql")
-	chk(t, "Identify() book", []string{"Items Inserted: 1, Items Ignored: 0\n"},
-		Identify("book.txt"))
-	// again before -s has filled in short_stats, which used to crash it
-	chk(t, "Identify() book again",
-		[]string{"Items Inserted: 0, Items Ignored: 1\n"}, Identify("book.txt"))
-
-	var id int64
-	var name, full string
-	chkErr(t, db.QueryRow("SELECT item_id, item_name, full_stats FROM items "+
-		"WHERE keywords = 'book old awakening'").Scan(&id, &name, &full))
-
-	// the statements import.sql gives for review, between its comments
-	content, err := os.ReadFile("import.sql")
-	chkErr(t, err)
-	var stmts []string
-	in := false
-	for _, line := range strings.Split(string(content), "\n") {
-		switch {
-		case strings.HasSuffix(line, "----------------------------*/"):
-			in = true
-		case strings.HasPrefix(line, "/*----------------------------"):
-			in = false
-		case in && line != "" && !strings.HasPrefix(line, "--"):
-			stmts = append(stmts, line)
-		}
-	}
-	// clear the item, then rebuild it from those statements
-	for _, table := range []string{"item_slots", "item_flags", "items"} {
-		_, err = db.Exec("DELETE FROM "+table+" WHERE item_id = ?", id)
-		chkErr(t, err)
-	}
-	for _, stmt := range stmts {
-		if _, err := db.Exec(stmt); err != nil {
-			t.Errorf("import.sql check failed: %v: %s", err, stmt)
-		}
-	}
-	var name2, full2 string
-	chkErr(t, db.QueryRow("SELECT item_name, full_stats FROM items "+
-		"WHERE item_id = ?", id).Scan(&name2, &full2))
-	if name2 != name || full2 != full || !strings.Contains(full2, "\n") {
-		t.Errorf("import.sql check failed: rebuilt %q / %q, -import "+
-			"stored %q / %q", name2, full2, name, full)
 	}
 }
 
@@ -906,8 +595,12 @@ func testTimes(t *testing.T, db *sql.DB, fix string) {
 	_, err = db.Exec("UPDATE chars SET last_seen = '2013-04-18 10:31:52.862423' " +
 		"WHERE char_name = 'Tom'")
 	chkErr(t, err)
-	_, err = db.Exec("UPDATE items SET full_stats = ? "+
-		"WHERE item_id = (SELECT MIN(item_id) FROM items)",
+	// a toril.db from before TorilDB.db still has its items table, which
+	// the fix also cleans up
+	_, err = db.Exec("CREATE TABLE items " +
+		"(item_id INTEGER PRIMARY KEY, full_stats TEXT)")
+	chkErr(t, err)
+	_, err = db.Exec("INSERT INTO items (full_stats) VALUES (?)",
 		`Name 'x'\nKeyword 'x'\tok`)
 	chkErr(t, err)
 	instants := func() map[string]float64 {
@@ -985,7 +678,7 @@ func testBackup(t *testing.T) {
 	dump, err := io.ReadAll(zr)
 	chkErr(t, err)
 	f.Close()
-	if !strings.Contains(string(dump), "CREATE TABLE items") ||
+	if !strings.Contains(string(dump), "CREATE TABLE chars") ||
 		!strings.HasSuffix(strings.TrimSpace(string(dump)), "COMMIT;") {
 		t.Errorf("backup check failed: %d bytes, not a whole dump", len(dump))
 	}

@@ -2,5 +2,7 @@ tokens.*
 tt++
 toril.db
 TorilDB.db
+TorilDB.db.*
+torildb.url
 *sublime*
 dump.sql*

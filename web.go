@@ -5,6 +5,8 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"os"
+	"sort"
 	"strings"
 )
 
@@ -61,382 +63,233 @@ type Page struct {
 	Supps   []Supp
 }
 
-func fillStructs() Page {
-	p := Page{
-		Date: "2021-01-01",
+// column reads a one-column query into a slice.
+func column(db *sql.DB, query string) []string {
+	rows, err := db.Query(query)
+	ChkErr(err)
+	var vals []string
+	for rows.Next() {
+		var v string
+		ChkErr(rows.Scan(&v))
+		vals = append(vals, v)
 	}
+	ChkRows(rows)
+	return vals
+}
 
-	db := OpenDB()
+// fillStructs gathers what the TorilEQ form offers: zones and item types
+// from TorilDB.db, everything else from the tables in items.go.
+func fillStructs() Page {
+	var p Page
+
+	db, err := OpenItemDB()
+	ChkErr(err)
 	defer db.Close()
 
-	query := "SELECT MAX(last_id) FROM items"
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
+	var date sql.NullString
+	ChkErr(db.QueryRow("SELECT MAX(date) FROM eq").Scan(&date))
+	p.Date = date.String
 
-	err = stmt.QueryRow().Scan(&p.Date)
-	ChkErr(err)
-
-	query = "SELECT zone_abbr, zone_name FROM zones " +
-		"ORDER BY zone_name ASC"
-	stmt, err = db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	rows, err := stmt.Query()
-	ChkErr(err)
-	defer rows.Close()
-
-	for rows.Next() {
-		var z Zone
-		err = rows.Scan(&z.ZoneAbbr, &z.ZoneDisp)
-		ChkErr(err)
-		p.Zones = append(p.Zones, z)
+	for _, z := range zoneNames(column(db,
+		"SELECT DISTINCT zone FROM eq WHERE zone != ''")) {
+		p.Zones = append(p.Zones, Zone{z, z})
 	}
-
-	query = "SELECT attrib_abbr, attrib_display FROM attribs"
-	stmt, err = db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	rows, err = stmt.Query()
-	ChkErr(err)
-	defer rows.Close()
-
-	for rows.Next() {
-		var a Attrib
-		err = rows.Scan(&a.AttAbbr, &a.AttDisp)
-		ChkErr(err)
-		p.Attribs = append(p.Attribs, a)
+	for _, t := range column(db,
+		"SELECT DISTINCT type FROM eq WHERE type != ''") {
+		p.Types = append(p.Types, IType{t, typeName(t)})
 	}
+	sort.Slice(p.Types, func(a, b int) bool {
+		return p.Types[a].TypeDisp < p.Types[b].TypeDisp
+	})
 
-	query = "SELECT slot_abbr, slot_display FROM slots"
-	stmt, err = db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	rows, err = stmt.Query()
-	ChkErr(err)
-	defer rows.Close()
-
-	for rows.Next() {
-		var s Slot
-		err = rows.Scan(&s.SlotAbbr, &s.SlotDisp)
-		ChkErr(err)
-		p.Slots = append(p.Slots, s)
+	for _, s := range stats {
+		p.Attribs = append(p.Attribs, Attrib{s.abbr, s.display})
 	}
-
-	query = "SELECT type_abbr, type_display FROM item_types"
-	stmt, err = db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	rows, err = stmt.Query()
-	ChkErr(err)
-	defer rows.Close()
-
-	for rows.Next() {
-		var t IType
-		err = rows.Scan(&t.TypeAbbr, &t.TypeDisp)
-		ChkErr(err)
-		p.Types = append(p.Types, t)
+	for _, s := range slots {
+		p.Slots = append(p.Slots, Slot{s.abbr, s.display})
 	}
-
-	query = "SELECT effect_abbr, effect_display FROM effects"
-	stmt, err = db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	rows, err = stmt.Query()
-	ChkErr(err)
-	defer rows.Close()
-
-	for rows.Next() {
-		var e Effect
-		err = rows.Scan(&e.EffAbbr, &e.EffDisp)
-		ChkErr(err)
-		p.Effects = append(p.Effects, e)
+	for _, e := range effects {
+		p.Effects = append(p.Effects, Effect{e.abbr, e.display})
 	}
-
-	query = "SELECT resist_abbr, resist_display FROM resists"
-	stmt, err = db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	rows, err = stmt.Query()
-	ChkErr(err)
-	defer rows.Close()
-
-	for rows.Next() {
-		var r Resist
-		err = rows.Scan(&r.ResAbbr, &r.ResDisp)
-		ChkErr(err)
-		p.Resists = append(p.Resists, r)
+	for _, r := range resists {
+		p.Resists = append(p.Resists, Resist{r.abbr, r.display})
 	}
-
-	query = "SELECT flag_abbr, flag_display FROM flags"
-	stmt, err = db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	rows, err = stmt.Query()
-	ChkErr(err)
-	defer rows.Close()
-
-	for rows.Next() {
-		var f Flag
-		err = rows.Scan(&f.FlagAbbr, &f.FlagDisp)
-		ChkErr(err)
-		p.Flags = append(p.Flags, f)
+	for _, f := range flags {
+		p.Flags = append(p.Flags, Flag{f.abbr, f.display})
 	}
-
-	query = "SELECT supp_abbr, supp_display FROM supps"
-	stmt, err = db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	rows, err = stmt.Query()
-	ChkErr(err)
-	defer rows.Close()
-
-	for rows.Next() {
-		var s Supp
-		err = rows.Scan(&s.SuppAbbr, &s.SuppDisp)
-		ChkErr(err)
-		p.Supps = append(p.Supps, s)
+	for _, s := range supps {
+		p.Supps = append(p.Supps, Supp{s.abbr, s.display})
 	}
-
 	return p
 }
 
 // compareSQL maps the form's attribute comparisons to SQL. Any other value
 // is ignored, so the query never gets a ? without a value to go with it.
 var compareSQL = map[string]string{
-	"gt": "AND attrib_value > ?",
-	"lt": "AND attrib_value < ?",
-	"et": "AND attrib_value = ?",
+	"gt": " > ?",
+	"lt": " < ?",
+	"et": " = ?",
 }
 
-func chkAnd(query string, baseLen int) string {
-	if len(query) > baseLen {
-		query += " AND "
-	}
-	return query
+// orderSQL maps the form's Order By choices to eq columns.
+var orderSQL = map[string]string{
+	"name": "name",
+	"zone": "zone",
+	"type": "type",
 }
 
-func parseForm(p Page, r *http.Request) []string {
-	var results []string // slice holding final results of query
-	var query string     // query builder
-	var vals []string    // slice holding query values
+// vals makes a ? argument list.
+func vals(v ...interface{}) []interface{} {
+	return v
+}
 
-	switch r.PostFormValue("format") {
-	case "short":
-		query = "SELECT short_stats FROM items WHERE "
-	case "full":
-		query = "SELECT full_stats FROM items WHERE "
-	default: // "long" is the form's default; also covers a missing value
-		query = "SELECT long_stats FROM items WHERE "
+// noMatch is the test for a value the form never offers, like an attribute
+// it doesn't list: it matches nothing, rather than being left out.
+const noMatch = "0"
+
+// parseForm searches TorilDB.db for the items matching every field filled
+// in on the TorilEQ form.
+func parseForm(r *http.Request) []string {
+	length := "long_stats" // the form's default; also covers a missing value
+	if r.PostFormValue("format") == "short" {
+		length = "short_stats"
 	}
 
-	baseLen := len(query) // base length of the initial query
-
-	if r.PostFormValue("itemName") != "" {
-		query += "item_name LIKE ? " // TODO needs a lot of work
-		vals = append(vals, "%"+r.PostFormValue("itemName")+"%")
+	var tests []string
+	var args []interface{}
+	add := func(test string, targs []interface{}) {
+		tests = append(tests, test)
+		args = append(args, targs...)
 	}
 
-	if r.PostFormValue("zoneName") != "" {
-		query = chkAnd(query, baseLen)
-		query += "from_zone = ? "
-		vals = append(vals, r.PostFormValue("zoneName"))
+	if name := r.PostFormValue("itemName"); name != "" {
+		add("name LIKE ?", vals("%"+name+"%")) // TODO needs a lot of work
 	}
 
-	if r.PostFormValue("attrib1") != "" {
-		query = chkAnd(query, baseLen)
-		query += "item_id IN " +
-			"(SELECT item_id FROM item_attribs " +
-			"WHERE attrib_abbr = ? "
-		vals = append(vals, r.PostFormValue("attrib1"))
+	if zone := r.PostFormValue("zoneName"); zone != "" {
+		// the zone, or one of the zones of an item that loads in several
+		add("instr(? || zone || ?, ?) > 0",
+			vals(zoneSep, zoneSep, zoneSep+zone+zoneSep))
+	}
 
-		cmp, ok := compareSQL[r.PostFormValue("compareAttrib1")]
-		if ok && r.PostFormValue("valueAttrib1") != "" {
-			query += cmp
-			vals = append(vals, r.PostFormValue("valueAttrib1"))
+	for _, n := range []string{"1", "2"} {
+		abbr := r.PostFormValue("attrib" + n)
+		if abbr == "" {
+			continue
 		}
-		query += ") "
-	}
-
-	if r.PostFormValue("attrib2") != "" {
-		query = chkAnd(query, baseLen)
-		query += "item_id IN " +
-			"(SELECT item_id FROM item_attribs " +
-			"WHERE attrib_abbr = ? "
-		vals = append(vals, r.PostFormValue("attrib2"))
-
-		cmp, ok := compareSQL[r.PostFormValue("compareAttrib2")]
-		if ok && r.PostFormValue("valueAttrib2") != "" {
-			query += cmp
-			vals = append(vals, r.PostFormValue("valueAttrib2"))
+		s, ok := findStat(abbr)
+		if !ok {
+			add(noMatch, nil)
+			continue
 		}
-		query += ") "
-	}
-
-	// TODO add item_specials like AC and damage dice
-
-	if r.PostFormValue("worn") != "" {
-		query = chkAnd(query, baseLen)
-		query += "item_id IN " +
-			"(SELECT item_id FROM item_slots " +
-			"WHERE slot_abbr = ?) "
-		vals = append(vals, r.PostFormValue("worn"))
-	}
-
-	if r.PostFormValue("type") != "" {
-		query = chkAnd(query, baseLen)
-		query += "item_id IN " +
-			"(SELECT item_id FROM items " +
-			"WHERE item_type = ?) "
-		vals = append(vals, r.PostFormValue("type"))
-	}
-
-	// iterate through restricts
-	restricts := []string{
-		"!fighter", "!priest", "!thief", "!mage", "!male", "!female",
-		"!good", "!neut", "!evil", "!goodrace", "!evilrace",
-	}
-	for _, v := range restricts {
-		if r.PostFormValue(v) != "" {
-			query = chkAnd(query, baseLen)
-			query += "item_id NOT IN " +
-				"(SELECT item_id FROM item_restricts " +
-				"WHERE restrict_abbr = ?) "
-			vals = append(vals, v)
+		cmp, ok := compareSQL[r.PostFormValue("compareAttrib"+n)]
+		if v := r.PostFormValue("valueAttrib" + n); ok && v != "" {
+			add(col(s.col)+cmp, vals(v))
+		} else {
+			add(col(s.col)+" != 0", nil) // has the attribute at all
 		}
 	}
 
-	// iterate through effects
-	for _, v := range p.Effects {
-		if r.PostFormValue(v.EffAbbr) != "" {
-			query = chkAnd(query, baseLen)
-			query += "item_id IN " +
-				"(SELECT item_id FROM item_effects " +
-				"WHERE effect_abbr = ?) "
-			vals = append(vals, v.EffAbbr)
+	if worn := r.PostFormValue("worn"); worn != "" {
+		if s, ok := findSlot(worn); ok {
+			add(hasToken("worn", s.worn...))
+		} else {
+			add(noMatch, nil)
 		}
 	}
 
-	// iterate through resists
-	for _, v := range p.Resists {
-		if r.PostFormValue(v.ResAbbr) != "" {
-			query = chkAnd(query, baseLen)
-			query += "item_id IN " +
-				"(SELECT item_id FROM item_resists " +
-				"WHERE resist_abbr = ?) "
-			vals = append(vals, v.ResAbbr)
+	if t := r.PostFormValue("type"); t != "" {
+		add("type = ?", vals(t))
+	}
+
+	// Usable By: leave out items with the restriction
+	for _, u := range usableBy {
+		if r.PostFormValue(u.abbr) != "" {
+			test, targs := hasToken("item_flags", u.restrict)
+			add("NOT "+test, targs)
 		}
 	}
 
-	// iterate through flags
-	for _, v := range p.Flags {
-		if r.PostFormValue(v.FlagAbbr) != "" {
-			query = chkAnd(query, baseLen)
-			query += "item_id IN " +
-				"(SELECT item_id FROM item_flags " +
-				"WHERE flag_abbr = ?) "
-			vals = append(vals, v.FlagAbbr)
+	for _, e := range effects {
+		if r.PostFormValue(e.abbr) != "" {
+			add(hasToken("affect_flags", e.token))
 		}
 	}
 
-	// iterate through supps
-	for _, v := range p.Supps {
-		if r.PostFormValue(v.SuppAbbr) != "" {
-			query = chkAnd(query, baseLen)
-			query += "item_id IN " +
-				"(SELECT item_id FROM item_supps " +
-				"WHERE supp_abbr = ?) "
-			vals = append(vals, v.SuppAbbr)
+	for _, res := range resists {
+		if r.PostFormValue(res.abbr) != "" {
+			add(col(res.col)+" > 0", nil)
 		}
 	}
 
-	if len(query) > baseLen {
-		ordered := true
-		switch r.PostFormValue("orderBy") {
-		case "name":
-			query += "ORDER BY item_name "
-		case "zone":
-			query += "ORDER BY from_zone "
-		case "type":
-			query += "ORDER BY item_type "
-		default:
-			// TODO attrib1, attrib2 and worn sorting: those columns live in
-			// other tables, so they need a join before the form can offer them
-			ordered = false
-		}
-		if ordered {
-			switch r.PostFormValue("ascDesc") {
-			case "up":
-				query += "ASC"
-			case "down":
-				query += "DESC"
-			}
-		}
-
-		db := OpenDB()
-		defer db.Close()
-
-		stmt, err := db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		args := make([]interface{}, len(vals))
-		for n, val := range vals {
-			args[n] = val
-		}
-
-		rows, err := stmt.Query(args...)
-		ChkErr(err)
-		defer rows.Close()
-
-		for rows.Next() {
-			var s string
-			err = rows.Scan(&s)
-			ChkErr(err)
-			results = append(results, s)
+	for _, f := range flags {
+		if r.PostFormValue(f.abbr) != "" {
+			add(f.match())
 		}
 	}
+
+	for _, s := range supps {
+		if r.PostFormValue(s.abbr) != "" {
+			add(s.test, nil)
+		}
+	}
+
+	if len(tests) == 0 {
+		return nil
+	}
+	query := "SELECT " + length + " FROM eq WHERE " +
+		strings.Join(tests, " AND ")
+	// TODO attrib1, attrib2 and worn sorting
+	if order, ok := orderSQL[r.PostFormValue("orderBy")]; ok {
+		query += " ORDER BY " + order
+		switch r.PostFormValue("ascDesc") {
+		case "up":
+			query += " ASC"
+		case "down":
+			query += " DESC"
+		}
+		if order != "name" {
+			query += ", name"
+		}
+	}
+
+	db, err := OpenItemDB()
+	ChkErr(err)
+	defer db.Close()
+
+	rows, err := db.Query(query, args...)
+	ChkErr(err)
+	var results []string
+	for rows.Next() {
+		var s sql.NullString
+		ChkErr(rows.Scan(&s))
+		results = append(results, s.String)
+	}
+	ChkRows(rows)
 	return results
 }
 
-func FindExactItem(itemName string) string {
-	var stats string
-	query := "SELECT long_stats FROM items WHERE item_name = ?"
-
-	db := OpenDB()
-	defer db.Close()
-
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	err = stmt.QueryRow(itemName).Scan(&stats)
-	if err == sql.ErrNoRows {
-		itemName += " 1"
-		err = stmt.QueryRow(itemName).Scan(&stats)
-		if err == sql.ErrNoRows {
-			itemName = strings.Trim(itemName, " 1")
-			stats = NotFound("item", itemName)
-		} else if err != nil {
+// exactItem returns long stats for the item with exactly the name given,
+// or, failing that, for the first of its variants, as in "a sunrod 1".
+func exactItem(db *sql.DB, name string) string {
+	for _, n := range []string{name, name + " 1"} {
+		var text sql.NullString
+		err := db.QueryRow("SELECT long_stats FROM eq WHERE name = ?", n).
+			Scan(&text)
+		if err == nil {
+			return text.String
+		}
+		if err != sql.ErrNoRows {
 			fatal(err)
 		}
-	} else if err != nil {
-		fatal(err)
 	}
-
-	return stats
+	return NotFound("item", name)
 }
 
-func ParseList(txt string) []string {
-	var results []string
+// listNames picks the item names out of output from 'glist', 'equip',
+// 'auction list', 'inventory', 'look in bag', or 'storage list'.
+func listNames(txt string) []string {
+	var names []string
 	list := strings.Split(strings.Replace(txt, "\r\n", "\n", -1), "\n")
 
 	for _, v := range list {
@@ -471,13 +324,24 @@ func ParseList(txt string) []string {
 				v = v[n+1 : len(v)]
 			}
 			// remove leading and trailing whitespace
-			v = strings.TrimSpace(v)
-
-			result := FindExactItem(v)
-			results = append(results, result)
+			if v = strings.TrimSpace(v); v != "" {
+				names = append(names, v)
+			}
 		}
 	}
+	return names
+}
 
+// ParseList returns long stats for each item in a pasted list.
+func ParseList(txt string) []string {
+	db, err := OpenItemDB()
+	ChkErr(err)
+	defer db.Close()
+
+	var results []string
+	for _, name := range listNames(txt) {
+		results = append(results, exactItem(db, name))
+	}
 	return results
 }
 
@@ -499,12 +363,17 @@ func eqHandler(w http.ResponseWriter, r *http.Request) {
 				http.StatusInternalServerError)
 		}
 	}()
+	if _, err := os.Stat(itemDBFile); err != nil {
+		log.Printf("web: %s: %v", itemDBFile, err)
+		http.Error(w, itemsDown, http.StatusServiceUnavailable)
+		return
+	}
 	p := fillStructs()
 	if r.Method == "POST" {
 		if r.PostFormValue("list") != "" {
 			p.Results = ParseList(r.PostFormValue("list"))
 		} else {
-			p.Results = parseForm(p, r)
+			p.Results = parseForm(r)
 			// TODO make item names javascript link
 			// TODO make first / single result full_stats
 		}

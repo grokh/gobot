@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,17 +15,7 @@ func NotFound(four string, oper string) string {
 	return "404 " + four + " not found: " + oper
 }
 
-// itemSource is a table FindItem reads item stats from: items in toril.db,
-// or eq in TorilDB.db, which has its own short_stats and long_stats
-// columns, written in its own format.
-type itemSource struct {
-	db       *sql.DB
-	table    string // one row per item
-	nameCol  string // column holding the item name
-	fallback bool   // true for TorilDB.db
-}
-
-// nameMatch is one way of matching the requested item name: the name
+// nameMatch is one way of matching the requested item name: eq's name
 // column has to match every arg using op.
 type nameMatch struct {
 	op    string
@@ -50,22 +41,30 @@ func nameMatches(oper string) []nameMatch {
 	}
 }
 
-// find runs one name match against the table, returning the stats found
-// in the length asked for (short_stats or long_stats).
-func (s itemSource) find(m nameMatch, length string) ([]string, error) {
+// findStats runs one name match against eq, returning the stats found in
+// the length asked for (short_stats or long_stats).
+func findStats(db *sql.DB, m nameMatch, length string) ([]string, error) {
 	if len(m.args) == 0 {
 		return nil, nil
 	}
-	query := "SELECT " + length + " FROM " + s.table + " WHERE "
+	query := "SELECT " + length + " FROM eq WHERE "
 	args := make([]interface{}, len(m.args))
 	for n, arg := range m.args {
-		query += s.nameCol + " " + m.op + " ? AND "
+		query += "name " + m.op + " ? AND "
 		args[n] = arg
 	}
-	// a row without stats yet (imported, -s not run) isn't an answer
-	query += length + " != '' LIMIT " + strconv.Itoa(m.limit)
+	// a row without stats isn't an answer; of loose matches, the shortest
+	// name is the one closest to what was asked for
+	query += length + " != '' ORDER BY length(name), name LIMIT " +
+		strconv.Itoa(m.limit)
+	return queryStats(db, query, args...)
+}
 
-	rows, err := s.db.Query(query, args...)
+// queryStats runs a query for one column of stats text, readied for the
+// MUD by tintinSafe.
+func queryStats(db *sql.DB, query string, args ...interface{}) ([]string,
+	error) {
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +72,11 @@ func (s itemSource) find(m nameMatch, length string) ([]string, error) {
 
 	var res []string
 	for rows.Next() {
-		var stats string
-		if err := rows.Scan(&stats); err != nil {
+		var text sql.NullString
+		if err := rows.Scan(&text); err != nil {
 			return nil, err
 		}
-		res = append(res, stats)
+		res = append(res, tintinSafe(text.String))
 	}
 	return res, rows.Err()
 }
@@ -109,56 +108,29 @@ func tintinSafe(s string) string {
 	}, tintinChars.Replace(s))
 }
 
-// FindItem returns stats for the item named in oper, in the length asked
-// for (short_stats or long_stats). Each way of matching the name is tried
-// in turn, from exact to loosest, first against toril.db and then against
-// TorilDB.db, so toril.db answers whenever both match equally well, but
-// an exact name in TorilDB.db beats a loose guess from toril.db.
+// FindItem returns stats for the item named in oper from TorilDB.db, in
+// the length asked for (short_stats or long_stats). Each way of matching the
+// name is tried in turn, from exact to loosest.
 func FindItem(oper string, length string) []string {
-	return findItem(oper, length, true)
-}
-
-// findItem is FindItem, leaving TorilDB.db out when fallback is false.
-func findItem(oper string, length string, fallback bool) []string {
-	db := OpenDB()
-	defer db.Close()
-	srcs := []itemSource{{db: db, table: "items", nameCol: "item_name"}}
-
-	if fallback {
-		if fdb := OpenTorilDB(); fdb != nil {
-			defer fdb.Close()
-			srcs = append(srcs, itemSource{
-				db: fdb, table: "eq", nameCol: "name", fallback: true,
-			})
-		}
+	db, err := OpenItemDB()
+	if err != nil {
+		log.Printf("%s: %v\n", itemDBFile, err)
+		return []string{itemsDown}
 	}
+	defer db.Close()
 
 	for _, m := range nameMatches(oper) {
-		for n, src := range srcs {
-			if src.db == nil {
-				continue // TorilDB.db failed earlier in this lookup
-			}
-			res, err := src.find(m, length)
-			if err != nil && src.fallback {
-				// TorilDB.db is extra: if it can't be read (no eq table,
-				// a half-copied file), answer from toril.db alone
-				log.Printf("TorilDB.db: skipped for %s: %v\n", oper, err)
-				srcs[n].db = nil
-				continue
-			}
-			ChkErr(err)
-			if len(res) > 0 {
-				if src.fallback {
-					log.Printf("TorilDB.db: %s\n", oper)
-					for i := range res {
-						res[i] = tintinSafe(res[i])
-					}
-				}
-				return res
-			}
+		res, err := findStats(db, m, length)
+		if err != nil {
+			// not a database, no eq table, a column gone: say so, rather
+			// than that the item doesn't exist
+			log.Printf("%s: %s: %v\n", itemDBFile, oper, err)
+			return []string{itemsDown}
+		}
+		if len(res) > 0 {
+			return res
 		}
 	}
-
 	return []string{NotFound("item", oper)}
 }
 
@@ -264,9 +236,9 @@ func Help(oper string) []string {
 		txt = append(txt, "Syntax: tell katumi stat <item> -- "+
 			"Example: tell katumi stat isha cloak -- "+
 			"Katumi provides stat info for the item named. "+
-			"Use 'astat' for full text of acronyms and keywords. "+
-			"The name search is fairly forgiving. Please send new stats "+
-			"in an mwrite to katumi or email to kristi.michaels@gmail.com")
+			"Use 'astat' for the long form, with keywords and flags. "+
+			"The name search is fairly forgiving. Stats come from "+
+			"Kegor's TorilDB, updated daily.")
 	case "astat":
 		txt = append(txt, "Syntax: tell katumi astat <item> -- "+
 			"Example: tell katumi astat destruction sword -- "+
@@ -280,33 +252,36 @@ func Help(oper string) []string {
 			"Lists up to 10 items matching every field. Separate fields "+
 			"with a comma and a space. <op> is > < = >= <= or !=. "+
 			"Resists match above 0.")
-		txt = append(txt, "Stats: "+
-			fstatList("SELECT LOWER(attrib_abbr) FROM attribs ORDER BY 1"))
-		txt = append(txt, "Resists: "+
-			fstatList("SELECT LOWER(resist_abbr) FROM resists ORDER BY 1"))
-		txt = append(txt, "Slots: "+
-			fstatList("SELECT LOWER(slot_abbr) FROM slots ORDER BY 1"))
+		var names []string
+		for _, s := range stats {
+			names = append(names, s.abbr)
+		}
+		txt = append(txt, "Stats: "+fstatList(names))
+		names = nil
+		for _, r := range resists {
+			names = append(names, r.abbr)
+		}
+		txt = append(txt, "Resists: "+fstatList(names))
+		names = nil
+		for _, s := range slots {
+			names = append(names, s.abbr)
+		}
+		txt = append(txt, "Slots: "+fstatList(names))
 	default:
 		txt = append(txt, NotFound("help file", oper))
 	}
 	return txt
 }
 
-// fstatList is the comma-separated list of one kind of field fstat accepts,
-// read from the table that defines them, so help fstat can't fall behind.
-func fstatList(query string) string {
-	db := OpenDB()
-	defer db.Close()
-
-	rows, err := db.Query(query)
-	ChkErr(err)
+// fstatList is the sorted, comma-separated list of one kind of field fstat
+// accepts, taken from the table that defines them, so help fstat can't fall
+// behind.
+func fstatList(names []string) string {
 	var list []string
-	for rows.Next() {
-		var abbr string
-		ChkErr(rows.Scan(&abbr))
-		list = append(list, abbr)
+	for _, n := range names {
+		list = append(list, strings.ToLower(n))
 	}
-	ChkRows(rows)
+	sort.Strings(list)
 	return strings.Join(list, ", ")
 }
 
@@ -318,84 +293,64 @@ var fstatOps = map[string]bool{
 	"<": true, "<=": true, ">": true, ">=": true,
 }
 
+// Fstat lists up to 10 items from TorilDB.db matching every field in oper:
+// "<stat> <op> <num>", "resist <resist>" or "slot <slot>", separated by a
+// comma and a space. A stat, resist or slot fstat doesn't know matches
+// nothing; a field in no form it knows is skipped.
 func Fstat(oper string) []string {
-	var txts []string
-	opers := strings.Split(oper, ", ")
-	query := "SELECT short_stats FROM items"
+	var tests []string
 	var args []interface{}
-	for _, ops := range opers {
-		fop := strings.Fields(ops)
-		switch len(fop) {
-		case 3:
-			fop[0] = strings.ToLower(fop[0])
-			comp := fop[1]
-			if fstatOps[comp] {
-				if !strings.Contains(query, "WHERE") {
-					query += " WHERE item_id IN"
-				} else {
-					query += " AND item_id IN"
-				}
-				query += " (SELECT i.item_id FROM items i, item_attribs a " +
-					"WHERE i.item_id = a.item_id " +
-					"AND LOWER(attrib_abbr) = ? AND attrib_value " + comp + " ?)"
-				args = append(args, fop[0], fop[2])
+	unknown := false
+	for _, field := range strings.Split(oper, ", ") {
+		f := strings.Fields(field)
+		switch {
+		case len(f) == 3 && fstatOps[f[1]]:
+			s, ok := findStat(f[0])
+			if !ok {
+				unknown = true
+				continue
 			}
-		case 2:
-			if strings.ToLower(fop[0]) == "resist" {
-				res := strings.ToLower(fop[1])
-				if !strings.Contains(query, "WHERE") {
-					query += " WHERE item_id IN"
-				} else {
-					query += " AND item_id IN"
-				}
-				query += " (SELECT i.item_id FROM items i, item_resists r " +
-					"WHERE i.item_id = r.item_id " +
-					"AND LOWER(resist_abbr) = ? AND resist_value > 0)"
-				args = append(args, res)
-			} else if strings.ToLower(fop[0]) == "slot" {
-				slot := strings.ToLower(fop[1])
-				if !strings.Contains(query, "WHERE") {
-					query += " WHERE item_id IN"
-				} else {
-					query += " AND item_id IN"
-				}
-				query += " (SELECT i.item_id FROM items i, item_slots s " +
-					"WHERE i.item_id = s.item_id " +
-					"AND slot_abbr LIKE ?)"
-				args = append(args, slot)
+			tests = append(tests, col(s.col)+" "+f[1]+" ?")
+			args = append(args, f[2])
+		case len(f) == 2 && strings.EqualFold(f[0], "resist"):
+			r, ok := findResist(f[1])
+			if !ok {
+				unknown = true
+				continue
 			}
+			tests = append(tests, col(r.col)+" > 0")
+		case len(f) == 2 && strings.EqualFold(f[0], "slot"):
+			s, ok := findSlot(f[1])
+			if !ok {
+				unknown = true
+				continue
+			}
+			test, targs := hasToken("worn", s.worn...)
+			tests = append(tests, test)
+			args = append(args, targs...)
 		}
 	}
-	query += " LIMIT 10;"
-	if strings.Contains(query, "WHERE") {
-		db := OpenDB()
-		defer db.Close()
+	switch {
+	case unknown:
+		return []string{NotFound("item(s)", oper)}
+	case len(tests) == 0:
+		return []string{BadSyntax}
+	}
 
-		// debugging
-		//log.Printf("Query : %s\n", query)
-		//log.Printf("Params: %s\n", args)
-
-		stmt, err := db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		rows, err := stmt.Query(args...)
-		ChkErr(err)
-		defer rows.Close()
-
-		var found bool
-		for rows.Next() {
-			var stats string
-			err = rows.Scan(&stats)
-			txts = append(txts, stats)
-			found = true
-		}
-		if !found {
-			txts = append(txts, NotFound("item(s)", oper))
-		}
-		ChkRows(rows)
-	} else {
-		txts = append(txts, BadSyntax)
+	db, err := OpenItemDB()
+	if err != nil {
+		log.Printf("%s: %v\n", itemDBFile, err)
+		return []string{itemsDown}
+	}
+	defer db.Close()
+	txts, err := queryStats(db, "SELECT short_stats FROM eq WHERE "+
+		strings.Join(tests, " AND ")+" ORDER BY name LIMIT 10", args...)
+	if err != nil {
+		log.Printf("%s: fstat %s: %v\n", itemDBFile, oper, err)
+		return []string{itemsDown}
+	}
+	if len(txts) == 0 {
+		return []string{NotFound("item(s)", oper)}
 	}
 	return txts
 }

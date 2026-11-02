@@ -54,9 +54,6 @@ func main() {
 	var who = flag.String("who", "",
 		"Batched who output. "+
 			"Ex: \"[10 Ctr] Rarac  (Orc)|[ 2 War] Xatus  (Troll)\"")
-	// for identify.go Identify(filename string)
-	var file = flag.String("import", "",
-		"Parse file for identify stats, import to DB. Ex: newstats.txt")
 	// for time.go Uptime(curup string)
 	var time = flag.String("time", "",
 		"Parse uptime for boot tracking. Ex: 58:10:26")
@@ -74,10 +71,10 @@ func main() {
 		"Backup the toril.db database.")
 	var restore = flag.String("res", "",
 		"Restore the toril.db database from backup file. Ex: toril.db.gz")
-	var stats = flag.Bool("s", false,
-		"Run FormatStats() creation for item DB.")
-	var test = flag.Bool("test", false,
-		"Run any current functions under testing.")
+	// for items.go CheckItemDB(path string), run by torildb.sh
+	var checkItems = flag.String("checkitems", "",
+		"Check a downloaded TorilDB.db before it replaces the one in use. "+
+			"Ex: /tmp/TorilDB.db")
 	// port number for API / web server
 	var port = flag.String("port", "", "API / web server port.")
 
@@ -98,26 +95,27 @@ func main() {
 			name: *char, lvl: *lvl, class: *class, race: *race, acct: *acct,
 		}
 		cmds = c.who()
-	case *stats:
-		cmds = FormatStats()
 	case *item != "":
-		cmds = FindItem(*item, "short_stats")
+		for _, line := range FindItem(*item, "short_stats") {
+			cmds = append(cmds, line+"\n")
+		}
 	case *glist != "":
 		cmds = GlistStats(*glist)
-	case *file != "":
-		cmds = Identify(*file)
 	case *backup:
 		BackupDB()
 	case *restore != "":
 		RestoreDB(*restore)
-	case *test:
-		i := Item{}
-		i.FillItemByID(1)
-		for _, slots := range i.slots {
-			for _, slot := range slots {
-				fmt.Println(slot)
-			}
+	case *checkItems != "":
+		msg, err := CheckItemDB(*checkItems)
+		if err != nil {
+			log.Printf("%s check failed: %s: %v\n",
+				itemDBFile, *checkItems, err)
+			fmt.Fprintf(os.Stderr, "%s check failed: %s: %v\n",
+				itemDBFile, *checkItems, err)
+			os.Exit(1)
 		}
+		log.Println(msg)
+		cmds = []string{msg + "\n"}
 	case *port != "":
 		webServer = true
 		loadPage()

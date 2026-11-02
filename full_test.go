@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -325,6 +326,8 @@ func Test_All(t *testing.T) {
 	good = []string{"t Yog 404 help file not found: blah\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
+	testCharChanges(t)
+
 	// test item importing and statting
 	txt = Identify("testItems.txt")
 	good = []string{"Items Inserted: 3, Items Ignored: 0\n"}
@@ -415,6 +418,8 @@ func Test_All(t *testing.T) {
 	chk(t, "GlistStats()", good, txt)
 
 	testTorilDB(t, date)
+	testReboot(t)
+	testSplit(t)
 
 	if *email {
 		up = "0:01:00"
@@ -541,5 +546,145 @@ func testTorilDB(t *testing.T, date string) {
 	chk(t, "TorilDB.db missing", []string{notFound}, txt)
 	if _, err := os.Stat(torilDBFile); !os.IsNotExist(err) {
 		t.Errorf("TorilDB.db check failed: lookup created the file")
+	}
+}
+
+// chkPrefix checks that a one-line reply starts with want, for replies that
+// end in a time that can tick over while the test runs.
+func chkPrefix(t *testing.T, check string, want string, txt []string) {
+	if len(txt) != 1 || !strings.HasPrefix(txt[0], want) {
+		t.Errorf("%s check failed: Expected: %s..., Actual: %q",
+			check, strconv.Quote(want), txt)
+	}
+}
+
+// testCharChanges checks that class and race changes in the game reach the
+// DB, starting from Yog as a Barbarian Shaman.
+func testCharChanges(t *testing.T) {
+	who := "[50 War] Yog  (Barbarian)|" +
+		"[50 Bar] Bob - Soul Singer - The Warders (Human)|" +
+		"[ 1 Xyz] Tom  (Drow Elf)"
+	// Yog's class changed and Bob's didn't; Xyz isn't a class abbreviation
+	// the DB knows, so Tom is left alone
+	chk(t, "WhoBatch() class change", []string{"who Yog\n"}, WhoBatch(who))
+	chkPrefix(t, "char after class change",
+		"t Yog [50 Warrior] Yog (Barbarian) (@Yog) seen ",
+		ReplyTo("Yog", "char yog"))
+	// the DB now matches the who list, so Yog isn't flagged again
+	chk(t, "WhoBatch() same classes", []string{}, WhoBatch(who))
+
+	// the individual who that follows picks up a new race
+	c := Char{
+		name: "Yog", lvl: 50, class: "Warrior   ", race: "Half-Elf", acct: "Yog",
+	}
+	chk(t, "c.who() race change", []string{}, c.who())
+	chkPrefix(t, "char after race change",
+		"t Yog [50 Warrior] Yog (Half-Elf) (@Yog) seen ",
+		ReplyTo("Yog", "char yog"))
+
+	// a race the races table doesn't have is skipped, not written
+	c = Char{
+		name: "Yog", lvl: 50, class: "Warrior", race: "Martian", acct: "Yog",
+	}
+	chk(t, "c.who() unknown race", []string{}, c.who())
+	chkPrefix(t, "char after unknown race",
+		"t Yog [50 Warrior] Yog (Half-Elf) (@Yog) seen ",
+		ReplyTo("Yog", "char yog"))
+}
+
+// testReboot checks that Uptime notices a reboot even when the bot was
+// offline for longer than the old boot had lasted, without mistaking a
+// long-running boot for a new one.
+func testReboot(t *testing.T) {
+	emails := 0
+	sendBootEmail = func() { emails++ }
+	defer func() { sendBootEmail = SendBootEmail }()
+
+	db := OpenDB()
+	defer db.Close()
+	boots := func() int {
+		var n int
+		chkErr(t, db.QueryRow("SELECT COUNT(*) FROM boots").Scan(&n))
+		return n
+	}
+	// the current boot started ago, and was last seen up for up
+	lastBoot := func(ago time.Duration, up string) {
+		_, err := db.Exec("UPDATE boots SET boot_time = ?, uptime = ? "+
+			"WHERE boot_id = (SELECT MAX(boot_id) FROM boots)",
+			time.Now().Add(-ago), up)
+		chkErr(t, err)
+	}
+	check := func(what string, wantBoots int, wantEmails int) {
+		if b := boots(); b != wantBoots || emails != wantEmails {
+			t.Errorf("Uptime() check failed: %s: Expected: %d boots, "+
+				"%d emails, Actual: %d boots, %d emails",
+				what, wantBoots, wantEmails, b, emails)
+		}
+	}
+	n := boots()
+
+	// bot offline for 12 hours, MUD still on the same boot
+	lastBoot(22*time.Hour, "10:00:00")
+	Uptime("22:00:00")
+	check("offline, same boot", n, 0)
+
+	// MUD rebooted 11 hours ago while the bot was offline: the new uptime
+	// is already past the 10 hours the old boot was last seen at
+	lastBoot(22*time.Hour, "10:00:00")
+	Uptime("11:00:00")
+	check("rebooted while offline", n+1, 1)
+
+	// the next check-in is the same boot, and lr starts over with it
+	Uptime("11:00:30")
+	check("next check-in", n+1, 1)
+	chk(t, "lr after reboot",
+		[]string{"t Yog No loads reported for current boot.\n"},
+		ReplyTo("Yog", "lr"))
+
+	// a reboot the bot is around for: the uptime drops
+	Uptime("0:02:00")
+	check("uptime dropped", n+2, 2)
+}
+
+// testSplit checks that long replies go out as tells of at most tellLimit
+// characters, each one a whole tell, with nothing lost.
+func testSplit(t *testing.T) {
+	words := strings.Repeat("word ", 140) // 700 characters
+	parts := splitTell(words)
+	if len(parts) != 3 || strings.Join(parts, " ") != words {
+		t.Errorf("splitTell() check failed: words: %q", parts)
+	}
+	solid := strings.Repeat("x", 650) // nowhere to break
+	parts = splitTell(solid)
+	if len(parts) != 3 || strings.Join(parts, "") != solid {
+		t.Errorf("splitTell() check failed: no spaces: %d parts", len(parts))
+	}
+	for _, p := range append(splitTell(words), splitTell(solid)...) {
+		if len(p) > tellLimit || p == "" {
+			t.Errorf("splitTell() check failed: part of %d chars", len(p))
+		}
+	}
+
+	// a long load report ahead of a short one: the case that used to come
+	// out with a doubled prefix, a blank tell, and a raw line for the MUD
+	long := "ogre warlord at the north gate " +
+		strings.Repeat("with a very long report ", 14) + "end"
+	ReplyTo("Yog", "lr "+long)
+	ReplyTo("Bob", "lr short report here")
+	txt := ReplyTo("Zed", "lr")
+	var text []string
+	for _, line := range txt {
+		msg := strings.TrimPrefix(line, "t Zed ")
+		if msg == line || !strings.HasSuffix(msg, "\n") ||
+			len(msg) > tellLimit+1 || strings.TrimSpace(msg) == "" {
+			t.Errorf("lr split check failed: bad tell %q", line)
+		}
+		text = append(text, strings.TrimSuffix(msg, "\n"))
+	}
+	all := strings.Join(text, " ")
+	if len(txt) != 3 ||
+		!strings.Contains(all, "1: "+long+" [Yog at ") ||
+		!strings.Contains(all, "2: short report here [Bob at ") {
+		t.Errorf("lr split check failed: %d tells: %q", len(txt), all)
 	}
 }

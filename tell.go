@@ -936,28 +936,34 @@ func ReplyTo(char string, tell string) []string {
 	default:
 		txt = append(txt, BadSyntax)
 	}
-	for i, t := range txt {
-		if len(t) > 300 {
-			if strings.LastIndex(t[:300], " ") != 299 {
-				y := strings.Fields(t[:300])
-				x, y := y[len(y)-1], y[:len(y)-1]
-				a := strings.Join(y, " ")
-				b := x + t[300:]
-				txt[i] = fmt.Sprintf("t %s %s\n", char, b)
-				txt = append(txt, "")
-				copy(txt[i+1:], txt[i:])
-				txt[i] = fmt.Sprintf("t %s %s\n", char, a)
-			} else {
-				a := strings.TrimSpace(t[:300])
-				b := t[300:]
-				txt[i] = fmt.Sprintf("t %s %s\n", char, b)
-				txt = append(txt, "")
-				copy(txt[i+1:], txt[i:])
-				txt[i] = fmt.Sprintf("t %s %s\n", char, a)
-			}
-		} else {
-			txt[i] = fmt.Sprintf("t %s %s\n", char, t)
+	var tells []string
+	for _, t := range txt {
+		for _, part := range splitTell(t) {
+			tells = append(tells, fmt.Sprintf("t %s %s\n", char, part))
 		}
 	}
-	return txt
+	return tells
+}
+
+// tellLimit is the most text katumi puts in a single tell.
+const tellLimit = 300
+
+// splitTell breaks a reply into as many pieces as it takes to keep each one
+// within tellLimit, breaking at a space where there is one.
+func splitTell(t string) []string {
+	var parts []string
+	for len(t) > tellLimit {
+		cut := strings.LastIndex(t[:tellLimit+1], " ")
+		if cut <= 0 {
+			cut = tellLimit // no space to break at
+		}
+		if part := strings.TrimRight(t[:cut], " "); part != "" {
+			parts = append(parts, part)
+		}
+		t = strings.TrimLeft(t[cut:], " ")
+	}
+	if t != "" || len(parts) == 0 {
+		parts = append(parts, t)
+	}
+	return parts
 }

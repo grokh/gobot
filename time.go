@@ -1,65 +1,77 @@
 package main
 
 import (
+	"database/sql"
 	"strings"
 	"time"
 )
 
-func Uptime(curup string) {
-	split := strings.Split(curup, ":")
-	curboot := split[0] + "h" + split[1] + "m" + split[2] + "s"
-	curtime, err := time.ParseDuration(curboot)
+// sendBootEmail is what Uptime calls on a new boot; the tests swap it out.
+var sendBootEmail = SendBootEmail
+
+// bootSlack is how much later than the old boot was last seen running the
+// MUD has to have come up before it counts as a new boot, so a second or
+// two of clock difference between the MUD and this server can't trip it.
+const bootSlack = time.Minute
+
+// parseUptime turns the MUD's H:M:S uptime into a duration.
+func parseUptime(up string) time.Duration {
+	split := strings.Split(up, ":")
+	if len(split) != 3 {
+		fatal("Fatal Error: uptime not in H:M:S form: ", up)
+	}
+	d, err := time.ParseDuration(split[0] + "h" + split[1] + "m" +
+		split[2] + "s")
 	ChkErr(err)
+	return d
+}
+
+func Uptime(curup string) {
+	curtime := parseUptime(curup)
 	loc, err := time.LoadLocation("America/New_York")
 	ChkErr(err)
 
 	db := OpenDB()
 	defer db.Close()
 
-	query := "SELECT boot_id, uptime FROM boots " +
-		"WHERE boot_time = (SELECT MAX(boot_time) FROM boots)"
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
+	// the current boot, the same one lr reports on
+	query := "SELECT boot_id, uptime, " +
+		"CAST(STRFTIME('%s', boot_time) AS INTEGER) " +
+		"FROM boots ORDER BY boot_id DESC LIMIT 1"
 	var oldid int
 	var oldup string
-	err = stmt.QueryRow().Scan(&oldid, &oldup)
+	var started sql.NullInt64
+	err = db.QueryRow(query).Scan(&oldid, &oldup, &started)
 	ChkErr(err)
-	split = strings.Split(oldup, ":")
-	oldboot := split[0] + "h" + split[1] + "m" + split[2] + "s"
-	oldtime, err := time.ParseDuration(oldboot)
-	ChkErr(err)
+	oldtime := parseUptime(oldup)
 
-	if curtime < oldtime {
+	// It's a new boot if the uptime went down, or if the MUD came up after
+	// the old boot was last seen running. The second case catches a reboot
+	// while the bot was offline for longer than the old boot had lasted,
+	// when the new uptime can already be past the old one.
+	boottime := time.Now().In(loc).Add(-curtime)
+	lastSeen := time.Unix(started.Int64, 0).Add(oldtime)
+	newBoot := curtime < oldtime ||
+		(started.Valid && boottime.After(lastSeen.Add(bootSlack)))
+
+	tx, err := db.Begin()
+	ChkErr(err)
+	if newBoot {
 		// it's a new boot, so create a new boot ID and send email
-		tx, err := db.Begin()
+		_, err = tx.Exec(
+			"INSERT INTO boots (boot_time, uptime) VALUES(?, ?)",
+			boottime, curup)
 		ChkErr(err)
-
-		boottime := time.Now().In(loc).Add(-curtime)
-		stmt, err = db.Prepare(
-			"INSERT INTO boots (boot_time, uptime) VALUES(?, ?)")
-		ChkErr(err)
-		defer stmt.Close()
-
-		_, err = stmt.Exec(boottime, curup)
-		ChkErr(err)
-		tx.Commit()
+		ChkErr(tx.Commit())
 		// make sure you have a tokens.txt file containing
 		// gmail account on first line, pwd on second,
 		// and each additional line containing the target emails
-		SendBootEmail()
+		sendBootEmail()
 	} else {
 		// it's still the current boot, so update current uptime
-		tx, err := db.Begin()
+		_, err = tx.Exec("UPDATE boots SET uptime = ? WHERE boot_id = ?",
+			curup, oldid)
 		ChkErr(err)
-		stmt, err := tx.Prepare(
-			"UPDATE boots SET uptime = ? WHERE boot_id = ?")
-		ChkErr(err)
-		defer stmt.Close()
-
-		_, err = stmt.Exec(curup, oldid)
-		ChkErr(err)
-		tx.Commit()
+		ChkErr(tx.Commit())
 	}
 }

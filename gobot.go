@@ -76,7 +76,7 @@ func main() {
 		"Check a downloaded TorilDB.db before it replaces the one in use. "+
 			"Ex: /tmp/TorilDB.db")
 	// port number for API / web server
-	var port = flag.String("port", "", "API / web server port.")
+	var port = flag.String("port", "", "API / web server port, on 127.0.0.1.")
 
 	flag.Parse()
 
@@ -123,7 +123,8 @@ func main() {
 		http.Handle("/style.css", http.FileServer(http.Dir("html")))
 		http.Handle("/form.js", http.FileServer(http.Dir("html")))
 		http.Handle("/favicon.ico", http.FileServer(http.Dir("html")))
-		err := http.ListenAndServe(":"+*port, nil)
+		// nginx, on the same machine, is the only way in
+		err := http.ListenAndServe("127.0.0.1:"+*port, nil)
 		ChkErr(err)
 	}
 	for _, cmd := range cmds {

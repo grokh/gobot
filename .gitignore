@@ -4,5 +4,6 @@ toril.db
 TorilDB.db
 TorilDB.db.*
 torildb.url
+ntfy.url
 *sublime*
 dump.sql*

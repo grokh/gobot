@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-// sendBootEmail is what Uptime calls on a new boot; the tests swap it out.
-var sendBootEmail = SendBootEmail
+// sendBootAlert is what Uptime calls on a new boot; the tests swap it out.
+var sendBootAlert = SendBootAlert
 
 // bootSlack is how much later than the old boot was last seen running the
 // MUD has to have come up before it counts as a new boot, so a second or
@@ -55,16 +55,14 @@ func Uptime(curup string) {
 	tx, err := db.Begin()
 	ChkErr(err)
 	if newBoot {
-		// it's a new boot, so create a new boot ID and send email
+		// it's a new boot, so create a new boot ID and send an alert
 		_, err = tx.Exec(
 			"INSERT INTO boots (boot_time, uptime) VALUES(?, ?)",
 			boottime, curup)
 		ChkErr(err)
 		ChkErr(tx.Commit())
-		// make sure you have a tokens.txt file containing
-		// gmail account on first line, pwd on second,
-		// and each additional line containing the target emails
-		sendBootEmail()
+		// committed first, so an alert that fails can't lose the boot
+		sendBootAlert()
 	} else {
 		// it's still the current boot, so update current uptime
 		_, err = tx.Exec("UPDATE boots SET uptime = ? WHERE boot_id = ?",

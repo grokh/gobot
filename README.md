@@ -5,7 +5,7 @@ The TorilMUD helper bot Katumi and the [TorilEQ](https://www.grokh.com/torileq/)
 
 ## How it works
 
-`tt++ katumi.tin`, run in the bot folder (`/srv/bot`), logs in to torilmud.com and calls `gobot` for each event: `-time` and `-who` every 30 seconds to track boots and who's online, `-char <name> -tell "<text>"` for each tell, and `-bak` daily. MUD text is escaped for the shell by `shellsafe`, and replies go back to the MUD as commands, so keep tintin++ syntax out of them (`tintinSafe` in `tell.go`, which every line from `TorilDB.db` goes through).
+`tt++ katumi.tin`, run in the bot folder (`/srv/bot`), logs in to torilmud.com and calls `gobot` for each event: `-time` and `-who` every 30 seconds to track boots and who's online, `-char <name> -tell "<text>"` for each tell, and `-bak` daily. MUD text is escaped for the shell by `shellsafe`, and replies go back to the MUD as commands, so keep tintin++ syntax out of them (`tellSafe` in `tell.go`, which every reply line goes through; `tintinSafe` also drops `@` from `TorilDB.db` text).
 
 Tells: `stat`, `astat`, `fstat`, `who`, `clist`, `char`, `find`, `class`, `name`, `addname`, `delalt`, `addalt`, `hidden`, `lr`, `lrdel`; `tell katumi help <cmd>` explains each. `stat` and `astat` answer with Kegor's own short and long stats; `fstat` and the website search his `eq` table's stat columns, mapped from the names players use in `items.go`.
 

@@ -84,8 +84,9 @@ func queryStats(db *sql.DB, query string, args ...interface{}) ([]string,
 // tintinChars are the characters tintin++ treats specially. katumi.tin
 // runs every line gobot prints as a tintin command, and drops a line with
 // a double quote in it at its #if check, so that becomes a single quote,
-// as shellsafe does for the shell. The rest are neutralized because
-// TorilDB.db is someone else's file, refreshed daily.
+// as shellsafe does for the shell. The rest are neutralized because a
+// reply can carry text gobot didn't write: a player's own words, or
+// TorilDB.db, which is someone else's file, refreshed daily.
 var tintinChars = strings.NewReplacer(
 	`"`, `'`,
 	`;`, `,`,
@@ -93,19 +94,26 @@ var tintinChars = strings.NewReplacer(
 	`}`, `)`,
 	`\`, ``,
 	`$`, ``,
-	`@`, ``,
 )
 
-// tintinSafe readies TorilDB.db text for katumi.tin. It also turns control
-// characters into spaces: a newline would end the tell, and katumi.tin
-// would run whatever followed it as a command of its own.
-func tintinSafe(s string) string {
+// tellSafe readies a line for katumi.tin. It also turns control characters
+// into spaces: a newline would end the tell, and katumi.tin would run
+// whatever followed it as a command of its own. It leaves @ alone, since
+// replies show accounts as @name: @ only calls a tintin function when a {
+// follows the name, and tellSafe lets no { through.
+func tellSafe(s string) string {
 	return strings.Map(func(r rune) rune {
 		if r < ' ' || r == 0x7f {
 			return ' '
 		}
 		return r
 	}, tintinChars.Replace(s))
+}
+
+// tintinSafe readies TorilDB.db text for katumi.tin: tellSafe, with any @
+// taken out as well.
+func tintinSafe(s string) string {
+	return tellSafe(strings.ReplaceAll(s, "@", ""))
 }
 
 // FindItem returns stats for the item named in oper from TorilDB.db, in
@@ -905,7 +913,9 @@ func ReplyTo(char string, tell string) []string {
 	var tells []string
 	for _, t := range txt {
 		for _, part := range splitTell(t) {
-			tells = append(tells, fmt.Sprintf("t %s %s\n", char, part))
+			// katumi.tin runs the line as a tintin command, and a reply can
+			// repeat what a player sent: 404s, load reports, real names
+			tells = append(tells, tellSafe("t "+char+" "+part)+"\n")
 		}
 	}
 	return tells

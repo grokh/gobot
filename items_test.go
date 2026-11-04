@@ -214,6 +214,9 @@ func testStat(t *testing.T) {
 		{"stat an evil ring", tell("an evil ring #showme pwned, say cpw x " +
 			"(y) z")},
 		{"stat blah", []string{"t Yog 404 item not found: blah\n"}},
+		// a player's own words come back tintin-safe too, all but the @
+		{"stat @qq;#showme {zz} $cpw",
+			[]string{"t Yog 404 item not found: @qq,#showme (zz) cpw\n"}},
 	}
 	for _, c := range checks {
 		chk(t, "ReplyTo(Yog, "+c.tell+")", c.good, ReplyTo("Yog", c.tell))

@@ -4,7 +4,6 @@ import (
 	"compress/gzip"
 	"context"
 	"database/sql"
-	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -39,10 +38,7 @@ func chkErr(t *testing.T, err error) {
 	}
 }
 
-var email = flag.Bool("email", false, "Test sending email/SMS.")
-
 func Test_All(t *testing.T) {
-	flag.Parse()
 	src, err := os.Getwd()
 	chkErr(t, err)
 	chkErr(t, os.MkdirAll(filepath.Join(src, "logs"), 0750))
@@ -62,12 +58,6 @@ func Test_All(t *testing.T) {
 	cmd := exec.Command("sqlite3", "toril.db",
 		".read "+strconv.Quote(filepath.Join(src, "init_db.sql")))
 	chkErr(t, cmd.Run())
-	if *email {
-		// the reboot email reads its account from tokens.txt
-		tokens, err := os.ReadFile(filepath.Join(src, "tokens.txt"))
-		chkErr(t, err)
-		chkErr(t, os.WriteFile("tokens.txt", tokens, 0600))
-	}
 
 	date := time.Now().UTC().Format("2006-01-02 15:04:05")
 
@@ -338,11 +328,6 @@ func Test_All(t *testing.T) {
 	testSplit(t)
 	testTimes(t, db, filepath.Join(src, "fix_times_and_stats.sql"))
 	testBackup(t)
-
-	if *email {
-		up = "0:01:00"
-		Uptime(up)
-	}
 }
 
 // chkPrefix checks that a one-line reply starts with want, for replies that
@@ -392,9 +377,9 @@ func testCharChanges(t *testing.T) {
 // offline for longer than the old boot had lasted, without mistaking a
 // long-running boot for a new one.
 func testReboot(t *testing.T) {
-	emails := 0
-	sendBootEmail = func() { emails++ }
-	defer func() { sendBootEmail = SendBootEmail }()
+	alerts := 0
+	sendBootAlert = func() { alerts++ }
+	defer func() { sendBootAlert = SendBootAlert }()
 
 	db := OpenDB()
 	defer db.Close()
@@ -410,11 +395,11 @@ func testReboot(t *testing.T) {
 			time.Now().Add(-ago), up)
 		chkErr(t, err)
 	}
-	check := func(what string, wantBoots int, wantEmails int) {
-		if b := boots(); b != wantBoots || emails != wantEmails {
+	check := func(what string, wantBoots int, wantAlerts int) {
+		if b := boots(); b != wantBoots || alerts != wantAlerts {
 			t.Errorf("Uptime() check failed: %s: Expected: %d boots, "+
-				"%d emails, Actual: %d boots, %d emails",
-				what, wantBoots, wantEmails, b, emails)
+				"%d alerts, Actual: %d boots, %d alerts",
+				what, wantBoots, wantAlerts, b, alerts)
 		}
 	}
 	n := boots()

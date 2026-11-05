@@ -7,7 +7,7 @@
 # A download that fails the check changes nothing.
 #
 # Kegor's download link isn't in the repo, since it's his to share: put it
-# on the first line of torildb.url in the bot's folder, next to tokens.txt.
+# on the first line of torildb.url in the bot's folder, next to tokens.tin.
 #
 # Run it daily from cron, e.g.:
 #     17 6 * * * $HOME/go/src/github.com/grokh/gobot/torildb.sh

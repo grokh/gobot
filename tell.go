@@ -355,6 +355,9 @@ func Help(oper string) []string {
 		txt = append(txt, "Usable: "+fstatList(names))
 	default:
 		txt = append(txt, NotFound("help file", oper))
+		if guess := guessCommand(oper); guess != "" {
+			txt = append(txt, "Did you mean 'tell katumi help "+guess+"'?")
+		}
 	}
 	return txt
 }
@@ -1118,11 +1121,11 @@ func ReplyTo(char string, tell string) []string {
 			txt = append(txt, char+" is NOT hidden!")
 		}
 	case cmd == "stat" && oper != "":
-		txt = FindItem(oper, "short_stats")
+		txt = withGuess(FindItem(oper, "short_stats"), "eq", oper)
 	case cmd == "astat" && oper != "":
-		txt = Astat(oper)
+		txt = withGuess(Astat(oper), "eq", oper)
 	case cmd == "mstat" && oper != "":
-		txt = FindMob(oper)
+		txt = withGuess(FindMob(oper), "mobs", oper)
 	case cmd == "fstat" && oper != "":
 		txt = Fstat(oper)
 	case cmd == "who" && oper != "":
@@ -1149,6 +1152,9 @@ func ReplyTo(char string, tell string) []string {
 		txt = append(txt, LRDel(oper))
 	default:
 		txt = append(txt, BadSyntax)
+		if guess := badCommand(cmd, oper); guess != "" {
+			txt = append(txt, guess)
+		}
 	}
 	var tells []string
 	for _, t := range txt {

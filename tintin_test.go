@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,7 +56,8 @@ func Test_Tintin(t *testing.T) {
 	}
 
 	scripts := []tinScript{
-		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin")},
+		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
+			everyTell: true},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
 		scripts = append(scripts, tinScript{name: "torilmud.tin",
@@ -67,11 +69,25 @@ func Test_Tintin(t *testing.T) {
 }
 
 // tinScript is a script Test_Tintin runs: the file, others it reads from
-// its own folder as it loads, and whether it answers stat on ASSOC.
+// its own folder as it loads, whether it answers stat on ASSOC, and whether
+// it passes gobot every tell, not just stat.
 type tinScript struct {
-	name, path string
-	deps       []string
-	assoc      bool
+	name, path       string
+	deps             []string
+	assoc, everyTell bool
+}
+
+// plainDaggers are a dozen items with hit 1, so that fstat hit >= 1 finds
+// more items, with the stiletto and the sword, than an fstat reply lists.
+func plainDaggers() []dbRow {
+	var items []dbRow
+	for n := 1; n <= 12; n++ {
+		name := fmt.Sprintf("a plain dagger %d", n)
+		items = append(items, dbRow{"name": name, "zone": "Waterdeep",
+			"type": "WEAPON", "worn": "WIELD", "hit": 1, "date": "2020-01-01",
+			"short_stats": name + " (WIELD) * 1D4 1/0", "long_stats": name})
+	}
+	return items
 }
 
 // fakeSecret stands in for the password in $cpw. If it shows up, tintin
@@ -89,7 +105,8 @@ func (s tinScript) check(t *testing.T, tt, bin, work string) {
 		copyOffline(t, filepath.Join(filepath.Dir(s.path), dep),
 			filepath.Join(run, dep))
 	}
-	writeItemDB(t, filepath.Join(run, itemDBFile), testEq)
+	writeItemDB(t, filepath.Join(run, itemDBFile),
+		append(append([]dbRow{}, testEq...), plainDaggers()...))
 	chkErr(t, os.WriteFile(filepath.Join(run, "tokens.tin"), []byte(
 		"#var {acct} {nobody}\n#var {char} {Testbot}\n"+
 			"#var {cpw} {"+fakeSecret+"}\n"), 0640))
@@ -113,6 +130,11 @@ func (s tinScript) check(t *testing.T, tt, bin, work string) {
 	botLog := readIfThere(t, filepath.Join(run, "logs", "bot.log"))
 
 	want := []string{"t Yog " + stilettoShort}
+	if s.everyTell {
+		// the link to the rest gets through tintin whole
+		want = append(want, "t Yog ...and 4 more: "+torileqURL+
+			"?fstat=hit+ge+1")
+	}
 	if s.assoc {
 		want = append(want, "acc "+stilettoShort)
 	}
@@ -165,6 +187,7 @@ func (s tinScript) driver() string {
 		"stat ${dl}cpw",
 		`stat x\x7D \x7B#showme INJECTED-BRACE\x7D`,
 		"stat x;#showme INJECTED-SEMI",
+		"fstat hit >= 1",
 	} {
 		lines = append(lines, "#showme {Yog tells you '"+text+"'}")
 		if s.assoc {

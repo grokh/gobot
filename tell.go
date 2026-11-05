@@ -78,25 +78,30 @@ func findStats(db *sql.DB, m nameMatch, length string) ([]foundItem, error) {
 	return res, rows.Err()
 }
 
-// queryStats runs a query for one column of stats text, readied for the
-// MUD by tintinSafe.
-func queryStats(db *sql.DB, query string, args ...interface{}) ([]string,
-	error) {
+// queryStats runs a query for one column of stats text, returning the first
+// limit rows, or every row if limit is 0, and how many more there were.
+func queryStats(db *sql.DB, query string, limit int, args ...interface{}) (
+	[]string, int, error) {
 	rows, err := db.Query(query, args...)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rows.Close()
 
 	var res []string
+	more := 0
 	for rows.Next() {
+		if limit > 0 && len(res) == limit {
+			more++
+			continue
+		}
 		var text sql.NullString
 		if err := rows.Scan(&text); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		res = append(res, tintinSafe(text.String))
+		res = append(res, text.String)
 	}
-	return res, rows.Err()
+	return res, more, rows.Err()
 }
 
 // tintinChars are the characters tintin++ treats specially. katumi.tin
@@ -305,9 +310,12 @@ func Help(oper string) []string {
 	case "fstat":
 		txt = append(txt, "Syntax: tell katumi fstat <field>[, <field>...] -- "+
 			"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- "+
-			"Lists up to 10 items matching every field. Separate fields "+
+			"Lists up to 10 items matching every field, the most of the "+
+			"first stat first (the least, for < and <=), then a TorilEQ "+
+			"link to the rest. Separate fields "+
 			"with a comma and a space. A field is <stat> <op> <num>, where "+
-			"<op> is > < = >= <= or !=, or one of: resist <resist> (above "+
+			"<op> is > < = >= <= != or gt lt eq ge le ne, or one of: "+
+			"resist <resist> (above "+
 			"0), slot <slot>, effect <effect>, flag <flag>, usable <who> "+
 			"(leaves out items flagged against them), type <type>, "+
 			"weapon <weapon type>, zone <zone>. Type, weapon and zone take "+
@@ -363,36 +371,36 @@ func fstatList(names []string) string {
 	return strings.Join(list, ", ")
 }
 
-// fstatOps lists the comparison operators fstat accepts. The operator is
-// written into the SQL text (it can't be a ? parameter), so it must only
-// ever be one of these exact strings, never raw text from a tell.
-var fstatOps = map[string]bool{
-	"=": true, "==": true, "!=": true, "<>": true,
-	"<": true, "<=": true, ">": true, ">=": true,
+// fstatOps maps the comparison operators fstat accepts, as symbols or
+// words, to SQL. The operator is written into the SQL text (it can't be a ?
+// parameter), so it's only ever one of these values, never raw text from a
+// tell.
+var fstatOps = map[string]string{
+	"=": "=", "==": "=", "eq": "=",
+	"!=": "!=", "<>": "!=", "ne": "!=",
+	"<": "<", "lt": "<",
+	"<=": "<=", "le": "<=",
+	">": ">", "gt": ">",
+	">=": ">=", "ge": ">=",
 }
 
-// Fstat lists up to 10 items from TorilDB.db matching every field in oper,
-// in the forms fstatField reads, separated by a comma and a space. A stat,
-// resist, slot, effect, flag or usable fstat doesn't know matches nothing;
-// a field in no form it knows is skipped.
+// opWords are the words for fstat's operators, by their SQL, which
+// fstatLink writes in place of the symbols.
+var opWords = map[string]string{
+	"=": "eq", "!=": "ne", "<": "lt", "<=": "le", ">": "gt", ">=": "ge",
+}
+
+// fstatLimit is the most items an fstat reply lists.
+var fstatLimit = 10
+
+// Fstat lists up to fstatLimit items from TorilDB.db matching every field
+// in oper, as fstatSearch reads them, and says how many more there are.
 func Fstat(oper string) []string {
-	var tests []string
-	var args []interface{}
-	unknown := false
-	for _, field := range strings.Split(oper, ", ") {
-		test, targs, ok := fstatField(strings.Fields(field))
-		switch {
-		case !ok:
-			unknown = true
-		case test != "":
-			tests = append(tests, test)
-			args = append(args, targs...)
-		}
-	}
+	where, args, order, ok := fstatSearch(oper)
 	switch {
-	case unknown:
+	case !ok:
 		return []string{NotFound("item(s)", oper)}
-	case len(tests) == 0:
+	case where == "":
 		return []string{BadSyntax}
 	}
 
@@ -402,8 +410,8 @@ func Fstat(oper string) []string {
 		return []string{itemsDown}
 	}
 	defer db.Close()
-	txts, err := queryStats(db, "SELECT short_stats FROM eq WHERE "+
-		strings.Join(tests, " AND ")+" ORDER BY name LIMIT 10", args...)
+	txts, more, err := queryStats(db, "SELECT short_stats FROM eq WHERE "+
+		where+" ORDER BY "+order, fstatLimit, args...)
 	if err != nil {
 		log.Printf("%s: fstat %s: %v\n", itemDBFile, oper, err)
 		return []string{itemsDown}
@@ -411,12 +419,90 @@ func Fstat(oper string) []string {
 	if len(txts) == 0 {
 		return []string{NotFound("item(s)", oper)}
 	}
+	for n, txt := range txts {
+		txts[n] = tintinSafe(txt)
+	}
+	if more > 0 {
+		txts = append(txts, fstatMore(oper, more))
+	}
 	return txts
 }
 
+// fstatSearch reads oper's fields, separated by a comma and a space, into
+// fstat's search: the tests after WHERE, with their arguments, and the
+// ORDER BY. Items come by the first stat compared, the most of it first,
+// or the least for < and <=, then by name. ok is false if a field names a
+// stat, resist, slot, effect, flag or who fstat doesn't know. A field in no
+// form it knows is skipped.
+func fstatSearch(oper string) (where string, args []interface{},
+	order string, ok bool) {
+	var tests []string
+	ok = true
+	for _, field := range strings.Split(oper, ", ") {
+		test, targs, by, known := fstatField(strings.Fields(field))
+		switch {
+		case !known:
+			ok = false
+		case test != "":
+			tests = append(tests, test)
+			args = append(args, targs...)
+			if order == "" {
+				order = by
+			}
+		}
+	}
+	if order != "" {
+		order += ", "
+	}
+	return strings.Join(tests, " AND "), args, order + "name", ok
+}
+
+// torileqURL is the TorilEQ site.
+const torileqURL = "https://www.grokh.com/torileq/"
+
+// fstatMore is the line ending an fstat reply that leaves items out: how
+// many, and where TorilEQ lists them all, if oper fits in a link.
+func fstatMore(oper string, more int) string {
+	line := "...and " + strconv.Itoa(more) + " more"
+	if link := fstatLink(oper); link != "" {
+		line += ": " + link
+	}
+	return line
+}
+
+// fstatLink is the TorilEQ link to everything the fstat search in oper
+// finds, with its operators as words, as in ?fstat=dam+gt+2,+slot+neck. It's
+// "" if oper has anything but letters, digits, spaces and ,.'!_- in it, so
+// the link never needs escaping and stays whole through tintin, the MUD and
+// the clients that make links of addresses, and if it would be too long for
+// one tell.
+func fstatLink(oper string) string {
+	var fields []string
+	for _, field := range strings.Split(oper, ", ") {
+		f := strings.Fields(field)
+		if len(f) == 3 {
+			if op, ok := fstatOps[strings.ToLower(f[1])]; ok {
+				f[1] = opWords[op]
+			}
+		}
+		fields = append(fields, strings.Join(f, "+"))
+	}
+	query := strings.Join(fields, ",+")
+	for _, c := range query {
+		if !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' ||
+			'0' <= c && c <= '9' || strings.ContainsRune(",.'!_-+", c)) {
+			return ""
+		}
+	}
+	link := torileqURL + "?fstat=" + query
+	if len(link) > tellLimit {
+		return ""
+	}
+	return link
+}
+
 // fstatField is the SQL test for one fstat field, split into words, with
-// its arguments. A field is "<stat> <op> <num>", or a word saying what to
-// look for, then what:
+// its arguments. A field is a word saying what to look for, then what:
 //   - resist <resist>: above 0
 //   - slot <slot>
 //   - effect <effect>: an ability the item gives
@@ -428,70 +514,79 @@ func Fstat(oper string) []string {
 //     them through.
 //   - type <type>, weapon <weapon type> or zone <zone>, by Kegor's names
 //
-// ok is false for a field naming a stat, resist, slot, effect, flag or who
-// fstat doesn't know. test is "" for a field in no form fstat knows.
-func fstatField(f []string) (test string, args []interface{}, ok bool) {
+// or "<stat> <op> <num>", for which order is the ORDER BY that puts the
+// best of that stat first. ok is false for a field naming a stat, resist,
+// slot, effect, flag or who fstat doesn't know. test is "" for a field in
+// no form fstat knows.
+func fstatField(f []string) (test string, args []interface{}, order string,
+	ok bool) {
 	if len(f) < 2 {
-		return "", nil, true
-	}
-	if len(f) == 3 && fstatOps[f[1]] {
-		s, ok := findStat(f[0])
-		if !ok {
-			return "", nil, false
-		}
-		return col(s.col) + " " + f[1] + " ?", vals(f[2]), true
+		return "", nil, "", true
 	}
 	what := strings.Join(f[1:], " ")
 	switch strings.ToLower(f[0]) {
 	case "resist":
 		if r, ok := findResist(what); ok {
-			return col(r.col) + " > 0", nil, true
+			return col(r.col) + " > 0", nil, "", true
 		}
 	case "slot":
 		if s, ok := findSlot(what); ok {
 			test, args := hasToken("worn", s.worn...)
-			return test, args, true
+			return test, args, "", true
 		}
 	case "effect":
 		for _, e := range effects {
 			if strings.EqualFold(e.abbr, what) {
 				test, args := hasToken("affect_flags", e.token)
-				return test, args, true
+				return test, args, "", true
 			}
 		}
 	case "flag":
 		for _, fl := range flags {
 			if strings.EqualFold(fl.abbr, what) {
 				test, args := fl.match()
-				return test, args, true
+				return test, args, "", true
 			}
 		}
 		for _, s := range supps {
 			if strings.EqualFold(s.abbr, what) {
-				return s.test, nil, true
+				return s.test, nil, "", true
 			}
 		}
 	case "usable":
 		for _, u := range usableBy {
 			if strings.EqualFold(u.abbr, "!"+strings.TrimPrefix(what, "!")) {
 				test, args := hasToken("item_flags", u.restrict)
-				return "NOT " + test, args, true
+				return "NOT " + test, args, "", true
 			}
 		}
 	case "type":
 		// LIQUID_CONT is liquid cont too
-		return squashed("type") + " = ?", vals(squash(what)), true
+		return squashed("type") + " = ?", vals(squash(what)), "", true
 	case "weapon":
 		// Short Sword is shortsword too, and Longsword long sword
-		return squashed("w_type") + " = ?", vals(squash(what)), true
+		return squashed("w_type") + " = ?", vals(squash(what)), "", true
 	case "zone":
 		// the zone, or one of the zones of an item that loads in several
 		return "instr(? || lower(zone) || ?, ?) > 0",
-			vals(zoneSep, zoneSep, zoneSep+strings.ToLower(what)+zoneSep), true
+			vals(zoneSep, zoneSep, zoneSep+strings.ToLower(what)+zoneSep), "",
+			true
 	default:
-		return "", nil, true
+		op, isOp := fstatOps[strings.ToLower(f[1])]
+		if len(f) != 3 || !isOp {
+			return "", nil, "", true
+		}
+		s, ok := findStat(f[0])
+		if !ok {
+			return "", nil, "", false
+		}
+		order = col(s.col) + " DESC" // the most first
+		if op == "<" || op == "<=" {
+			order = col(s.col) + " ASC" // the least
+		}
+		return col(s.col) + " " + op + " ?", vals(f[2]), order, true
 	}
-	return "", nil, false
+	return "", nil, "", false
 }
 
 // squash is a name in lower case without spaces or underscores, for fstat

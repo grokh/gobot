@@ -31,6 +31,8 @@ You need Go 1.21+ and gcc, since `mattn/go-sqlite3` compiles SQLite into gobot.
     go install                      # the bot uses it from its next event
     ./publish.sh                    # the website
 
+If tt++ is installed, `go test` also runs `katumi.tin` in it (`Test_Tintin`). Fake tells go through the real tell trigger, `shellsafe` and replies to a gobot built from the checkout, and some try to get a shell command, a tintin command or `$cpw` through. It never connects: tintin reads a copy of the script without `#session` lines or login events. `TORILMUD_TIN=/home/trance/mud/torilmud/torilmud.tin go test ./...` checks that script too. On Windows it runs WinTin++ with Git for Windows' `sh`, and `go test -short` skips it.
+
 `publish.sh` stops the site, copies in the bot's `TorilDB.db`, the binary and `html/`, and always restarts it. It also runs `dbcopy.sh`, which publishes `toril.db` without hidden alts or real names to the download and two local folders.
 
 `gobot -bak` writes `bak/toril.db.<date>.gz`, keeps 60 days plus the first of each month, and fails rather than save a partial dump. To restore, move `toril.db` aside and run `gobot -res <file>`.

@@ -65,7 +65,10 @@ func Test_All(t *testing.T) {
 	up := "0:01:30"
 	Uptime(up)
 
+	// closed before the temp folder is removed: Windows won't delete an
+	// open file
 	db := OpenDB()
+	defer db.Close()
 	query := "SELECT uptime FROM boots WHERE boot_id = 1"
 	stmt, err := db.Prepare(query)
 	chkErr(t, err)

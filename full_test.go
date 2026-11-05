@@ -59,7 +59,25 @@ func Test_All(t *testing.T) {
 		".read "+strconv.Quote(filepath.Join(src, "init_db.sql")))
 	chkErr(t, cmd.Run())
 
-	date := time.Now().UTC().Format("2006-01-02 15:04:05")
+	// A clock that starts on a whole second and goes a millisecond further
+	// each time it's read, so the times gobot stamps on what it records all
+	// fall in the second date names. Read from a running clock, they'd be a
+	// second on whenever one ticked over mid-test. They still differ, as two
+	// load reports at the same time are one too many, and by enough for
+	// find, which sorts by JULIANDAY, a day count too coarse for microseconds.
+	start := time.Now().Truncate(time.Second)
+	reads := 0
+	now = func() time.Time {
+		reads++
+		return start.Add(time.Duration(reads) * time.Millisecond)
+	}
+	defer func() {
+		now = time.Now
+		if reads >= 1000 {
+			t.Errorf("Test_All's clock passed date's second: %d reads", reads)
+		}
+	}()
+	date := start.UTC().Format("2006-01-02 15:04:05")
 
 	// test output from 'time' command - run at connect and every 30s
 	up := "0:01:30"

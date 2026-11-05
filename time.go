@@ -9,6 +9,10 @@ import (
 // sendBootAlert is what Uptime calls on a new boot; the tests swap it out.
 var sendBootAlert = SendBootAlert
 
+// now is the clock gobot stamps boots, sightings and load reports with.
+// Test_All stops it, so the times it expects can't tick over mid-test.
+var now = time.Now
+
 // bootSlack is how much later than the old boot was last seen running the
 // MUD has to have come up before it counts as a new boot, so a second or
 // two of clock difference between the MUD and this server can't trip it.
@@ -47,7 +51,7 @@ func Uptime(curup string) {
 	// the old boot was last seen running. The second case catches a reboot
 	// while the bot was offline for longer than the old boot had lasted,
 	// when the new uptime can already be past the old one.
-	boottime := time.Now().UTC().Add(-curtime)
+	boottime := now().UTC().Add(-curtime)
 	lastSeen := time.Unix(started.Int64, 0).Add(oldtime)
 	newBoot := curtime < oldtime ||
 		(started.Valid && boottime.After(lastSeen.Add(bootSlack)))

@@ -910,7 +910,7 @@ func LoadReport(oper string, char string) []string {
 		tx, err := db.Begin()
 		ChkErr(err)
 
-		date := time.Now().UTC()
+		date := now().UTC()
 		query := "INSERT INTO loads " +
 			"VALUES((SELECT MAX(boot_id) FROM boots), ?, ?, ?, 'f')"
 

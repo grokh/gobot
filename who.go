@@ -35,7 +35,7 @@ func WhoBatch(batch string) []string {
 	ChkErr(err)
 	defer stmt.Close()
 
-	date := time.Now().UTC()
+	date := now().UTC()
 	var lvl string
 	var name string
 	for _, who := range ppl {
@@ -94,7 +94,7 @@ func newClass(tx *sql.Tx, name string, abbr string) bool {
 
 func (c *Char) who() []string {
 	var txt []string
-	c.tseen = time.Now().UTC()
+	c.tseen = now().UTC()
 	c.race = strings.TrimSpace(c.race)
 
 	db := OpenDB()

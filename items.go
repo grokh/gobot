@@ -241,7 +241,10 @@ func (f itemFlag) match() (string, []interface{}) {
 
 // supp is one of the form's flags for where an item comes from, with the eq
 // test for it: Kegor's load code (R rare, S store, Q quest reward, I
-// invasion, ! out of game), or the X he puts in quest and no_id.
+// invasion, ! out of game), or the X he puts in quest and no_id. Most other
+// items load N. He uses C, K and X to keep junk out of zone stats: C common
+// (loads on several mobs or in several zones, usually zone Common), K key
+// (one that isn't rare, for a quest, or worn in an odd slot), X no take.
 type supp struct{ abbr, display, test string }
 
 var supps = []supp{

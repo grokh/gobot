@@ -21,7 +21,7 @@ The website is `gobot -port 8080` (`torileq.service`, behind nginx, which has to
 
 It only replaces a copy once `gobot -checkitems` passes the download: the file is whole, has every `eq` column gobot reads, and holds at least 90% as many items as the copy in use. The copy it replaces is kept as `TorilDB.db.prev`. If the check fails, nothing changes, and the reason goes to stderr (mailed by cron) and `logs/bot.log`. If `TorilDB.db` goes missing or can't be read, `stat`, `astat` and `fstat` say item stats are unavailable, and the website answers 503.
 
-New item stats go to Kegor. The item tables still in old `toril.db` files aren't read any more.
+New item stats go to Kegor by mwrite, ideally with the zone, the load type, and any quest that uses the item. His load types, in `eq`'s `load` column, are R rare, Q quest reward, S store, I invasion, ! out of game, C common (loads on more than one mob or zone), K key, X no take, and N for most others; C, K and X mostly keep junk out of his zone stats. The item tables still in old `toril.db` files aren't read any more.
 
 ## Build and run
 

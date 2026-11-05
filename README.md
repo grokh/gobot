@@ -15,7 +15,7 @@ The website is `gobot -port 8080` (`torileq.service`, behind nginx, which has to
 
 ## TorilDB.db
 
-`torildb.sh` downloads Kegor's `TorilDB.db` and puts it in the bot's folder and the website's. His download link stays out of the repo: put it on the first line of `/srv/bot/torildb.url`. Run the script daily from cron:
+`torildb.sh` downloads Kegor's `TorilDB.db` and puts it in the bot's folder, the website's, and `/home/trance/mud/torilmud`, where another character's tintin setup also answers `stat` with gobot. His download link stays out of the repo: put it on the first line of `/srv/bot/torildb.url`. Run the script daily from cron:
 
     17 6 * * * $HOME/go/src/github.com/grokh/gobot/torildb.sh
 

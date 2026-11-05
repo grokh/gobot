@@ -326,6 +326,7 @@ func Test_All(t *testing.T) {
 	testItems(t, src)
 	testReboot(t)
 	testSplit(t)
+	testTellCap(t, db)
 	testTimes(t, db, filepath.Join(src, "fix_times_and_stats.sql"))
 	testBackup(t)
 }
@@ -467,6 +468,26 @@ func testSplit(t *testing.T) {
 		!strings.Contains(all, "1: "+long+" [Yog at ") ||
 		!strings.Contains(all, "2: short report here [Bob at ") {
 		t.Errorf("lr split check failed: %d tells: %q", len(txt), all)
+	}
+}
+
+// testTellCap checks that a clist of an account with more alts than maxTells
+// comes back as maxTells tells, the last one saying how many more there were.
+func testTellCap(t *testing.T, db *sql.DB) {
+	_, err := db.Exec("INSERT INTO accounts (account_name) VALUES ('Many')")
+	chkErr(t, err)
+	alts := maxTells + 10
+	for i := 0; i < alts; i++ {
+		_, err = db.Exec("INSERT INTO chars VALUES "+
+			"('Many', ?, 'Warrior', 'Human', 50, ?, 't')",
+			fmt.Sprintf("Many%c%c", 'a'+i/26, 'a'+i%26), time.Now())
+		chkErr(t, err)
+	}
+	txt := ReplyTo("Yog", "clist many")
+	more := fmt.Sprintf("t Yog ...and %d more tells, "+
+		"too many to send at once.\n", alts-(maxTells-1))
+	if len(txt) != maxTells || txt[maxTells-1] != more {
+		t.Errorf("clist cap check failed: %d tells: %q", len(txt), txt)
 	}
 }
 

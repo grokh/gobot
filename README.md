@@ -9,7 +9,7 @@ The TorilMUD helper bot Katumi and the [TorilEQ](https://www.grokh.com/torileq/)
 
 When `-time` sees a new boot, gobot sends a reboot alert to the [ntfy](https://ntfy.sh) topic whose URL is on the first line of `ntfy.url` in the bot's folder, ex. `https://ntfy.sh/<topic>`. Subscribe to that topic in the ntfy app to get the alerts. Anyone who knows the topic can read them and send their own, so give it a long random name.
 
-Tells: `stat`, `astat`, `fstat`, `who`, `clist`, `char`, `find`, `class`, `name`, `addname`, `delalt`, `addalt`, `hidden`, `lr`, `lrdel`; `tell katumi help <cmd>` explains each. `stat` and `astat` answer with Kegor's own short and long stats; `fstat` and the website search his `eq` table's stat columns, mapped from the names players use in `items.go`.
+Tells: `stat`, `astat`, `fstat`, `who`, `clist`, `char`, `find`, `class`, `name`, `addname`, `delalt`, `addalt`, `hidden`, `lr`, `lrdel`; `tell katumi help <cmd>` explains each. `stat` and `astat` answer with Kegor's own short and long stats; `fstat` and the website search his `eq` table's stat columns, mapped from the names players use in `items.go`. A reply is at most 10 tells (`maxTells` in `tell.go`), because the MUD disconnects a character that sends too many commands at once. A longer one, like a `clist` of an account with dozens of alts, ends with a count of the tells left out.
 
 The website is `gobot -port 8080` (`torileq.service`, behind nginx, which has to proxy to `127.0.0.1:8080`: gobot listens there only), reading the `TorilDB.db` in its own folder. Other flags: `-item`, `-glist` (items missing from `TorilDB.db` or last identified before 2020-11-01), and `-checkitems <file>`. Logs: `logs/bot.log`.
 

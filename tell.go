@@ -918,7 +918,26 @@ func ReplyTo(char string, tell string) []string {
 			tells = append(tells, tellSafe("t "+char+" "+part)+"\n")
 		}
 	}
-	return tells
+	return capTells(char, tells)
+}
+
+// maxTells is the most tells katumi sends in reply to one tell. The MUD
+// disconnects a character that sends it too many commands at once, and some
+// replies run to hundreds of tells: a clist or who of an account with
+// hundreds of alts, or a class with dozens of them online. fstat's ten
+// matches are the most a reply otherwise needs.
+const maxTells = 10
+
+// capTells cuts a reply down to maxTells tells, the last one saying how many
+// more there were.
+func capTells(char string, tells []string) []string {
+	if len(tells) <= maxTells {
+		return tells
+	}
+	more := len(tells) - (maxTells - 1)
+	return append(tells[:maxTells-1], tellSafe(fmt.Sprintf(
+		"t %s ...and %d more tells, too many to send at once.",
+		char, more))+"\n")
 }
 
 // tellLimit is the most text katumi puts in a single tell.

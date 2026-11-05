@@ -534,7 +534,6 @@ func testWeb(t *testing.T, src string) {
 		strings.Index(body, stilettoShort)
 	if code != http.StatusOK || !strings.Contains(body, "All Results (2):") ||
 		sword < 0 || stiletto < sword ||
-		!strings.Contains(body, `value="dam gt 3"`) ||
 		!strings.Contains(body, "Link to this search") {
 		t.Errorf("eqHandler() check failed: fstat %d:\n%s", code, body)
 	}

@@ -57,6 +57,9 @@ func main() {
 	// for time.go Uptime(curup string)
 	var time = flag.String("time", "",
 		"Parse uptime for boot tracking. Ex: 58:10:26")
+	// for online.go RecordOnline(n int)
+	var online = flag.Int("online", -1,
+		"Players online, from who's total, to add to this hour's. Ex: 19")
 	// for local.go glstat
 	var glist = flag.String("glist", "",
 		"Provide stats for multiple items at once. "+
@@ -85,6 +88,8 @@ func main() {
 	switch {
 	case *time != "":
 		Uptime(*time)
+	case *online >= 0:
+		RecordOnline(*online)
 	case *who != "":
 		cmds = WhoBatch(*who)
 	case *char != "" && *tell != "":

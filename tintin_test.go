@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
@@ -57,7 +58,7 @@ func Test_Tintin(t *testing.T) {
 
 	scripts := []tinScript{
 		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
-			everyTell: true},
+			everyTell: true, online: true},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
 		scripts = append(scripts, tinScript{name: "torilmud.tin",
@@ -69,12 +70,36 @@ func Test_Tintin(t *testing.T) {
 }
 
 // tinScript is a script Test_Tintin runs: the file, others it reads from
-// its own folder as it loads, whether it answers stat on ASSOC, and whether
-// it passes gobot every tell, not just stat.
+// its own folder as it loads, whether it answers stat on ASSOC, whether it
+// passes gobot every tell, not just stat, and whether it records who's
+// count of players online.
 type tinScript struct {
-	name, path       string
-	deps             []string
-	assoc, everyTell bool
+	name, path               string
+	deps                     []string
+	assoc, everyTell, online bool
+}
+
+// checkOnline waits for the count of players online the driver shows, 17,
+// to reach the toril.db at path as one who check. gobot runs it in the
+// background, so it can land after tt++ is done.
+func checkOnline(t *testing.T, path string, screen string) {
+	var checks, total int
+	for i := 0; i < 50; i++ {
+		db, err := sql.Open("sqlite3", path)
+		if err == nil {
+			err = db.QueryRow("SELECT checks, total FROM online").
+				Scan(&checks, &total)
+			db.Close()
+		}
+		if err == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if checks != 1 || total != 17 {
+		t.Errorf("who's count didn't reach toril.db: %d checks, %d in all"+
+			"\nscreen:\n%s", checks, total, screen)
+	}
 }
 
 // plainDaggers are a dozen items with hit 1, so that fstat hit >= 1 finds
@@ -144,6 +169,9 @@ func (s tinScript) check(t *testing.T, tt, bin, work string) {
 				w, replies, screen)
 		}
 	}
+	if s.online {
+		checkOnline(t, filepath.Join(run, "toril.db"), screen)
+	}
 	for _, line := range strings.Split(screen, "\n") {
 		switch line = strings.TrimSpace(line); {
 		case strings.Contains(line, "#READ"):
@@ -194,6 +222,8 @@ func (s tinScript) driver() string {
 			lines = append(lines, "#showme {Yog ASSOC: '"+text+"'}")
 		}
 	}
+	// the last line of a who
+	lines = append(lines, "#showme {Total players online: 17.}")
 	return strings.Join(append(lines, "#end"), "\n") + "\n"
 }
 

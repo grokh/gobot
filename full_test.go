@@ -347,6 +347,7 @@ func Test_All(t *testing.T) {
 
 	testItems(t, src)
 	testReboot(t)
+	testOnline(t)
 	testSplit(t)
 	testTellCap(t, db)
 	testTimes(t, db, filepath.Join(src, "fix_times_and_stats.sql"))

@@ -41,13 +41,17 @@ func nameMatches(oper string) []nameMatch {
 	}
 }
 
-// findStats runs one name match against eq, returning the stats found in
-// the length asked for (short_stats or long_stats).
-func findStats(db *sql.DB, m nameMatch, length string) ([]string, error) {
+// foundItem is an item a name match found: its name in eq, and its stats
+// readied for the MUD.
+type foundItem struct{ name, stats string }
+
+// findStats runs one name match against eq, returning the items found, with
+// their stats in the length asked for (short_stats or long_stats).
+func findStats(db *sql.DB, m nameMatch, length string) ([]foundItem, error) {
 	if len(m.args) == 0 {
 		return nil, nil
 	}
-	query := "SELECT " + length + " FROM eq WHERE "
+	query := "SELECT name, " + length + " FROM eq WHERE "
 	args := make([]interface{}, len(m.args))
 	for n, arg := range m.args {
 		query += "name " + m.op + " ? AND "
@@ -57,7 +61,21 @@ func findStats(db *sql.DB, m nameMatch, length string) ([]string, error) {
 	// name is the one closest to what was asked for
 	query += length + " != '' ORDER BY length(name), name LIMIT " +
 		strconv.Itoa(m.limit)
-	return queryStats(db, query, args...)
+	rows, err := db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var res []foundItem
+	for rows.Next() {
+		var name, text sql.NullString
+		if err := rows.Scan(&name, &text); err != nil {
+			return nil, err
+		}
+		res = append(res, foundItem{name.String, tintinSafe(text.String)})
+	}
+	return res, rows.Err()
 }
 
 // queryStats runs a query for one column of stats text, readied for the
@@ -120,6 +138,17 @@ func tintinSafe(s string) string {
 // the length asked for (short_stats or long_stats). Each way of matching the
 // name is tried in turn, from exact to loosest.
 func FindItem(oper string, length string) []string {
+	return findItem(oper, length, false)
+}
+
+// Astat is astat's reply: the long stats for the item named in oper, each
+// followed by a line naming the mobs Kegor lists as carrying it, if any.
+func Astat(oper string) []string {
+	return findItem(oper, "long_stats", true)
+}
+
+// findItem is FindItem, adding astat's Loads on lines if loads is set.
+func findItem(oper string, length string, loads bool) []string {
 	db, err := OpenItemDB()
 	if err != nil {
 		log.Printf("%s: %v\n", itemDBFile, err)
@@ -128,12 +157,22 @@ func FindItem(oper string, length string) []string {
 	defer db.Close()
 
 	for _, m := range nameMatches(oper) {
-		res, err := findStats(db, m, length)
+		items, err := findStats(db, m, length)
 		if err != nil {
 			// not a database, no eq table, a column gone: say so, rather
 			// than that the item doesn't exist
 			log.Printf("%s: %s: %v\n", itemDBFile, oper, err)
 			return []string{itemsDown}
+		}
+		var res []string
+		for _, it := range items {
+			res = append(res, it.stats)
+			if !loads {
+				continue
+			}
+			if line := loadsOn(db, it.name); line != "" {
+				res = append(res, line)
+			}
 		}
 		if len(res) > 0 {
 			return res
@@ -251,8 +290,18 @@ func Help(oper string) []string {
 		txt = append(txt, "Syntax: tell katumi astat <item> -- "+
 			"Example: tell katumi astat destruction sword -- "+
 			"Katumi provides full "+
-			"stat information for the item named. Use 'stat' for short "+
+			"stat information for the item named, then the mobs known to "+
+			"carry it, up to 5. Use 'stat' for short "+
 			"text. The name search is fairly forgiving.")
+	case "mstat":
+		txt = append(txt, "Syntax: tell katumi mstat <mob> -- "+
+			"Example: tell katumi mstat pit fiend -- "+
+			"Katumi provides stat info for the mob named: level, race, size, "+
+			"zone and flags, then the eq it's known to carry and the items "+
+			"its quest uses. Mobs that share a name, like the bartender in "+
+			"many zones, are listed together, up to 10. The name search is "+
+			"fairly forgiving. Stats come from Kegor's TorilDB, updated "+
+			"daily.")
 	case "fstat":
 		txt = append(txt, "Syntax: tell katumi fstat <stat> <op> <num>"+
 			"[, more stats][, resist <resist>][, slot <slot>] -- "+
@@ -846,6 +895,7 @@ func ReplyTo(char string, tell string) []string {
 			"Stats fully spelled out: astat <item name>, " +
 			"Find items by attributes, slots, etc.: (for proper usage, " +
 			"tell katumi help fstat)",
+		"Find mobs: Stats and the eq they carry: mstat <mob name>",
 		"Find people: Provide acct and char info: who <char/acct>, " +
 			"clist <char/acct>, char <char>, Show last online alt: " +
 			"find <char/acct>, Find alts of listed class for people online: " +
@@ -882,7 +932,9 @@ func ReplyTo(char string, tell string) []string {
 	case cmd == "stat" && oper != "":
 		txt = FindItem(oper, "short_stats")
 	case cmd == "astat" && oper != "":
-		txt = FindItem(oper, "long_stats")
+		txt = Astat(oper)
+	case cmd == "mstat" && oper != "":
+		txt = FindMob(oper)
 	case cmd == "fstat" && oper != "":
 		txt = Fstat(oper)
 	case cmd == "who" && oper != "":

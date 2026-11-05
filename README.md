@@ -1,7 +1,7 @@
 gobot
 =====
 
-The TorilMUD helper bot Katumi and the [TorilEQ](https://www.grokh.com/torileq/) item search. They use two SQLite databases: Kegor's `TorilDB.db` for item stats, read-only, and the bot's own `toril.db` for characters and accounts, boots, and load reports.
+The TorilMUD helper bot Katumi and the [TorilEQ](https://www.grokh.com/torileq/) item search. They use two SQLite databases: Kegor's `TorilDB.db` for item and mob stats, read-only, and the bot's own `toril.db` for characters and accounts, boots, and load reports.
 
 ## How it works
 
@@ -9,7 +9,7 @@ The TorilMUD helper bot Katumi and the [TorilEQ](https://www.grokh.com/torileq/)
 
 When `-time` sees a new boot, gobot sends a reboot alert to the [ntfy](https://ntfy.sh) topic whose URL is on the first line of `ntfy.url` in the bot's folder, ex. `https://ntfy.sh/<topic>`. Subscribe to that topic in the ntfy app to get the alerts. Anyone who knows the topic can read them and send their own, so give it a long random name.
 
-Tells: `stat`, `astat`, `fstat`, `who`, `clist`, `char`, `find`, `class`, `name`, `addname`, `delalt`, `addalt`, `hidden`, `lr`, `lrdel`; `tell katumi help <cmd>` explains each. `stat` and `astat` answer with Kegor's own short and long stats; `fstat` and the website search his `eq` table's stat columns, mapped from the names players use in `items.go`. A reply sends the MUD at most 3,000 bytes (`maxReplyBytes` in `tell.go`), because the MUD disconnects a character that sends it more than about 4 KB at once. A longer one, like a `clist` of an account with dozens of alts, ends with a count of the tells left out.
+Tells: `stat`, `astat`, `fstat`, `mstat`, `who`, `clist`, `char`, `find`, `class`, `name`, `addname`, `delalt`, `addalt`, `hidden`, `lr`, `lrdel`; `tell katumi help <cmd>` explains each. `stat` and `astat` answer with Kegor's own short and long stats; `fstat` and the website search his `eq` table's stat columns, mapped from the names players use in `items.go`. `mstat` answers from his `mobs` table (`mobs.go`): his short stats for the mob, the eq he lists it carrying, and its quest's items. Mobs that share a name, which he numbers (the bartender 1 to 20), come back together, up to 10. `astat` adds a line naming up to 5 mobs that carry the item. A reply sends the MUD at most 3,000 bytes (`maxReplyBytes` in `tell.go`), because the MUD disconnects a character that sends it more than about 4 KB at once. A longer one, like a `clist` of an account with dozens of alts, ends with a count of the tells left out.
 
 The website is `gobot -port 8080` (`torileq.service`, behind nginx, which has to proxy to `127.0.0.1:8080`: gobot listens there only), reading the `TorilDB.db` in its own folder. Other flags: `-item`, `-glist` (items missing from `TorilDB.db` or last identified before 2020-11-01), and `-checkitems <file>`. Logs: `logs/bot.log`.
 
@@ -19,7 +19,7 @@ The website is `gobot -port 8080` (`torileq.service`, behind nginx, which has to
 
     17 6 * * * $HOME/go/src/github.com/grokh/gobot/torildb.sh
 
-It only replaces a copy once `gobot -checkitems` passes the download: the file is whole, has every `eq` column gobot reads, and holds at least 90% as many items as the copy in use. The copy it replaces is kept as `TorilDB.db.prev`. If the check fails, nothing changes, and the reason goes to stderr (mailed by cron) and `logs/bot.log`. If `TorilDB.db` goes missing or can't be read, `stat`, `astat` and `fstat` say item stats are unavailable, and the website answers 503.
+It only replaces a copy once `gobot -checkitems` passes the download: the file is whole, has every `eq` and `mobs` column gobot reads, and holds at least 90% as many items as the copy in use. The copy it replaces is kept as `TorilDB.db.prev`. If the check fails, nothing changes, and the reason goes to stderr (mailed by cron) and `logs/bot.log`. If `TorilDB.db` goes missing or can't be read, `stat`, `astat` and `fstat` say item stats are unavailable, `mstat` that mob stats are, and the website answers 503. If only the `mobs` table can't be read, `astat` leaves out its line of mobs.
 
 New item stats go to Kegor by mwrite, ideally with the zone, the load type, and any quest that uses the item. His load types, in `eq`'s `load` column, are R rare, Q quest reward, S store, I invasion, ! out of game, C common (loads on more than one mob or zone), K key, X no take, and N for most others; C, K and X mostly keep junk out of his zone stats. The item tables still in old `toril.db` files aren't read any more.
 

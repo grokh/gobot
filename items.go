@@ -12,8 +12,9 @@ import (
 // itemDBFile is TorilDB.db, Kegor's item stats DB. torildb.sh fetches it
 // daily into the bot's folder, next to toril.db, and into the web server's.
 // Every item lookup reads its eq table: one row per item, keyed by name, with
-// a column per stat and Kegor's own short_stats and long_stats. Everything
-// else the bot keeps (chars, accounts, boots, loads) is in toril.db.
+// a column per stat and Kegor's own short_stats and long_stats. mstat, and
+// astat's Loads on line, read its mobs table (mobs.go). Everything else the
+// bot keeps (chars, accounts, boots, loads) is in toril.db.
 const itemDBFile = "TorilDB.db"
 
 // itemsDown is the reply when TorilDB.db is missing or can't be read.
@@ -32,11 +33,12 @@ func openItemDB(path string) (*sql.DB, error) {
 	return sql.Open("sqlite3", "file:"+path+"?mode=ro")
 }
 
-// col quotes an eq column name for SQL. Column names can't be ? parameters,
-// so only names from the tables below ever go through here. It uses
-// brackets, not double quotes: SQLite reads a double-quoted name that
-// matches no column as a string, so a column Kegor renamed would quietly
-// turn "max_agi" > 0 into a test every row passes, instead of an error.
+// col quotes a TorilDB.db column name for SQL. Column names can't be ?
+// parameters, so only names from the tables below, and mobColumns, ever go
+// through here. It uses brackets, not double quotes: SQLite reads a
+// double-quoted name that matches no column as a string, so a column Kegor
+// renamed would quietly turn "max_agi" > 0 into a test every row passes,
+// instead of an error.
 func col(name string) string {
 	return "[" + name + "]"
 }
@@ -365,10 +367,25 @@ func itemColumns() []string {
 // item count, to replace it: a cut-off export shouldn't.
 const minShare = 0.9
 
+// hasColumns checks that table has every one of columns, by reading them.
+func hasColumns(db *sql.DB, table string, columns []string) error {
+	var cols []string
+	for _, c := range columns {
+		cols = append(cols, col(c))
+	}
+	rows, err := db.Query("SELECT " + strings.Join(cols, ", ") + " FROM " +
+		table + " LIMIT 1")
+	if err != nil {
+		return err
+	}
+	return rows.Close()
+}
+
 // CheckItemDB checks that the file at path is a TorilDB.db gobot can use:
-// whole, with an eq table holding every column gobot reads, and not much
-// smaller than the TorilDB.db in use here, if there is one. torildb.sh runs
-// it on each download before putting the download in place.
+// whole, with eq and mobs tables holding every column gobot reads, and not
+// much smaller than the TorilDB.db in use here, if there is one, by item
+// count. torildb.sh runs it on each download before putting the download
+// in place.
 func CheckItemDB(path string) (string, error) {
 	db, err := openItemDB(path)
 	if err != nil {
@@ -383,21 +400,20 @@ func CheckItemDB(path string) (string, error) {
 	if check != "ok" {
 		return "", fmt.Errorf("integrity check: %s", check)
 	}
-	var cols []string
-	for _, c := range itemColumns() {
-		cols = append(cols, col(c))
-	}
-	rows, err := db.Query("SELECT " + strings.Join(cols, ", ") +
-		" FROM eq LIMIT 1")
-	if err != nil {
+	if err := hasColumns(db, "eq", itemColumns()); err != nil {
 		return "", err
 	}
-	rows.Close()
+	if err := hasColumns(db, "mobs", mobColumns); err != nil {
+		return "", err
+	}
 
-	var n int
+	var n, mobs int
 	var newest sql.NullString
 	err = db.QueryRow("SELECT COUNT(*), MAX(date) FROM eq").Scan(&n, &newest)
 	if err != nil {
+		return "", err
+	}
+	if err := db.QueryRow("SELECT COUNT(*) FROM mobs").Scan(&mobs); err != nil {
 		return "", err
 	}
 	if n == 0 {
@@ -412,6 +428,6 @@ func CheckItemDB(path string) (string, error) {
 				n, itemDBFile, have)
 		}
 	}
-	return fmt.Sprintf("%s ok: %d items, newest %s", path, n, newest.String),
-		nil
+	return fmt.Sprintf("%s ok: %d items, %d mobs, newest %s", path, n, mobs,
+		newest.String), nil
 }

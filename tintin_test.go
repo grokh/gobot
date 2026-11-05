@@ -1,0 +1,269 @@
+package main
+
+import (
+	"context"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"strings"
+	"testing"
+	"time"
+)
+
+// Test_Tintin runs katumi.tin in tintin++ and feeds it fake tells, so the
+// real tell trigger, shellsafe and reply handling run against a gobot built
+// from this checkout and the test TorilDB.db, through the /bin/sh tintin
+// uses. Some of the tells try to get a shell command, a tintin command or a
+// variable like $cpw through. Set TORILMUD_TIN to the path of the other
+// character's torilmud.tin to run it the same way, ASSOC included. The test
+// is skipped without tt++.
+//
+// It must never reach the MUD. Both scripts log in when tintin starts, so
+// tintin only reads copies without #session lines or login events, checked
+// before tt++ runs, and the tokens.tin beside them has no real account.
+func Test_Tintin(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs tt++")
+	}
+	tt := findTintin(t)
+	src, err := os.Getwd()
+	chkErr(t, err)
+	work := t.TempDir()
+	bin := filepath.Join(work, "bin")
+	chkErr(t, os.MkdirAll(bin, 0750))
+	gobot := filepath.Join(bin, "gobot")
+	if runtime.GOOS == "windows" {
+		gobot += ".exe"
+		tt = cygwinRoot(t, tt, work)
+	}
+	build := exec.Command("go", "build", "-o", gobot, ".")
+	build.Dir = src
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("go build: %v\n%s", err, out)
+	}
+	// tt++ -V prints the version, then exits 1
+	out, _ := exec.Command(tt, "-V").CombinedOutput()
+	if v := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]; v != "" {
+		t.Log(v)
+	}
+	if out, _ := exec.Command(tt, "-h").CombinedOutput(); !strings.Contains(
+		string(out), "-H") {
+		t.Skip("this tt++ has no -H (nohup) mode, which it needs to run " +
+			"without a terminal")
+	}
+
+	scripts := []tinScript{
+		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin")},
+	}
+	if path := os.Getenv("TORILMUD_TIN"); path != "" {
+		scripts = append(scripts, tinScript{name: "torilmud.tin",
+			path: path, deps: []string{"gags.tin"}, assoc: true})
+	}
+	for _, s := range scripts {
+		t.Run(s.name, func(t *testing.T) { s.check(t, tt, bin, work) })
+	}
+}
+
+// tinScript is a script Test_Tintin runs: the file, others it reads from
+// its own folder as it loads, and whether it answers stat on ASSOC.
+type tinScript struct {
+	name, path string
+	deps       []string
+	assoc      bool
+}
+
+// fakeSecret stands in for the password in $cpw. If it shows up, tintin
+// filled in a variable a player typed.
+const fakeSecret = "FAKESECRET-91"
+
+// ansiCodes are the escape codes tt++ puts around what it prints.
+var ansiCodes = regexp.MustCompile(`\x1b\[[0-9;?>]*[A-Za-z]|\x1b\][^\x07]*\x07`)
+
+func (s tinScript) check(t *testing.T, tt, bin, work string) {
+	run := filepath.Join(work, strings.TrimSuffix(s.name, ".tin"))
+	chkErr(t, os.MkdirAll(filepath.Join(run, "logs"), 0750))
+	copyOffline(t, s.path, filepath.Join(run, s.name))
+	for _, dep := range s.deps {
+		copyOffline(t, filepath.Join(filepath.Dir(s.path), dep),
+			filepath.Join(run, dep))
+	}
+	writeItemDB(t, filepath.Join(run, itemDBFile), testEq)
+	chkErr(t, os.WriteFile(filepath.Join(run, "tokens.tin"), []byte(
+		"#var {acct} {nobody}\n#var {char} {Testbot}\n"+
+			"#var {cpw} {"+fakeSecret+"}\n"), 0640))
+	chkErr(t, os.WriteFile(filepath.Join(run, "test.tin"),
+		[]byte(s.driver()), 0640))
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, tt, "-H", "-G", "-r", "test.tin")
+	cmd.Dir = run
+	cmd.Env = append(os.Environ(),
+		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"MSYS2_ARG_CONV_EXCL=*") // Git's sh: pass gobot's args as they are
+	out, err := cmd.CombinedOutput()
+	screen := ansiCodes.ReplaceAllString(
+		strings.ReplaceAll(string(out), "\r", ""), "")
+	if err != nil {
+		t.Fatalf("tt++: %v\n%s", err, screen)
+	}
+	replies := readIfThere(t, filepath.Join(run, "replies.log"))
+	botLog := readIfThere(t, filepath.Join(run, "logs", "bot.log"))
+
+	want := []string{"t Yog " + stilettoShort}
+	if s.assoc {
+		want = append(want, "acc "+stilettoShort)
+	}
+	for _, w := range want {
+		if !strings.Contains(replies, w+"\n") {
+			t.Errorf("no reply %q\nreplies:\n%s\nscreen:\n%s",
+				w, replies, screen)
+		}
+	}
+	for _, line := range strings.Split(screen, "\n") {
+		switch line = strings.TrimSpace(line); {
+		case strings.Contains(line, "#READ"):
+			t.Errorf("tintin didn't read the scripts cleanly: %s", line)
+		case strings.EqualFold(line, "INJECTED-BRACE") ||
+			strings.EqualFold(line, "INJECTED-SEMI"):
+			t.Errorf("a tell ran a tintin command: %s", line)
+		case strings.HasPrefix(line, "#ERROR") ||
+			strings.HasPrefix(line, "#WARNING"):
+			t.Log(line)
+		}
+	}
+	// what a shell command or variable from a tell would turn into, had it
+	// been run or filled in, in any case: torilmud.tin lowercases tells
+	seen := strings.ToLower(screen + replies + botLog)
+	for _, bad := range []string{"RAN-42", "912346", fakeSecret} {
+		if strings.Contains(seen, strings.ToLower(bad)) {
+			t.Errorf("a tell got %q through\nreplies:\n%s\nscreen:\n%s",
+				bad, replies, screen)
+		}
+	}
+}
+
+// driver is the test.tin tt++ runs: it loads the script, then fakes the
+// lines the MUD would send. Replies go to replies.log instead of the MUD. $
+// is made at run time and braces are written \x7B and \x7D, which #showme
+// turns into { and }, so the file itself reads cleanly.
+func (s tinScript) driver() string {
+	lines := []string{
+		"#format {dl} {%a} {36}",
+		"#var {dir} {.}",
+		"#read " + s.name,
+		"#var {cpw} {" + fakeSecret + "}",
+		"#alias {t} {#line log {replies.log} {t %0}}",
+		"#alias {acc} {#line log {replies.log} {acc %0}}",
+	}
+	for _, text := range []string{
+		"stat infernal stiletto",
+		"stat ${dl}(echo RAN-${dl}((6*7)))",
+		"stat `expr 912345 + 1`",
+		"stat ${dl}cpw",
+		`stat x\x7D \x7B#showme INJECTED-BRACE\x7D`,
+		"stat x;#showme INJECTED-SEMI",
+	} {
+		lines = append(lines, "#showme {Yog tells you '"+text+"'}")
+		if s.assoc {
+			lines = append(lines, "#showme {Yog ASSOC: '"+text+"'}")
+		}
+	}
+	return strings.Join(append(lines, "#end"), "\n") + "\n"
+}
+
+// loginEvent is an #event that logs in when it fires.
+var loginEvent = regexp.MustCompile(
+	`(?i)#event\s*\{[^}]*\}\s*\{[^}]*\b(login|play)\b`)
+
+// connects is a tintin command that can reach the MUD or another host.
+var connects = regexp.MustCompile(`(?i)#(ses|ssl|run|port|chat)`)
+
+// copyOffline copies a tintin script without its #session lines (#ses is
+// the shortest form tintin takes) or login events, and stops the test if
+// anything that could connect is left.
+func copyOffline(t *testing.T, from, to string) {
+	b, err := os.ReadFile(from)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keep []string
+	for _, line := range strings.Split(
+		strings.ReplaceAll(string(b), "\r", ""), "\n") {
+		if !strings.Contains(strings.ToLower(line), "#ses") &&
+			!loginEvent.MatchString(line) {
+			keep = append(keep, line)
+		}
+	}
+	txt := strings.Join(keep, "\n")
+	if found := connects.FindString(txt); found != "" {
+		t.Fatalf("%s has %s, which could connect: not running it", from,
+			found)
+	}
+	chkErr(t, os.WriteFile(to, []byte(txt), 0640))
+}
+
+func readIfThere(t *testing.T, path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		t.Error(err)
+	}
+	return strings.ReplaceAll(string(b), "\r", "")
+}
+
+// findTintin finds tt++ on the PATH, or WinTin++ where it installs.
+func findTintin(t *testing.T) string {
+	if tt, err := exec.LookPath("tt++"); err == nil {
+		return tt
+	}
+	if runtime.GOOS == "windows" {
+		tt := filepath.Join(os.Getenv("APPDATA"), "WinTin++", "bin",
+			"tt++.exe")
+		if _, err := os.Stat(tt); err == nil {
+			return tt
+		}
+	}
+	t.Skip("tt++ isn't installed")
+	return ""
+}
+
+// cygwinRoot readies WinTin++ for #script. It's tt++ built for Cygwin, with
+// no shell of its own, so #script and #system fail. A copy of it in a
+// Cygwin root of its own, whose /bin is the folder Git for Windows' sh is
+// in, gets that sh, and WinTin++ itself is left as it is.
+func cygwinRoot(t *testing.T, tt, work string) string {
+	dir := filepath.Dir(tt)
+	if _, err := os.Stat(filepath.Join(dir, "cygwin1.dll")); err != nil {
+		return tt // not WinTin++
+	}
+	if _, err := os.Stat(filepath.Join(dir, "sh.exe")); err == nil {
+		return tt // a full Cygwin, with its own sh
+	}
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		sh = `C:\Program Files\Git\usr\bin\sh.exe`
+		if _, err := os.Stat(sh); err != nil {
+			t.Skip("WinTin++ needs Git for Windows' sh for #script")
+		}
+	}
+	root := filepath.Join(work, "cygwin")
+	chkErr(t, os.MkdirAll(filepath.Join(root, "bin"), 0750))
+	chkErr(t, os.MkdirAll(filepath.Join(root, "etc"), 0750))
+	for _, f := range []string{"tt++.exe", "cygwin1.dll",
+		"cygwin-console-helper.exe"} {
+		b, err := os.ReadFile(filepath.Join(dir, f))
+		if os.IsNotExist(err) && f == "cygwin-console-helper.exe" {
+			continue
+		}
+		chkErr(t, err)
+		chkErr(t, os.WriteFile(filepath.Join(root, "bin", f), b, 0750))
+	}
+	// fstab writes a space as \040
+	shDir := strings.ReplaceAll(filepath.ToSlash(filepath.Dir(sh)), " ",
+		`\040`)
+	chkErr(t, os.WriteFile(filepath.Join(root, "etc", "fstab"),
+		[]byte(shDir+" /bin ntfs binary,noacl 0 0\n"), 0640))
+	return filepath.Join(root, "bin", "tt++.exe")
+}

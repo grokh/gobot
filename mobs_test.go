@@ -119,7 +119,8 @@ func testMstat(t *testing.T) {
 		{"mstat evil imp", tell("an evil imp #showme pwned, say cpw x (y) z " +
 			"* Eq: a ring,#showme pwned, (x)")},
 		{"mstat blah", []string{"t Yog 404 mob not found: blah\n"}},
-		{"mstat", []string{"t Yog " + BadSyntax + "\n"}},
+		{"mstat", []string{"t Yog " + BadSyntax + "\n",
+			"t Yog See 'tell katumi help mstat'.\n"}},
 	}
 	for _, c := range checks {
 		chk(t, "ReplyTo(Yog, "+c.tell+")", c.good, ReplyTo("Yog", c.tell))

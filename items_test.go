@@ -190,6 +190,7 @@ func testItems(t *testing.T, src string) {
 	writeItemDB(t, itemDBFile, testEq)
 	testStat(t)
 	testMstat(t)
+	testGuesses(t)
 	testFstat(t)
 	testWeb(t, src)
 	testGlist(t)

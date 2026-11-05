@@ -5,7 +5,9 @@ The TorilMUD helper bot Katumi and the [TorilEQ](https://www.grokh.com/torileq/)
 
 ## How it works
 
-`tt++ katumi.tin`, run in the bot folder (`/srv/bot`), logs in to torilmud.com and calls `gobot` for each event: `-time` and `-who` every 30 seconds to track boots and who's online, `-char <name> -tell "<text>"` for each tell, and `-bak` daily. MUD text is escaped for the shell by `shellsafe`, and replies go back to the MUD as commands, so keep tintin++ syntax out of them (`tellSafe` in `tell.go`, which every reply line goes through; `tintinSafe` also drops `@` from `TorilDB.db` text).
+`tt++ katumi.tin`, run in the bot folder (`/srv/bot`), logs in to torilmud.com and calls `gobot` for each event: `-time`, `-who` and `-online <n>` every 30 seconds to track boots, who's online and how many, `-char <name> -tell "<text>"` for each tell, and `-bak` daily. MUD text is escaped for the shell by `shellsafe`, and replies go back to the MUD as commands, so keep tintin++ syntax out of them (`tellSafe` in `tell.go`, which every reply line goes through; `tintinSafe` also drops `@` from `TorilDB.db` text).
+
+`-online` takes the count from who's "Total players online" line and adds it to its UTC hour in toril.db's `online` table (`online.go`): the who checks that hour, their total, and the fewest and most at once, so an hour's average is `total / checks`. gobot makes the table in a toril.db that predates it. Its history from May 2013 on came from Katumi's session logs, timed by the MUD's own clock read as US Eastern time; that clock has run up to about 40 minutes slow, so those hours can be off by that much.
 
 When `-time` sees a new boot, gobot sends a reboot alert to the [ntfy](https://ntfy.sh) topic whose URL is on the first line of `ntfy.url` in the bot's folder, ex. `https://ntfy.sh/<topic>`. Subscribe to that topic in the ntfy app to get the alerts. Anyone who knows the topic can read them and send their own, so give it a long random name.
 

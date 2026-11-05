@@ -63,6 +63,8 @@
 #tick {Timer} {time;who} {30}
 #nop Capture digits only, so nothing but H:M:S can reach the shell
 #act {^Time elapsed since boot-up: %d:%d:%d} {#system gobot -time %1:%2:%3 &}
+#nop Add who's count of players online to the hour, digits only as well
+#act {^Total players online: %d} {#system gobot -online %1 &}
 
 #event {PROGRAM START} {login}
 #nop Log back in 30 seconds after a disconnect or a failed connect. The #delay

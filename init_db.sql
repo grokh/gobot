@@ -98,5 +98,13 @@ CREATE TABLE loads(
 	,deleted BOOLEAN NOT NULL
 	,PRIMARY KEY (boot_id, report_time)
 );
+-- how many players who counted, by UTC hour (see onlineSchema in online.go)
+CREATE TABLE online(
+	hour DATETIME PRIMARY KEY
+	,checks INTEGER NOT NULL
+	,total INTEGER NOT NULL
+	,low INTEGER NOT NULL
+	,high INTEGER NOT NULL
+);
 
 COMMIT;

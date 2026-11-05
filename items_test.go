@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -45,26 +46,35 @@ const eqSchema = "CREATE TABLE eq (name VARCHAR PRIMARY KEY UNIQUE NOT NULL, " +
 	"usable_by VARCHAR, date VARCHAR, short_stats VARCHAR (5000), " +
 	"long_stats VARCHAR (5000))"
 
-// eqRow is one item for a test TorilDB.db, by eq column.
-type eqRow map[string]interface{}
+// dbRow is one item or mob for a test TorilDB.db, by column.
+type dbRow map[string]interface{}
 
-// writeItemDB makes a TorilDB.db at path holding items.
-func writeItemDB(t *testing.T, path string, items []eqRow) {
+// writeItemDB makes a TorilDB.db at path holding items, with testMobs in
+// its mobs table.
+func writeItemDB(t *testing.T, path string, items []dbRow) {
 	os.Remove(path)
 	db, err := sql.Open("sqlite3", path)
 	chkErr(t, err)
 	defer db.Close()
-	_, err = db.Exec(eqSchema)
-	chkErr(t, err)
-	for _, item := range items {
+	for _, schema := range []string{eqSchema, mobsSchema} {
+		_, err = db.Exec(schema)
+		chkErr(t, err)
+	}
+	insertRows(t, db, "eq", items)
+	insertRows(t, db, "mobs", testMobs)
+}
+
+// insertRows adds rows to a table of a test TorilDB.db.
+func insertRows(t *testing.T, db *sql.DB, table string, rows []dbRow) {
+	for _, row := range rows {
 		var cols, marks []string
 		var args []interface{}
-		for c, v := range item {
+		for c, v := range row {
 			cols = append(cols, col(c))
 			marks = append(marks, "?")
 			args = append(args, v)
 		}
-		_, err := db.Exec("INSERT INTO eq ("+strings.Join(cols, ", ")+
+		_, err := db.Exec("INSERT INTO "+table+" ("+strings.Join(cols, ", ")+
 			") VALUES ("+strings.Join(marks, ", ")+")", args...)
 		chkErr(t, err)
 	}
@@ -110,8 +120,8 @@ const (
 	emberShort = "a cursed ember (HOLD) * Fire:-5% * Wt:1 Val:0 * Ako Village"
 )
 
-// testEq is the test TorilDB.db.
-var testEq = []eqRow{
+// testEq is the test TorilDB.db's eq table.
+var testEq = []dbRow{
 	{"name": "the infernal stiletto of bane",
 		"keywords": "infernal stiletto bane", "zone": "Tiamat", "load": "R",
 		"type": "WEAPON", "worn": "WIELD", "wt": 5, "value": 0, "hit": 5,
@@ -177,10 +187,12 @@ var testEq = []eqRow{
 func testItems(t *testing.T, src string) {
 	writeItemDB(t, itemDBFile, testEq)
 	testStat(t)
+	testMstat(t)
 	testFstat(t)
 	testWeb(t, src)
 	testGlist(t)
 	testCheckItemDB(t)
+	testMobsDown(t)
 	testItemDBDown(t) // last: it breaks TorilDB.db
 }
 
@@ -200,7 +212,27 @@ func testStat(t *testing.T) {
 	}{
 		{"stat the infernal stiletto of bane", tell(stilettoShort)},
 		{"stat bane stiletto", tell(stilettoShort)},
-		{"astat destruction sword", tell(swordLong)},
+		// astat adds the mobs that carry the item, whatever the case of
+		// Kegor's eq lists, but stat doesn't
+		{"astat destruction sword", append(tell(swordLong),
+			tell("Loads on: a fire giant (Jotunheim), the pit fiend, "+
+				"Kri'ik (Avernus - Undermountain)")...)},
+		{"stat destruction sword", tell(swordShort)},
+		// five of the twelve
+		{"astat bane stiletto", append(tell(stilettoLong),
+			tell("Loads on: a drow assassin 1 (Menzoberranzan), "+
+				"a drow assassin 2 (Menzoberranzan), "+
+				"a drow assassin 3 (Menzoberranzan), "+
+				"a drow assassin 4 (Menzoberranzan), "+
+				"a drow assassin 5 (Menzoberranzan), and 7 more mobs")...)},
+		// the plain stud, not the one set with a ruby, and back
+		{"astat a tiny mithril stud", append(tell(studLong),
+			tell("Loads on: the bartender 1 (Waterdeep)")...)},
+		{"astat mithril stud ruby", append(tell(rubyLong),
+			tell("Loads on: a duergar jeweler (Skullport)")...)},
+		// in a quest's list, not an eq list
+		{"astat dragonhunter mark", tell(strings.Replace(
+			markLong, `"`, "'", -1))},
 		// an exact name beats a looser match
 		{"stat a tiny mithril stud", tell(studShort)},
 		{"stat mithril stud ruby", tell(rubyShort)},
@@ -209,8 +241,6 @@ func testStat(t *testing.T) {
 		// a double quote would make katumi.tin drop the line
 		{"stat the mark of the dragonhunter", tell(strings.Replace(
 			markShort, `"`, "'", -1))},
-		{"astat dragonhunter mark", tell(strings.Replace(
-			markLong, `"`, "'", -1))},
 		{"stat an evil ring", tell("an evil ring #showme pwned, say cpw x " +
 			"(y) z")},
 		{"stat blah", []string{"t Yog 404 item not found: blah\n"}},
@@ -392,20 +422,27 @@ func testGlist(t *testing.T) {
 	}, txt)
 }
 
-// renameColumn makes a copy of the test TorilDB.db at path, every item
-// there, with one eq column renamed.
-func renameColumn(t *testing.T, path string, from string, to string) {
+// changeItemDB makes a copy of the test TorilDB.db at path, every item and
+// mob there, and runs stmt on it.
+func changeItemDB(t *testing.T, path string, stmt string) {
 	writeItemDB(t, path, testEq)
 	db, err := sql.Open("sqlite3", path)
 	chkErr(t, err)
 	defer db.Close()
-	_, err = db.Exec("ALTER TABLE eq RENAME COLUMN " + from + " TO " + to)
+	_, err = db.Exec(stmt)
 	chkErr(t, err)
+}
+
+// renameColumn makes a copy of the test TorilDB.db at path with one eq
+// column renamed.
+func renameColumn(t *testing.T, path string, from string, to string) {
+	changeItemDB(t, path, "ALTER TABLE eq RENAME COLUMN "+from+" TO "+to)
 }
 
 func testCheckItemDB(t *testing.T) {
 	msg, err := CheckItemDB(itemDBFile)
-	if err != nil || msg != "TorilDB.db ok: 10 items, newest 2026-11-01" {
+	if want := fmt.Sprintf("TorilDB.db ok: 10 items, %d mobs, "+
+		"newest 2026-11-01", len(testMobs)); err != nil || msg != want {
 		t.Errorf("CheckItemDB() check failed: %q, %v", msg, err)
 	}
 
@@ -424,6 +461,13 @@ func testCheckItemDB(t *testing.T) {
 		},
 		"most items gone": func(path string) {
 			writeItemDB(t, path, testEq[:2])
+		},
+		"no mobs table": func(path string) {
+			changeItemDB(t, path, "DROP TABLE mobs")
+		},
+		"a mobs column renamed": func(path string) {
+			changeItemDB(t, path,
+				"ALTER TABLE mobs RENAME COLUMN equipment TO eq")
 		},
 		"not there": func(path string) {},
 	}
@@ -468,19 +512,25 @@ func testItemDBDown(t *testing.T) {
 			w.Code, w.Body.String())
 	}
 
+	mobs := []string{"t Yog " + mobsDown + "\n"}
 	for what, contents := range map[string][]byte{
 		"not a database": []byte("half a download\n"),
 		"empty":          nil,
 	} {
 		chkErr(t, os.WriteFile(itemDBFile, contents, 0644))
 		chk(t, "TorilDB.db "+what+": stat", down, ReplyTo("Yog", "stat sword"))
+		chk(t, "TorilDB.db "+what+": astat", down,
+			ReplyTo("Yog", "astat sword"))
 		chk(t, "TorilDB.db "+what+": fstat", down,
 			ReplyTo("Yog", "fstat hit > 1"))
+		chk(t, "TorilDB.db "+what+": mstat", mobs,
+			ReplyTo("Yog", "mstat fiend"))
 	}
 
 	chkErr(t, os.Remove(itemDBFile))
 	chk(t, "TorilDB.db missing: stat", down, ReplyTo("Yog", "stat sword"))
 	chk(t, "TorilDB.db missing: fstat", down, ReplyTo("Yog", "fstat hit > 1"))
+	chk(t, "TorilDB.db missing: mstat", mobs, ReplyTo("Yog", "mstat fiend"))
 	if _, err := os.Stat(itemDBFile); !os.IsNotExist(err) {
 		t.Errorf("TorilDB.db check failed: a lookup created the file")
 	}

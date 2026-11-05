@@ -141,6 +141,7 @@ func Test_All(t *testing.T) {
 			"Stats fully spelled out: astat <item name>, " +
 			"Find items by attributes, slots, etc.: (for proper usage, " +
 			"tell katumi help fstat)\n",
+		"t Yog Find mobs: Stats and the eq they carry: mstat <mob name>\n",
 		"t Yog Find people: Provide acct and char info: who <char/acct>, " +
 			"clist <char/acct>, char <char>, Show last online alt: " +
 			"find <char/acct>, Find alts of listed class for people online: " +
@@ -501,8 +502,8 @@ func testTellCap(t *testing.T, db *sql.DB) {
 // that help fstat lists the stats, resists and slots fstat accepts.
 func testHelp(t *testing.T) {
 	for _, cmd := range []string{"?", "help", "hidden", "hidden?", "stat",
-		"astat", "fstat", "who", "clist", "char", "find", "class", "name",
-		"addname", "delalt", "addalt", "lr", "lrdel"} {
+		"astat", "fstat", "mstat", "who", "clist", "char", "find", "class",
+		"name", "addname", "delalt", "addalt", "lr", "lrdel"} {
 		for _, line := range ReplyTo("Yog", "help "+cmd) {
 			if strings.Contains(line, "not found") {
 				t.Errorf("help check failed: %s", strings.TrimSpace(line))

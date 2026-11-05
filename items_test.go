@@ -124,7 +124,8 @@ const (
 var testEq = []dbRow{
 	{"name": "the infernal stiletto of bane",
 		"keywords": "infernal stiletto bane", "zone": "Tiamat", "load": "R",
-		"type": "WEAPON", "worn": "WIELD", "wt": 5, "value": 0, "hit": 5,
+		"type": "WEAPON", "worn": "WIELD", "w_type": "Dagger",
+		"w_class": "Simple", "wt": 5, "value": 0, "hit": 5,
 		"dam": 4, "affect_flags": "HASTE SLOW-POISON",
 		"item_flags": "MAGIC FLOAT NOBURN NOLOCATE NO-WARRIOR NO-CLERIC " +
 			"NO-MAGE",
@@ -144,6 +145,7 @@ var testEq = []dbRow{
 	{"name": "a black longsword of destruction",
 		"keywords": "black sword destruction twilight", "zone": "Jotunheim",
 		"load": "I", "quest": "X", "type": "WEAPON", "worn": "WIELD 2H",
+		"w_type": "Longsword", "w_class": "Martial",
 		"wt": 15, "value": 10000, "hit": 5, "dam": 8, "r_fire": 5,
 		"affect_flags": "INFRA",
 		"item_flags": "MAGIC FLOAT NOBURN NOLOCATE NO-CLERIC NO-THIEF " +
@@ -282,6 +284,49 @@ func testFstat(t *testing.T) {
 		// only the operators fstatOps lists reach the SQL
 		{"fstat hit like 5", []string{"t Yog " + BadSyntax + "\n"}},
 		{"fstat hit >0;", []string{"t Yog " + BadSyntax + "\n"}},
+		// the TorilEQ form's other fields
+		{"fstat effect haste", tell(stilettoShort)},
+		{"fstat effect infra, slot wield", tell(swordShort)},
+		{"fstat effect blah",
+			[]string{"t Yog 404 item(s) not found: effect blah\n"}},
+		// a flag Kegor keeps with the slots
+		{"fstat flag two_hand", tell(swordShort)},
+		// where an item comes from
+		{"fstat flag is_rare", append(
+			[]string{"t Yog a bracelet of mages 1 (WRIST)\n"},
+			tell(stilettoShort)...)},
+		{"fstat flag for_quest, slot neck", tell(strings.Replace(
+			markShort, `"`, "'", -1))},
+		{"fstat flag no_identify", tell(suitShort)},
+		{"fstat flag blah", []string{"t Yog 404 item(s) not found: flag blah\n"}},
+		// the sword is NO-THIEF, the suit ANTI-EVIL
+		{"fstat usable thief, type weapon", tell(stilettoShort)},
+		{"fstat usable evil, type ARMOR",
+			[]string{"t Yog a bracelet of mages 1 (WRIST)\n"}},
+		// the form's own name for it
+		{"fstat usable !thief, type weapon", tell(stilettoShort)},
+		{"fstat usable warrior",
+			[]string{"t Yog 404 item(s) not found: usable warrior\n"}},
+		{"fstat type weapon, hit >= 5",
+			append(tell(swordShort), tell(stilettoShort)...)},
+		// PET_CATALOG
+		{"fstat type pet catalog", []string{"t Yog a pet catalog\n"}},
+		{"fstat weapon dagger", tell(stilettoShort)},
+		// Longsword
+		{"fstat weapon long sword", tell(swordShort)},
+		{"fstat weapon long", []string{"t Yog 404 item(s) not found: " +
+			"weapon long\n"}},
+		// the second of two zones, then a name of three words
+		{"fstat zone westgate", tell(strings.Replace(
+			markShort, `"`, "'", -1))},
+		{"fstat zone Calimport Palace Vault",
+			[]string{"t Yog a bracelet of mages 1 (WRIST)\n"}},
+		{"fstat zone silver",
+			[]string{"t Yog 404 item(s) not found: zone silver\n"}},
+		{"fstat type worn, zone skullport, resist fire", tell(rubyShort)},
+		// values are only ever ? parameters
+		{"fstat zone x' OR 1=1 OR '",
+			[]string{"t Yog 404 item(s) not found: zone x' OR 1=1 OR '\n"}},
 	}
 	for _, c := range checks {
 		chk(t, "ReplyTo(Yog, "+c.tell+")", c.good, ReplyTo("Yog", c.tell))
@@ -456,6 +501,9 @@ func testCheckItemDB(t *testing.T) {
 		"a stat column renamed": func(path string) {
 			renameColumn(t, path, "max_agi", "maxagi")
 		},
+		"w_type renamed": func(path string) {
+			renameColumn(t, path, "w_type", "weapon")
+		},
 		"short_stats renamed": func(path string) {
 			renameColumn(t, path, "short_stats", "short")
 		},
@@ -496,6 +544,9 @@ func testItemDBDown(t *testing.T) {
 	renameColumn(t, itemDBFile, "max_agi", "maxagi")
 	chk(t, "TorilDB.db column renamed: fstat", down,
 		ReplyTo("Yog", "fstat maxagi > 0"))
+	renameColumn(t, itemDBFile, "w_type", "weapon")
+	chk(t, "TorilDB.db column renamed: fstat weapon", down,
+		ReplyTo("Yog", "fstat weapon dagger"))
 	renameColumn(t, itemDBFile, "worn", "slots")
 	chk(t, "TorilDB.db column renamed: fstat slot", down,
 		ReplyTo("Yog", "fstat slot ear"))

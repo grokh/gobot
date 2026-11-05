@@ -303,12 +303,15 @@ func Help(oper string) []string {
 			"fairly forgiving. Stats come from Kegor's TorilDB, updated "+
 			"daily.")
 	case "fstat":
-		txt = append(txt, "Syntax: tell katumi fstat <stat> <op> <num>"+
-			"[, more stats][, resist <resist>][, slot <slot>] -- "+
+		txt = append(txt, "Syntax: tell katumi fstat <field>[, <field>...] -- "+
 			"Example: tell katumi fstat maxagi > 0, resist fire, slot ear -- "+
 			"Lists up to 10 items matching every field. Separate fields "+
-			"with a comma and a space. <op> is > < = >= <= or !=. "+
-			"Resists match above 0.")
+			"with a comma and a space. A field is <stat> <op> <num>, where "+
+			"<op> is > < = >= <= or !=, or one of: resist <resist> (above "+
+			"0), slot <slot>, effect <effect>, flag <flag>, usable <who> "+
+			"(leaves out items flagged against them), type <type>, "+
+			"weapon <weapon type>, zone <zone>. Type, weapon and zone take "+
+			"Kegor's names: type worn, weapon short sword, zone jotunheim.")
 		var names []string
 		for _, s := range stats {
 			names = append(names, s.abbr)
@@ -324,6 +327,24 @@ func Help(oper string) []string {
 			names = append(names, s.abbr)
 		}
 		txt = append(txt, "Slots: "+fstatList(names))
+		names = nil
+		for _, e := range effects {
+			names = append(names, e.abbr)
+		}
+		txt = append(txt, "Effects: "+fstatList(names))
+		names = nil
+		for _, f := range flags {
+			names = append(names, f.abbr)
+		}
+		for _, s := range supps {
+			names = append(names, s.abbr)
+		}
+		txt = append(txt, "Flags: "+fstatList(names))
+		names = nil
+		for _, u := range usableBy {
+			names = append(names, strings.TrimPrefix(u.abbr, "!"))
+		}
+		txt = append(txt, "Usable: "+fstatList(names))
 	default:
 		txt = append(txt, NotFound("help file", oper))
 	}
@@ -350,39 +371,20 @@ var fstatOps = map[string]bool{
 	"<": true, "<=": true, ">": true, ">=": true,
 }
 
-// Fstat lists up to 10 items from TorilDB.db matching every field in oper:
-// "<stat> <op> <num>", "resist <resist>" or "slot <slot>", separated by a
-// comma and a space. A stat, resist or slot fstat doesn't know matches
-// nothing; a field in no form it knows is skipped.
+// Fstat lists up to 10 items from TorilDB.db matching every field in oper,
+// in the forms fstatField reads, separated by a comma and a space. A stat,
+// resist, slot, effect, flag or usable fstat doesn't know matches nothing;
+// a field in no form it knows is skipped.
 func Fstat(oper string) []string {
 	var tests []string
 	var args []interface{}
 	unknown := false
 	for _, field := range strings.Split(oper, ", ") {
-		f := strings.Fields(field)
+		test, targs, ok := fstatField(strings.Fields(field))
 		switch {
-		case len(f) == 3 && fstatOps[f[1]]:
-			s, ok := findStat(f[0])
-			if !ok {
-				unknown = true
-				continue
-			}
-			tests = append(tests, col(s.col)+" "+f[1]+" ?")
-			args = append(args, f[2])
-		case len(f) == 2 && strings.EqualFold(f[0], "resist"):
-			r, ok := findResist(f[1])
-			if !ok {
-				unknown = true
-				continue
-			}
-			tests = append(tests, col(r.col)+" > 0")
-		case len(f) == 2 && strings.EqualFold(f[0], "slot"):
-			s, ok := findSlot(f[1])
-			if !ok {
-				unknown = true
-				continue
-			}
-			test, targs := hasToken("worn", s.worn...)
+		case !ok:
+			unknown = true
+		case test != "":
 			tests = append(tests, test)
 			args = append(args, targs...)
 		}
@@ -410,6 +412,97 @@ func Fstat(oper string) []string {
 		return []string{NotFound("item(s)", oper)}
 	}
 	return txts
+}
+
+// fstatField is the SQL test for one fstat field, split into words, with
+// its arguments. A field is "<stat> <op> <num>", or a word saying what to
+// look for, then what:
+//   - resist <resist>: above 0
+//   - slot <slot>
+//   - effect <effect>: an ability the item gives
+//   - flag <flag>: one of the TorilEQ form's item flags, or where an item
+//     comes from (is_rare, for_quest and so on)
+//   - usable <who>: leaves out items flagged against a class group, sex,
+//     alignment or race, as the form's Usable By does. A few class-only
+//     items, like the HELLBORNE-ONLY ones, have no such flags, so it lets
+//     them through.
+//   - type <type>, weapon <weapon type> or zone <zone>, by Kegor's names
+//
+// ok is false for a field naming a stat, resist, slot, effect, flag or who
+// fstat doesn't know. test is "" for a field in no form fstat knows.
+func fstatField(f []string) (test string, args []interface{}, ok bool) {
+	if len(f) < 2 {
+		return "", nil, true
+	}
+	if len(f) == 3 && fstatOps[f[1]] {
+		s, ok := findStat(f[0])
+		if !ok {
+			return "", nil, false
+		}
+		return col(s.col) + " " + f[1] + " ?", vals(f[2]), true
+	}
+	what := strings.Join(f[1:], " ")
+	switch strings.ToLower(f[0]) {
+	case "resist":
+		if r, ok := findResist(what); ok {
+			return col(r.col) + " > 0", nil, true
+		}
+	case "slot":
+		if s, ok := findSlot(what); ok {
+			test, args := hasToken("worn", s.worn...)
+			return test, args, true
+		}
+	case "effect":
+		for _, e := range effects {
+			if strings.EqualFold(e.abbr, what) {
+				test, args := hasToken("affect_flags", e.token)
+				return test, args, true
+			}
+		}
+	case "flag":
+		for _, fl := range flags {
+			if strings.EqualFold(fl.abbr, what) {
+				test, args := fl.match()
+				return test, args, true
+			}
+		}
+		for _, s := range supps {
+			if strings.EqualFold(s.abbr, what) {
+				return s.test, nil, true
+			}
+		}
+	case "usable":
+		for _, u := range usableBy {
+			if strings.EqualFold(u.abbr, "!"+strings.TrimPrefix(what, "!")) {
+				test, args := hasToken("item_flags", u.restrict)
+				return "NOT " + test, args, true
+			}
+		}
+	case "type":
+		// LIQUID_CONT is liquid cont too
+		return squashed("type") + " = ?", vals(squash(what)), true
+	case "weapon":
+		// Short Sword is shortsword too, and Longsword long sword
+		return squashed("w_type") + " = ?", vals(squash(what)), true
+	case "zone":
+		// the zone, or one of the zones of an item that loads in several
+		return "instr(? || lower(zone) || ?, ?) > 0",
+			vals(zoneSep, zoneSep, zoneSep+strings.ToLower(what)+zoneSep), true
+	default:
+		return "", nil, true
+	}
+	return "", nil, false
+}
+
+// squash is a name in lower case without spaces or underscores, for fstat
+// to match with squashed.
+func squash(name string) string {
+	return strings.NewReplacer(" ", "", "_", "").Replace(strings.ToLower(name))
+}
+
+// squashed is the SQL for an eq column's text as squash leaves a name.
+func squashed(column string) string {
+	return "replace(replace(lower(" + col(column) + "), ' ', ''), '_', '')"
 }
 
 func Who(oper string) string {

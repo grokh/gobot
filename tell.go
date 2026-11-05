@@ -246,7 +246,7 @@ func Help(oper string) []string {
 			"Katumi provides stat info for the item named. "+
 			"Use 'astat' for the long form, with keywords and flags. "+
 			"The name search is fairly forgiving. Stats come from "+
-			"Kegor's TorilDB, updated daily.")
+			"Kegor's TorilDB, updated daily. Mwrite new stats to Kegor.")
 	case "astat":
 		txt = append(txt, "Syntax: tell katumi astat <item> -- "+
 			"Example: tell katumi astat destruction sword -- "+

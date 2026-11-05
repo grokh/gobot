@@ -55,7 +55,6 @@ type Page struct {
 	Date    string
 	Results []string
 	Link    string // to the search that found Results
-	Fstat   string // the fstat search that found them, if one did
 	Zones   []Zone
 	Attribs []Attrib
 	Slots   []Slot
@@ -461,8 +460,8 @@ func eqHandler(w http.ResponseWriter, r *http.Request) {
 	case r.Method == "POST" && r.PostFormValue("list") != "":
 		p.Results = ParseList(r.PostFormValue("list"))
 	case formValue(r, "fstat") != "":
-		p.Fstat = formValue(r, "fstat")
-		p.Results = webFstat(p.Fstat, formValue(r, "format"))
+		// the link an fstat reply ends with: the form has no fstat field
+		p.Results = webFstat(formValue(r, "fstat"), formValue(r, "format"))
 		p.Link = searchLink(r, []string{"fstat", "format"})
 	case r.Method == "POST" || r.URL.RawQuery != "":
 		p.Results = parseForm(r)

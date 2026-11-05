@@ -15,7 +15,6 @@
 	<form action="?" name="searchForm" id="searchForm" method="post">
 		<input type="hidden" name="exactItem" id="exactItem" />
 		<p><label for="itemName">Item name: </label><input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
-		<p><label for="fstat">Or an fstat search: </label><input type="text" size="45" maxlength="300" name="fstat" id="fstat" value="{{.Fstat}}" /> as Katumi takes it, ex. dam gt 2, slot neck, usable thief</p>
 		<p><label for="zoneName">Zone name: </label>
 			<select name="zoneName" id="zoneName"><option value=""></option>
 				{{range .Zones}}<option value="{{.ZoneAbbr}}">{{.ZoneDisp}}</option>

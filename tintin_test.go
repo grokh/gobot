@@ -174,9 +174,10 @@ func (s tinScript) driver() string {
 	return strings.Join(append(lines, "#end"), "\n") + "\n"
 }
 
-// loginEvent is an #event that logs in when it fires.
+// loginEvent is an #event that logs in when it fires, directly or through a
+// #delay nested inside its command.
 var loginEvent = regexp.MustCompile(
-	`(?i)#event\s*\{[^}]*\}\s*\{[^}]*\b(login|play)\b`)
+	`(?i)#event\s*\{[^}]*\}\s*\{.*\b(login|play)\b`)
 
 // connects is a tintin command that can reach the MUD or another host.
 var connects = regexp.MustCompile(`(?i)#(ses|ssl|run|port|chat)`)

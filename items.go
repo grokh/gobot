@@ -353,7 +353,8 @@ func zoneNames(values []string) []string {
 // new TorilDB.db still has.
 func itemColumns() []string {
 	cols := []string{"name", "short_stats", "long_stats", "date", "zone",
-		"type", "worn", "item_flags", "affect_flags", "load", "quest", "no_id"}
+		"type", "worn", "item_flags", "affect_flags", "load", "quest", "no_id",
+		"w_type"}
 	for _, s := range stats {
 		cols = append(cols, s.col)
 	}

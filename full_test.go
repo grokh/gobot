@@ -512,10 +512,16 @@ func testHelp(t *testing.T) {
 	}
 	fstat := strings.Join(ReplyTo("Yog", "help fstat"), "")
 	for _, want := range []string{"Stats: ac, age, agi, ", " maxagi, ", " mr, ",
-		"Resists: acid, ", " fire, ", "Slots: about, ", " ear, ", " on_body, "} {
+		"Resists: acid, ", " fire, ", "Slots: about, ", " ear, ", " on_body, ",
+		"Effects: aware, ", " haste, ", "Flags: bless, ", " is_rare, ",
+		" two_hand, ", "Usable: evil, ", " fighter, "} {
 		if !strings.Contains(fstat, want) {
 			t.Errorf("help fstat check failed: no %q in %q", want, fstat)
 		}
+	}
+	// all of it, not cut short to keep the MUD from dropping Katumi
+	if strings.Contains(fstat, "too many to send") {
+		t.Errorf("help fstat check failed: cut short: %q", fstat)
 	}
 	astat := strings.Join(ReplyTo("Yog", "help astat"), "")
 	if strings.Contains(astat, "buggy") {

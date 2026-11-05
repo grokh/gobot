@@ -1,0 +1,77 @@
+# gobot's checks: gofmt, go vet and the tests, Test_Tintin included, on the
+# Go and tintin++ versions the server runs.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  # The server's versions: keep these in step with the list at the end of
+  # the README.
+  GO_VERSION: '1.27.x'
+  # tintin++ 2.02.61, by the commit its tag points to, so a moved tag can't
+  # change what gets built
+  TINTIN_COMMIT: 010881e7689c5328096f0b63002b898104cd72f1
+
+defaults:
+  run:
+    # bash here means -eo pipefail, so go test failing fails the step
+    # even through tee
+    shell: bash
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "$unformatted"
+            echo "::error::Those files need gofmt -w"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      # The tests run the sqlite3 CLI. tintin++ needs pcre2 and zlib to build.
+      - name: Install sqlite3 and tintin++'s build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            sqlite3 libpcre2-dev zlib1g-dev
+
+      - name: Build tintin++
+        run: |
+          curl -fsSL "https://github.com/scandum/tintin/archive/$TINTIN_COMMIT.tar.gz" |
+            tar -xz -C "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP/tintin-$TINTIN_COMMIT/src"
+          ./configure
+          make -j"$(nproc)"
+          echo "$PWD" >> "$GITHUB_PATH"
+
+      - name: go test
+        run: |
+          # -count=1: always run the tests, never reuse cached results
+          go test -count=1 -v ./... | tee "$RUNNER_TEMP/test.log"
+          # Test_Tintin skips, rather than fails, without a usable tt++
+          if ! grep -q '^--- PASS: Test_Tintin ' "$RUNNER_TEMP/test.log"; then
+            echo "::error::Test_Tintin didn't run: see its SKIP line above"
+            exit 1
+          fi

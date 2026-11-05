@@ -471,12 +471,12 @@ func testSplit(t *testing.T) {
 	}
 }
 
-// testTellCap checks that a clist of an account with more alts than maxTells
-// comes back as maxTells tells, the last one saying how many more there were.
+// testTellCap checks that a clist of an account with 60 alts, which runs
+// past maxReplyBytes, is cut short and ends with how many more there were.
 func testTellCap(t *testing.T, db *sql.DB) {
 	_, err := db.Exec("INSERT INTO accounts (account_name) VALUES ('Many')")
 	chkErr(t, err)
-	alts := maxTells + 10
+	alts := 60
 	for i := 0; i < alts; i++ {
 		_, err = db.Exec("INSERT INTO chars VALUES "+
 			"('Many', ?, 'Warrior', 'Human', 50, ?, 't')",
@@ -484,10 +484,13 @@ func testTellCap(t *testing.T, db *sql.DB) {
 		chkErr(t, err)
 	}
 	txt := ReplyTo("Yog", "clist many")
-	more := fmt.Sprintf("t Yog ...and %d more tells, "+
-		"too many to send at once.\n", alts-(maxTells-1))
-	if len(txt) != maxTells || txt[maxTells-1] != more {
-		t.Errorf("clist cap check failed: %d tells: %q", len(txt), txt)
+	bytes := 0
+	for _, line := range txt {
+		bytes += len(line) + 1
+	}
+	k := len(txt) - 1
+	if bytes > maxReplyBytes || k < 1 || txt[k] != moreTells("Yog", alts-k) {
+		t.Errorf("clist cap check failed: %d bytes: %q", bytes, txt)
 	}
 }
 

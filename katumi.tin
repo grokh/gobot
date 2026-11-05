@@ -20,7 +20,6 @@
 #CONFIG		{VERBATIM CHAR}	{\}
 #CONFIG		{VERBOSE}		{OFF}
 #CONFIG		{WORDWRAP}		{OFF}
-#CONFIG		{256 COLORS}	{ON}
 #PATHDIR	{n}		{s}		{1}
 #PATHDIR	{e}		{w}		{2}
 #PATHDIR	{s}		{n}		{4}

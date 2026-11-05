@@ -918,7 +918,53 @@ func ReplyTo(char string, tell string) []string {
 			tells = append(tells, tellSafe("t "+char+" "+part)+"\n")
 		}
 	}
-	return tells
+	return capTells(char, tells)
+}
+
+// maxReplyBytes is the most a reply to one tell sends the MUD. The MUD
+// disconnects a character that sends it more than about 4 KB at once: 50
+// tells of clist lines (about 3.8 KB) get through and 60 (4.6 KB) don't,
+// while 80 short tells do. A clist or who of an account with dozens of alts
+// runs past that, and so can class. The 1 KB to spare leaves room for
+// anything else sent in the same moment. fstat's ten matches come to about
+// 1 KB.
+const maxReplyBytes = 3000
+
+// capTells cuts a reply down to maxReplyBytes, counting each tell with the
+// \r\n tintin ends it with. A reply cut short keeps as many tells as fit and
+// ends with how many more there were.
+func capTells(char string, tells []string) []string {
+	used := 0
+	for _, t := range tells {
+		used += len(t) + 1
+	}
+	if used <= maxReplyBytes {
+		return tells
+	}
+	var kept []string
+	used = 0
+	for i, t := range tells {
+		// keep this tell only if the count of the ones after it still fits
+		if used+len(t)+1+len(moreTells(char, len(tells)-i-1))+1 >
+			maxReplyBytes {
+			return append(kept, moreTells(char, len(tells)-i))
+		}
+		kept = append(kept, t)
+		used += len(t) + 1
+	}
+	return kept
+}
+
+// moreTells is the tell that ends a reply cut short, saying how many more
+// tells there were.
+func moreTells(char string, more int) string {
+	s := "s"
+	if more == 1 {
+		s = ""
+	}
+	return tellSafe(fmt.Sprintf(
+		"t %s ...and %d more tell%s, too many to send at once.",
+		char, more, s)) + "\n"
 }
 
 // tellLimit is the most text katumi puts in a single tell.

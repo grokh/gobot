@@ -1,6 +1,7 @@
 #!/bin/bash
-# Fetch Kegor's TorilDB.db, which the bot and the TorilEQ site read item
-# stats from, and put it in place once gobot has checked it can use it: a
+# Fetch Kegor's TorilDB.db, which the bot, the TorilEQ site and the tintin
+# setup in ~/mud/torilmud read item stats from, and put it in place once
+# gobot has checked it can use it: a
 # whole database, with every column gobot reads, and not much smaller than
 # the copy in use. Each copy is renamed into place, so nothing ever reads a
 # half-written file, and the copy it replaces is kept as TorilDB.db.prev.
@@ -32,9 +33,12 @@ if [ -z "$url" ]; then
 	exit 1
 fi
 
+# the bot, the site, and ~/mud/torilmud, whose tintin setup answers stat on
+# the ASSOC channel and in tells by running gobot in that folder
 [ $# -gt 0 ] || set -- \
 	/srv/bot/TorilDB.db \
-	/srv/web/torileq/TorilDB.db
+	/srv/web/torileq/TorilDB.db \
+	/home/trance/mud/torilmud/TorilDB.db
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT

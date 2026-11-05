@@ -31,7 +31,7 @@ You need Go 1.21+ and gcc, since `mattn/go-sqlite3` compiles SQLite into gobot.
     go install                      # the bot uses it from its next event
     ./publish.sh                    # the website
 
-If tt++ is installed, `go test` also runs `katumi.tin` in it (`Test_Tintin`). Fake tells go through the real tell trigger, `shellsafe` and replies to a gobot built from the checkout, and some try to get a shell command, a tintin command or `$cpw` through. It never connects: tintin reads a copy of the script without `#session` lines or login events. `TORILMUD_TIN=/home/trance/mud/torilmud/torilmud.tin go test ./...` checks that script too. On Windows it runs WinTin++ with Git for Windows' `sh`, and `go test -short` skips it.
+If tt++ 2.02.20 or later is installed, `go test` also runs `katumi.tin` in it (`Test_Tintin`). Fake tells go through the real tell trigger, `shellsafe` and replies to a gobot built from the checkout, and some try to get a shell command, a tintin command or `$cpw` through. It never connects: tintin reads a copy of the script without `#session` lines or login events. `TORILMUD_TIN=/home/trance/mud/torilmud/torilmud.tin go test ./...` checks that script too. On Windows it runs WinTin++ with Git for Windows' `sh`, and `go test -short` skips it.
 
 `publish.sh` stops the site, copies in the bot's `TorilDB.db`, the binary and `html/`, and always restarts it. It also runs `dbcopy.sh`, which publishes `toril.db` without hidden alts or real names to the download and two local folders.
 
@@ -39,4 +39,4 @@ If tt++ is installed, `go test` also runs `katumi.tin` in it (`Test_Tintin`). Fa
 
 `sqlite3 toril.db ".read init_db.sql"` builds a new database. Not in the repo: `toril.db`, `TorilDB.db`, `torildb.url` (Kegor's download link), `tokens.tin` (the bot's `acct`, `char`, `cpw`), and `ntfy.url` (the ntfy topic for reboot alerts). `fix_times_and_stats.sql` converted old times to UTC, and `conv.sql` is the 2013 schema conversion.
 
-Currently running on Debian 13, Tintin++ 2.02.05, and Go 1.27.2, with SQLite 3.53.4 built into gobot (mattn/go-sqlite3 v1.14.52) and the sqlite3 3.46.1 CLI for backups and `dbcopy.sh`.
+Currently running on Debian 13, Tintin++ 2.02.61, and Go 1.27.2, with SQLite 3.53.4 built into gobot (mattn/go-sqlite3 v1.14.52) and the sqlite3 3.46.1 CLI for backups and `dbcopy.sh`.

@@ -50,8 +50,8 @@ func Test_Tintin(t *testing.T) {
 	}
 	if out, _ := exec.Command(tt, "-h").CombinedOutput(); !strings.Contains(
 		string(out), "-H") {
-		t.Skip("this tt++ has no -H (nohup) mode, which it needs to run " +
-			"without a terminal")
+		t.Skip("this tt++ has no -H (nohup) mode, new in 2.02.20, which " +
+			"it needs to run without a terminal")
 	}
 
 	scripts := []tinScript{

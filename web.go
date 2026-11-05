@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"sort"
 	"strings"
@@ -53,6 +54,8 @@ type Supp struct {
 type Page struct {
 	Date    string
 	Results []string
+	Link    string // to the search that found Results
+	Fstat   string // the fstat search that found them, if one did
 	Zones   []Zone
 	Attribs []Attrib
 	Slots   []Slot
@@ -147,11 +150,46 @@ func vals(v ...interface{}) []interface{} {
 // it doesn't list: it matches nothing, rather than being left out.
 const noMatch = "0"
 
+// formValue is the search field called key: from the form for a POST, or
+// from the address for a GET, never a mix. A box left unticked isn't sent,
+// so a POST that read the address too could pick up one ticked in the link
+// it was sent from.
+func formValue(r *http.Request, key string) string {
+	if r.Method == "POST" {
+		return r.PostFormValue(key)
+	}
+	return r.FormValue(key)
+}
+
+// formKeys are the names of the TorilEQ form's search fields: the ones
+// parseForm reads, and searchLink puts in a link.
+func formKeys() []string {
+	keys := []string{"itemName", "zoneName", "attrib1", "compareAttrib1",
+		"valueAttrib1", "attrib2", "compareAttrib2", "valueAttrib2", "worn",
+		"type", "orderBy", "ascDesc", "format"}
+	for _, u := range usableBy {
+		keys = append(keys, u.abbr)
+	}
+	for _, e := range effects {
+		keys = append(keys, e.abbr)
+	}
+	for _, res := range resists {
+		keys = append(keys, res.abbr)
+	}
+	for _, f := range flags {
+		keys = append(keys, f.abbr)
+	}
+	for _, s := range supps {
+		keys = append(keys, s.abbr)
+	}
+	return keys
+}
+
 // parseForm searches TorilDB.db for the items matching every field filled
-// in on the TorilEQ form.
+// in on the TorilEQ form, sent by POST or, from a link, by GET.
 func parseForm(r *http.Request) []string {
 	length := "long_stats" // the form's default; also covers a missing value
-	if r.PostFormValue("format") == "short" {
+	if formValue(r, "format") == "short" {
 		length = "short_stats"
 	}
 
@@ -162,18 +200,18 @@ func parseForm(r *http.Request) []string {
 		args = append(args, targs...)
 	}
 
-	if name := r.PostFormValue("itemName"); name != "" {
+	if name := formValue(r, "itemName"); name != "" {
 		add("name LIKE ?", vals("%"+name+"%")) // TODO needs a lot of work
 	}
 
-	if zone := r.PostFormValue("zoneName"); zone != "" {
+	if zone := formValue(r, "zoneName"); zone != "" {
 		// the zone, or one of the zones of an item that loads in several
 		add("instr(? || zone || ?, ?) > 0",
 			vals(zoneSep, zoneSep, zoneSep+zone+zoneSep))
 	}
 
 	for _, n := range []string{"1", "2"} {
-		abbr := r.PostFormValue("attrib" + n)
+		abbr := formValue(r, "attrib"+n)
 		if abbr == "" {
 			continue
 		}
@@ -182,15 +220,15 @@ func parseForm(r *http.Request) []string {
 			add(noMatch, nil)
 			continue
 		}
-		cmp, ok := compareSQL[r.PostFormValue("compareAttrib"+n)]
-		if v := r.PostFormValue("valueAttrib" + n); ok && v != "" {
+		cmp, ok := compareSQL[formValue(r, "compareAttrib"+n)]
+		if v := formValue(r, "valueAttrib"+n); ok && v != "" {
 			add(col(s.col)+cmp, vals(v))
 		} else {
 			add(col(s.col)+" != 0", nil) // has the attribute at all
 		}
 	}
 
-	if worn := r.PostFormValue("worn"); worn != "" {
+	if worn := formValue(r, "worn"); worn != "" {
 		if s, ok := findSlot(worn); ok {
 			add(hasToken("worn", s.worn...))
 		} else {
@@ -198,38 +236,38 @@ func parseForm(r *http.Request) []string {
 		}
 	}
 
-	if t := r.PostFormValue("type"); t != "" {
+	if t := formValue(r, "type"); t != "" {
 		add("type = ?", vals(t))
 	}
 
 	// Usable By: leave out items with the restriction
 	for _, u := range usableBy {
-		if r.PostFormValue(u.abbr) != "" {
+		if formValue(r, u.abbr) != "" {
 			test, targs := hasToken("item_flags", u.restrict)
 			add("NOT "+test, targs)
 		}
 	}
 
 	for _, e := range effects {
-		if r.PostFormValue(e.abbr) != "" {
+		if formValue(r, e.abbr) != "" {
 			add(hasToken("affect_flags", e.token))
 		}
 	}
 
 	for _, res := range resists {
-		if r.PostFormValue(res.abbr) != "" {
+		if formValue(r, res.abbr) != "" {
 			add(col(res.col)+" > 0", nil)
 		}
 	}
 
 	for _, f := range flags {
-		if r.PostFormValue(f.abbr) != "" {
+		if formValue(r, f.abbr) != "" {
 			add(f.match())
 		}
 	}
 
 	for _, s := range supps {
-		if r.PostFormValue(s.abbr) != "" {
+		if formValue(r, s.abbr) != "" {
 			add(s.test, nil)
 		}
 	}
@@ -239,33 +277,83 @@ func parseForm(r *http.Request) []string {
 	}
 	query := "SELECT " + length + " FROM eq WHERE " +
 		strings.Join(tests, " AND ")
-	// TODO attrib1, attrib2 and worn sorting
-	if order, ok := orderSQL[r.PostFormValue("orderBy")]; ok {
+	// TODO worn sorting
+	if order := formOrder(r); order != "" {
 		query += " ORDER BY " + order
-		switch r.PostFormValue("ascDesc") {
-		case "up":
-			query += " ASC"
-		case "down":
-			query += " DESC"
-		}
-		if order != "name" {
-			query += ", name"
-		}
 	}
 
 	db, err := OpenItemDB()
 	ChkErr(err)
 	defer db.Close()
-
-	rows, err := db.Query(query, args...)
+	results, _, err := queryStats(db, query, 0, args...)
 	ChkErr(err)
-	var results []string
-	for rows.Next() {
-		var s sql.NullString
-		ChkErr(rows.Scan(&s))
-		results = append(results, s.String)
+	return results
+}
+
+// formOrder is the ORDER BY for the form's Order By choice, then name: a
+// column, or the stat chosen as Attribute 1 or 2, or name if that was left
+// empty. It's "" for a choice the form doesn't offer.
+func formOrder(r *http.Request) string {
+	by := formValue(r, "orderBy")
+	order, ok := orderSQL[by]
+	if by == "attrib1" || by == "attrib2" {
+		order, ok = "name", true
+		if s, found := findStat(formValue(r, by)); found {
+			order = col(s.col)
+		}
 	}
-	ChkRows(rows)
+	if !ok {
+		return ""
+	}
+	switch formValue(r, "ascDesc") {
+	case "up":
+		order += " ASC"
+	case "down":
+		order += " DESC"
+	}
+	if !strings.HasPrefix(order, "name") {
+		order += ", name"
+	}
+	return order
+}
+
+// searchLink is a link to the search r asked for, which the site runs by
+// GET: the fields named in keys that were filled in. It's "" if none were.
+func searchLink(r *http.Request, keys []string) string {
+	v := url.Values{}
+	for _, k := range keys {
+		if val := formValue(r, k); val != "" {
+			v.Set(k, val)
+		}
+	}
+	if len(v) == 0 {
+		return ""
+	}
+	return "?" + v.Encode()
+}
+
+// webFstat runs the fstat search in oper for the site, as the links fstat
+// replies with ask it to: every item found, in fstat's order, in short
+// stats unless format is long.
+func webFstat(oper string, format string) []string {
+	length := "short_stats"
+	if format == "long" {
+		length = "long_stats"
+	}
+	where, args, order, ok := fstatSearch(oper)
+	if !ok || where == "" {
+		return []string{NotFound("item(s)", oper)}
+	}
+
+	db, err := OpenItemDB()
+	ChkErr(err)
+	defer db.Close()
+	results, _, err := queryStats(db, "SELECT "+length+" FROM eq WHERE "+
+		where+" ORDER BY "+order, 0, args...)
+	ChkErr(err)
+	if len(results) == 0 {
+		return []string{NotFound("item(s)", oper)}
+	}
 	return results
 }
 
@@ -369,14 +457,20 @@ func eqHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := fillStructs()
-	if r.Method == "POST" {
-		if r.PostFormValue("list") != "" {
-			p.Results = ParseList(r.PostFormValue("list"))
-		} else {
-			p.Results = parseForm(r)
-			// TODO make item names javascript link
-			// TODO make first / single result full_stats
+	switch {
+	case r.Method == "POST" && r.PostFormValue("list") != "":
+		p.Results = ParseList(r.PostFormValue("list"))
+	case formValue(r, "fstat") != "":
+		p.Fstat = formValue(r, "fstat")
+		p.Results = webFstat(p.Fstat, formValue(r, "format"))
+		p.Link = searchLink(r, []string{"fstat", "format"})
+	case r.Method == "POST" || r.URL.RawQuery != "":
+		p.Results = parseForm(r)
+		if p.Results != nil {
+			p.Link = searchLink(r, formKeys())
 		}
+		// TODO make item names javascript link
+		// TODO make first / single result full_stats
 	}
 	err := tmpl.Execute(w, p)
 	if err != nil {

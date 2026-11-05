@@ -327,9 +327,39 @@ func testFstat(t *testing.T) {
 		// values are only ever ? parameters
 		{"fstat zone x' OR 1=1 OR '",
 			[]string{"t Yog 404 item(s) not found: zone x' OR 1=1 OR '\n"}},
+		// the most of the first stat compared first, the least for < and <=
+		{"fstat dam > 0, slot wield", append(tell(swordShort),
+			tell(stilettoShort)...)},
+		{"fstat dam > 0", append(append(append(tell(swordShort),
+			tell(stilettoShort)...), tell(rubyShort)...), tell(studShort)...)},
+		{"fstat dam lt 4", append(tell(studShort), tell(rubyShort)...)},
+		{"fstat DAM GE 8", tell(swordShort)},
 	}
 	for _, c := range checks {
 		chk(t, "ReplyTo(Yog, "+c.tell+")", c.good, ReplyTo("Yog", c.tell))
+	}
+
+	// past the limit, a count of the rest and a TorilEQ link to them
+	fstatLimit = 2
+	chk(t, "ReplyTo(Yog, fstat dam > 0) past the limit", append(append(
+		tell(swordShort), tell(stilettoShort)...),
+		"t Yog ...and 2 more: "+torileqURL+"?fstat=dam+gt+0\n"),
+		ReplyTo("Yog", "fstat dam > 0"))
+	fstatLimit = 10
+	for oper, good := range map[string]string{
+		"dam >= 3, zone baldur's gate, usable !thief": torileqURL +
+			"?fstat=dam+ge+3,+zone+baldur's+gate,+usable+!thief",
+		"hit <> 0,  slot neck": torileqURL + "?fstat=hit+ne+0,+slot+neck",
+		// nothing that would need escaping, which tintin could take for an
+		// argument, or a client for the end of the address
+		"zone x&y":  "",
+		"dam > 50%": "",
+		// nor a link a tell would have to split
+		strings.Repeat("slot neck, ", 30): "",
+	} {
+		if link := fstatLink(oper); link != good {
+			t.Errorf("fstatLink(%q) check failed: %q", oper, link)
+		}
 	}
 }
 
@@ -338,6 +368,18 @@ func post(form url.Values) []string {
 	r := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	return parseForm(r)
+}
+
+// get runs a TorilEQ search from a link holding the form values given.
+func get(form url.Values) []string {
+	return parseForm(httptest.NewRequest("GET", "/?"+form.Encode(), nil))
+}
+
+// servePage is the TorilEQ page eqHandler serves for r, with its status.
+func servePage(r *http.Request) (int, string) {
+	w := httptest.NewRecorder()
+	eqHandler(w, r)
+	return w.Code, w.Body.String()
 }
 
 func testWeb(t *testing.T, src string) {
@@ -415,10 +457,27 @@ func testWeb(t *testing.T, src string) {
 		{"from invasion", short("from_invasion", "on"),
 			[]string{swordShort}},
 		{"nothing asked", short(), nil},
+		{"by attribute 1, most first", short("attrib1", "dam",
+			"compareAttrib1", "gt", "valueAttrib1", "0", "orderBy", "attrib1",
+			"ascDesc", "down"),
+			[]string{swordShort, stilettoShort, rubyShort, studShort}},
+		{"by attribute 2, least first", short("attrib1", "hit",
+			"attrib2", "dam", "orderBy", "attrib2"),
+			[]string{stilettoShort, swordShort}},
+		{"by attribute 2, left empty", short("attrib1", "hit",
+			"orderBy", "attrib2"), []string{swordShort, stilettoShort}},
 	}
 	for _, c := range checks {
 		chk(t, "parseForm() "+c.what, c.good, post(c.form))
+		chk(t, "parseForm() by link, "+c.what, c.good, get(c.form))
 	}
+	// a POST reads its form, not the address it was sent to, which can be
+	// a link with a box the form has since unticked
+	linked := httptest.NewRequest("POST", "/?fire=on",
+		strings.NewReader(short("itemName", "stud").Encode()))
+	linked.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	chk(t, "parseForm() POST to a link", []string{studShort, rubyShort},
+		parseForm(linked))
 
 	// pasted lists find items by exact name, or the first variant
 	chk(t, "ParseList()", []string{braceletLong, studLong,
@@ -449,6 +508,44 @@ func testWeb(t *testing.T, src string) {
 		!strings.Contains(w.Body.String(), "Type:Dagger Class:Simple") {
 		t.Errorf("eqHandler() check failed: POST %d:\n%s", w.Code,
 			w.Body.String())
+	}
+
+	// a link to that search, of the fields filled in, which runs it by GET
+	link := `href="?ascDesc=up&amp;format=long&amp;itemName=stiletto&amp;` +
+		`orderBy=name"`
+	if !strings.Contains(w.Body.String(), link) {
+		t.Errorf("eqHandler() check failed: POST gave no %s:\n%s", link,
+			w.Body.String())
+	}
+	code, body := servePage(httptest.NewRequest("GET",
+		"/?ascDesc=up&format=long&itemName=stiletto&orderBy=name", nil))
+	if code != http.StatusOK || !strings.Contains(body, "All Results (1):") ||
+		!strings.Contains(body, "Type:Dagger Class:Simple") ||
+		!strings.Contains(body, link) {
+		t.Errorf("eqHandler() check failed: GET of the link %d:\n%s", code,
+			body)
+	}
+
+	// an fstat search, as the links in fstat's replies ask for one: every
+	// item, in fstat's order, short unless asked for long
+	code, body = servePage(httptest.NewRequest("GET", "/?fstat=dam+gt+3",
+		nil))
+	sword, stiletto := strings.Index(body, swordShort),
+		strings.Index(body, stilettoShort)
+	if code != http.StatusOK || !strings.Contains(body, "All Results (2):") ||
+		sword < 0 || stiletto < sword ||
+		!strings.Contains(body, `value="dam gt 3"`) ||
+		!strings.Contains(body, "Link to this search") {
+		t.Errorf("eqHandler() check failed: fstat %d:\n%s", code, body)
+	}
+	_, body = servePage(httptest.NewRequest("GET",
+		"/?fstat=dam+gt+3&format=long", nil))
+	if !strings.Contains(body, "Type:Longsword") {
+		t.Errorf("eqHandler() check failed: fstat, long:\n%s", body)
+	}
+	_, body = servePage(httptest.NewRequest("GET", "/?fstat=blah+gt+1", nil))
+	if !strings.Contains(body, "404 item(s) not found: blah gt 1") {
+		t.Errorf("eqHandler() check failed: fstat blah gt 1:\n%s", body)
 	}
 }
 

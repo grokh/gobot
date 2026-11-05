@@ -12,9 +12,10 @@
 <body>
 	<h1><a href="https://www.grokh.com/torileq/">TorilEQ 3.0 - TorilMUD Equipment Database</a></h1>
 	<p>Items Updated: {{.Date}} - Alternate: <a href="https://toril.utopiaprogramming.com/">https://toril.utopiaprogramming.com/</a></p>
-	<form action="#" name="searchForm" id="searchForm" method="post">
+	<form action="?" name="searchForm" id="searchForm" method="post">
 		<input type="hidden" name="exactItem" id="exactItem" />
 		<p><label for="itemName">Item name: </label><input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
+		<p><label for="fstat">Or an fstat search: </label><input type="text" size="45" maxlength="300" name="fstat" id="fstat" value="{{.Fstat}}" /> as Katumi takes it, ex. dam gt 2, slot neck, usable thief</p>
 		<p><label for="zoneName">Zone name: </label>
 			<select name="zoneName" id="zoneName"><option value=""></option>
 				{{range .Zones}}<option value="{{.ZoneAbbr}}">{{.ZoneDisp}}</option>
@@ -60,9 +61,9 @@
             <select name="orderBy" id="orderBy">
 				<option value="name">Item Name</option>
                 <option value="zone">Zone Name</option>
-                <!--<option value="attrib1">Attribute 1</option>
+                <option value="attrib1">Attribute 1</option>
                 <option value="attrib2">Attribute 2</option>
-				<option value="worn">Worn Slot</option>-->
+				<!--<option value="worn">Worn Slot</option>-->
                 <option value="type">Item Type</option>
             </select>
             <select name="ascDesc" id="ascDesc">
@@ -121,6 +122,7 @@
 		<p><input type="submit" name="submit" id="submit" value="Search" /></p>
 	</form>
 	{{if .Results}}<h2>All Results ({{len .Results}}):</h2>
+	{{if .Link}}<p><a href="{{.Link}}" rel="nofollow">Link to this search</a></p>{{end}}
 	{{end}}
 	{{range .Results}}<p>{{.}}</p>
 	{{else}}

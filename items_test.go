@@ -511,12 +511,15 @@ func testWeb(t *testing.T, src string) {
 			w.Body.String())
 	}
 
-	// a link to that search, of the fields filled in, which runs it by GET
+	// a link to that search, of the fields filled in, which runs it by GET,
+	// above the results' header
 	link := `href="?ascDesc=up&amp;format=long&amp;itemName=stiletto&amp;` +
 		`orderBy=name"`
-	if !strings.Contains(w.Body.String(), link) {
-		t.Errorf("eqHandler() check failed: POST gave no %s:\n%s", link,
-			w.Body.String())
+	page = w.Body.String()
+	if i := strings.Index(page, link); i < 0 ||
+		i > strings.Index(page, "All Results") {
+		t.Errorf("eqHandler() check failed: POST gave no %s above the "+
+			"results:\n%s", link, page)
 	}
 	code, body := servePage(httptest.NewRequest("GET",
 		"/?ascDesc=up&format=long&itemName=stiletto&orderBy=name", nil))

@@ -18,13 +18,16 @@ import (
 // real tell trigger, shellsafe and reply handling run against a gobot built
 // from this checkout and the test TorilDB.db, through the /bin/sh tintin
 // uses. Some of the tells try to get a shell command, a tintin command or a
-// variable like $cpw through. Set TORILMUD_TIN to the path of the other
-// character's torilmud.tin to run it the same way, ASSOC included. The test
-// is skipped without tt++.
+// variable like $cpw through. Then it logs the script in to a stand-in MUD
+// that goes down and drops it, to check that it logs back in (reconnect).
+// Set TORILMUD_TIN to the path of the other character's torilmud.tin to run
+// it the same way, ASSOC included. The test is skipped without tt++.
 //
 // It must never reach the MUD. Both scripts log in when tintin starts, so
-// tintin only reads copies without #session lines or login events, checked
-// before tt++ runs, and the tokens.tin beside them has no real account.
+// for the tells tintin only reads copies without #session lines or login
+// events, and for reconnect copies whose only #session line is for the
+// stand-in on 127.0.0.1, checked before tt++ runs. The tokens.tin beside
+// them has no real account.
 func Test_Tintin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs tt++")
@@ -58,25 +61,40 @@ func Test_Tintin(t *testing.T) {
 
 	scripts := []tinScript{
 		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
-			everyTell: true, online: true},
+			everyTell: true, online: true,
+			login: []string{fakeAcct, fakeSecret, fakeChar}},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
+		// It logs in at the start through the event the server's basic.tin
+		// adds, and names its account itself.
 		scripts = append(scripts, tinScript{name: "torilmud.tin",
-			path: path, deps: []string{"gags.tin"}, assoc: true})
+			path: path, deps: []string{"gags.tin", "ynndchiarhlizz.tin"},
+			assoc: true, start: "play ynndchiarhlizz;login",
+			login: []string{"", fakeSecret, "Ynndchiarhlizz"}})
 	}
 	for _, s := range scripts {
-		t.Run(s.name, func(t *testing.T) { s.check(t, tt, bin, work) })
+		t.Run(s.name, func(t *testing.T) {
+			t.Run("tells", func(t *testing.T) { s.tells(t, tt, bin, work) })
+			t.Run("reconnect", func(t *testing.T) {
+				s.reconnect(t, tt, bin, work)
+			})
+		})
 	}
 }
 
 // tinScript is a script Test_Tintin runs: the file, others it reads from
-// its own folder as it loads, whether it answers stat on ASSOC, whether it
-// passes gobot every tell, not just stat, and whether it records who's
-// count of players online.
+// its own folder, whether it answers stat on ASSOC, whether it passes gobot
+// every tell, not just stat, and whether it records who's count of players
+// online. start is the command that logs in when tintin starts, for a
+// script that leaves that to another file. login is what the script sends
+// when the MUD asks for an account: the account ("" for any), password and
+// character.
 type tinScript struct {
 	name, path               string
 	deps                     []string
 	assoc, everyTell, online bool
+	start                    string
+	login                    []string
 }
 
 // checkOnline waits for the count of players online the driver shows, 17,
@@ -119,10 +137,35 @@ func plainDaggers() []dbRow {
 // filled in a variable a player typed.
 const fakeSecret = "FAKESECRET-91"
 
+// fakeAcct and fakeChar are the account and character in the tokens.tin
+// katumi.tin gets.
+const (
+	fakeAcct = "nobody"
+	fakeChar = "Testbot"
+)
+
+// writeTokens writes the tokens.tin katumi.tin reads its login from.
+func writeTokens(t *testing.T, dir string) {
+	chkErr(t, os.WriteFile(filepath.Join(dir, "tokens.tin"), []byte(
+		"#var {acct} {"+fakeAcct+"}\n#var {char} {"+fakeChar+"}\n"+
+			"#var {cpw} {"+fakeSecret+"}\n"), 0640))
+}
+
+// tintinCmd runs tt++ in dir on its test.tin, in nohup mode since there's
+// no terminal, with the gobot built for the test first on the PATH.
+func tintinCmd(ctx context.Context, tt, bin, dir string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, tt, "-H", "-G", "-r", "test.tin")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
+		"MSYS2_ARG_CONV_EXCL=*") // Git's sh: pass gobot's args as they are
+	return cmd
+}
+
 // ansiCodes are the escape codes tt++ puts around what it prints.
 var ansiCodes = regexp.MustCompile(`\x1b\[[0-9;?>]*[A-Za-z]|\x1b\][^\x07]*\x07`)
 
-func (s tinScript) check(t *testing.T, tt, bin, work string) {
+func (s tinScript) tells(t *testing.T, tt, bin, work string) {
 	run := filepath.Join(work, strings.TrimSuffix(s.name, ".tin"))
 	chkErr(t, os.MkdirAll(filepath.Join(run, "logs"), 0750))
 	copyOffline(t, s.path, filepath.Join(run, s.name))
@@ -132,20 +175,13 @@ func (s tinScript) check(t *testing.T, tt, bin, work string) {
 	}
 	writeItemDB(t, filepath.Join(run, itemDBFile),
 		append(append([]dbRow{}, testEq...), plainDaggers()...))
-	chkErr(t, os.WriteFile(filepath.Join(run, "tokens.tin"), []byte(
-		"#var {acct} {nobody}\n#var {char} {Testbot}\n"+
-			"#var {cpw} {"+fakeSecret+"}\n"), 0640))
+	writeTokens(t, run)
 	chkErr(t, os.WriteFile(filepath.Join(run, "test.tin"),
 		[]byte(s.driver()), 0640))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, tt, "-H", "-G", "-r", "test.tin")
-	cmd.Dir = run
-	cmd.Env = append(os.Environ(),
-		"PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"),
-		"MSYS2_ARG_CONV_EXCL=*") // Git's sh: pass gobot's args as they are
-	out, err := cmd.CombinedOutput()
+	out, err := tintinCmd(ctx, tt, bin, run).CombinedOutput()
 	screen := ansiCodes.ReplaceAllString(
 		strings.ReplaceAll(string(out), "\r", ""), "")
 	if err != nil {

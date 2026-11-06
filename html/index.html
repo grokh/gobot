@@ -120,8 +120,8 @@
 		</div>
 		<p><input type="submit" name="submit" id="submit" value="Search" /></p>
 	</form>
-	{{if .Results}}<h2>All Results ({{len .Results}}):</h2>
-	{{if .Link}}<p><a href="{{.Link}}" rel="nofollow">Link to this search</a></p>{{end}}
+	{{if .Results}}{{if .Link}}<p><a href="{{.Link}}" rel="nofollow">Link to this search</a></p>{{end}}
+	<h2>All Results ({{len .Results}}):</h2>
 	{{end}}
 	{{range .Results}}<p>{{.}}</p>
 	{{else}}

@@ -18,15 +18,31 @@ const ntfyFile = "ntfy.url"
 // SendBootAlert tells everyone subscribed to the ntfy topic that TorilMUD has
 // rebooted or crashed.
 func SendBootAlert() {
-	content, err := os.ReadFile(ntfyFile)
-	ChkErr(err)
-	topic := strings.TrimSpace(strings.SplitN(string(content), "\n", 2)[0])
-	if topic == "" {
-		fatal("Fatal Error: no ntfy topic URL on the first line of", ntfyFile)
-	}
 	msg := "Katumi detected a new TorilMUD boot."
 	log.Printf("Alert: %s\n", msg)
-	ChkErr(ntfy(topic, "TorilMUD reboot/crash", msg))
+	ChkErr(alert("TorilMUD reboot/crash", msg))
+}
+
+// SendTestAlert sends a test alert to the ntfy topic the way a reboot alert
+// goes, so gobot -testalert can show that the alerts get through without
+// waiting for a reboot.
+func SendTestAlert() error {
+	return alert("TorilMUD alert test",
+		"A test from gobot -testalert. Reboot alerts will arrive here too.")
+}
+
+// alert posts a notification to the topic in ntfyFile.
+func alert(title string, msg string) error {
+	content, err := os.ReadFile(ntfyFile)
+	if err != nil {
+		return err
+	}
+	topic := strings.TrimSpace(strings.SplitN(string(content), "\n", 2)[0])
+	if topic == "" {
+		return fmt.Errorf("no ntfy topic URL on the first line of %s",
+			ntfyFile)
+	}
+	return ntfy(topic, title, msg)
 }
 
 // ntfy posts a notification to an ntfy topic URL.

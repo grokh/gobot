@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,11 +11,12 @@ import (
 	"testing"
 )
 
-// Test_Ntfy checks the reboot alert gobot posts to the topic in ntfy.url, and
-// that an error from ntfy comes back as one.
+// Test_Ntfy checks the reboot alert gobot posts to the topic in ntfy.url, the
+// test alert gobot -testalert sends there, and that an error from ntfy, or a
+// missing or empty ntfy.url, comes back as one.
 func Test_Ntfy(t *testing.T) {
 	type post struct{ to, title, msg string }
-	posts := make(chan post, 2)
+	posts := make(chan post, 4)
 	srv := httptest.NewServer(http.HandlerFunc(
 		func(w http.ResponseWriter, r *http.Request) {
 			msg, err := io.ReadAll(r.Body)
@@ -35,22 +38,51 @@ func Test_Ntfy(t *testing.T) {
 	defer os.Chdir(src)
 	chkErr(t, os.WriteFile(ntfyFile, []byte(srv.URL+"/katumi\n"), 0600))
 
-	SendBootAlert()
-	want := post{"POST /katumi", "TorilMUD reboot/crash",
-		"Katumi detected a new TorilMUD boot."}
-	select {
-	case got := <-posts:
-		if got != want {
-			t.Errorf("SendBootAlert() check failed: Expected: %+v, "+
-				"Actual: %+v", want, got)
+	// posted checks what was posted since the last check, if anything
+	posted := func(check string, want *post) {
+		t.Helper()
+		select {
+		case got := <-posts:
+			if want == nil {
+				t.Errorf("%s check failed: posted %+v", check, got)
+			} else if got != *want {
+				t.Errorf("%s check failed: Expected: %+v, Actual: %+v",
+					check, *want, got)
+			}
+		default:
+			if want != nil {
+				t.Errorf("%s check failed: nothing posted", check)
+			}
 		}
-	default:
-		t.Errorf("SendBootAlert() check failed: nothing posted")
 	}
+
+	SendBootAlert()
+	posted("SendBootAlert()", &post{"POST /katumi", "TorilMUD reboot/crash",
+		"Katumi detected a new TorilMUD boot."})
+
+	chkErr(t, SendTestAlert())
+	posted("SendTestAlert()", &post{"POST /katumi", "TorilMUD alert test",
+		"A test from gobot -testalert. Reboot alerts will arrive here too."})
 
 	err = ntfy(srv.URL+"/busy", "TorilMUD reboot/crash", "test")
 	if err == nil || !strings.Contains(err.Error(), "429 Too Many Requests") ||
 		!strings.Contains(err.Error(), "limit reached") {
 		t.Errorf("ntfy() check failed: a 429 gave %v", err)
 	}
+	posted("ntfy()", &post{"POST /busy", "TorilMUD reboot/crash", "test"})
+
+	// without a topic, the test alert says why rather than stopping gobot,
+	// so -testalert can print it; the topic has to be on the first line
+	chkErr(t, os.WriteFile(ntfyFile, []byte("\n"+srv.URL+"/katumi\n"), 0600))
+	err = SendTestAlert()
+	if err == nil || !strings.Contains(err.Error(), "no ntfy topic URL") {
+		t.Errorf("SendTestAlert() check failed: a blank first line gave %v",
+			err)
+	}
+	posted("SendTestAlert() with a blank first line", nil)
+	chkErr(t, os.Remove(ntfyFile))
+	if err = SendTestAlert(); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("SendTestAlert() check failed: no %s gave %v", ntfyFile, err)
+	}
+	posted("SendTestAlert() without "+ntfyFile, nil)
 }

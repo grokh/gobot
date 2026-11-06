@@ -78,6 +78,9 @@ func main() {
 	var checkItems = flag.String("checkitems", "",
 		"Check a downloaded TorilDB.db before it replaces the one in use. "+
 			"Ex: /tmp/TorilDB.db")
+	// for ntfy.go SendTestAlert(), to check reboot alerts by hand
+	var testAlert = flag.Bool("testalert", false,
+		"Send a test alert to the ntfy topic in "+ntfyFile+".")
 	// port number for API / web server
 	var port = flag.String("port", "", "API / web server port, on 127.0.0.1.")
 
@@ -121,6 +124,15 @@ func main() {
 		}
 		log.Println(msg)
 		cmds = []string{msg + "\n"}
+	case *testAlert:
+		if err := SendTestAlert(); err != nil {
+			log.Printf("Test alert failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Test alert failed: %v\n", err)
+			os.Exit(1)
+		}
+		log.Println("Test alert sent")
+		cmds = []string{"Test alert sent to the ntfy topic in " +
+			ntfyFile + ".\n"}
 	case *port != "":
 		webServer = true
 		loadPage()

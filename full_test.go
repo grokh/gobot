@@ -344,6 +344,7 @@ func Test_All(t *testing.T) {
 
 	testHelp(t)
 	testCharChanges(t)
+	testNewClasses(t, db)
 
 	testItems(t, src)
 	testReboot(t)
@@ -395,6 +396,48 @@ func testCharChanges(t *testing.T) {
 	chkPrefix(t, "char after unknown race",
 		"t Yog [50 Warrior] Yog (Half-Elf) (@Yog) seen ",
 		ReplyTo("Yog", "char yog"))
+}
+
+// testNewClasses checks Blackguard, Hexblade, Sorcerer and Wizard, which
+// were added to the live toril.db by hand and long missing from init_db.sql:
+// who() records new chars of each, and WhoBatch changes a char to one from
+// its abbreviation in the who list.
+func testNewClasses(t *testing.T, db *sql.DB) {
+	for _, n := range []struct{ abbr, class, race, char, alt string }{
+		{"Blk", "Blackguard", "Duergar", "Ash", "Ann"},
+		{"Hex", "Hexblade", "Human", "Ivy", "Ida"},
+		{"Sor", "Sorcerer", "Moon Elf", "Sol", "Sam"},
+		{"Wiz", "Wizard", "Gnome", "Wen", "Wes"},
+	} {
+		// checked first: with foreign keys on, who() can't record a char of a
+		// class the table doesn't have, and its error ends the whole test run
+		var class string
+		err := db.QueryRow("SELECT class_name FROM classes "+
+			"WHERE class_abbr = ?", n.abbr).Scan(&class)
+		if err != nil || class != n.class {
+			t.Errorf("classes check failed: no %s (%s) in init_db.sql",
+				n.class, n.abbr)
+			continue
+		}
+
+		// a new char of the class, as the individual who adds it
+		c := Char{name: n.char, lvl: 50, class: n.class + " ", race: n.race,
+			acct: "Ash"}
+		chk(t, "c.who() "+n.class, []string{}, c.who())
+		chkPrefix(t, "char after c.who() "+n.class,
+			"t Yog [50 "+n.class+"] "+n.char+" ("+n.race+") (@Ash) seen ",
+			ReplyTo("Yog", "char "+n.char))
+
+		// a Warrior the who list now shows in the class
+		c = Char{name: n.alt, lvl: 50, class: "Warrior ", race: n.race,
+			acct: "Ash"}
+		c.who()
+		chk(t, "WhoBatch() "+n.class, []string{"who " + n.alt + "\n"},
+			WhoBatch(fmt.Sprintf("[50 %s] %s  (%s)", n.abbr, n.alt, n.race)))
+		chkPrefix(t, "char after WhoBatch() "+n.class,
+			"t Yog [50 "+n.class+"] "+n.alt+" ("+n.race+") (@Ash) seen ",
+			ReplyTo("Yog", "char "+n.alt))
+	}
 }
 
 // testReboot checks that Uptime notices a reboot even when the bot was

@@ -51,6 +51,8 @@ INSERT INTO "classes" VALUES('Ranger','Ran','Fighter','ANTI-RANGER');
 INSERT INTO "classes" VALUES('Paladin','Pal','Fighter','ANTI-PALADIN');
 INSERT INTO "classes" VALUES('Anti-Paladin','A-P','Fighter','ANTI-ANTIPALADIN');
 INSERT INTO "classes" VALUES('Dire Raider','Dir','Fighter','ANTI-DIRERAIDER');
+INSERT INTO "classes" VALUES('Blackguard','Blk','Fighter','ANTI-BLACKGUARD');
+INSERT INTO "classes" VALUES('Hexblade','Hex','Fighter','ANTI-HEXBLADE');
 INSERT INTO "classes" VALUES('Cleric','Cle','Priest','ANTI-CLERIC');
 INSERT INTO "classes" VALUES('Druid','Dru','Priest','ANTI-DRUID');
 INSERT INTO "classes" VALUES('Shaman','Sha','Priest','ANTI-SHAMAN');
@@ -64,6 +66,8 @@ INSERT INTO "classes" VALUES('Necromancer','Nec','Mage','ANTI-NECROMANCER');
 INSERT INTO "classes" VALUES('Illusionist','Ill','Mage','ANTI-ILLUSIONIST');
 INSERT INTO "classes" VALUES('Psionicist','Psi','Mage','ANTI-PSIONICIST');
 INSERT INTO "classes" VALUES('Lich','Lic','Mage','ANTI-LICH');
+INSERT INTO "classes" VALUES('Sorcerer','Sor','Mage','ANTI-SORCERER');
+INSERT INTO "classes" VALUES('Wizard','Wiz','Mage','ANTI-WIZARD');
 CREATE TABLE accounts(
 	account_name TEXT PRIMARY KEY
 	,player_name TEXT

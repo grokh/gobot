@@ -6,6 +6,11 @@
 # so downloads never see a half-written file. The TorilEQ site doesn't need
 # one: it reads item stats from TorilDB.db.
 #
+# The copy's items and item_flags are refilled from the TorilDB.db beside
+# the source, for NyyLIB, the Mudlet package (see dbcopy_items.sql). If
+# that's missing or the refill fails, the copy keeps the item tables it
+# has, and the reason goes to stderr.
+#
 # Usage: dbcopy.sh [source [destination...]]   (defaults below)
 set -euo pipefail
 
@@ -15,12 +20,22 @@ src=${1:-/srv/bot/toril.db}
 	/srv/web/grokh.com/html/toril.db \
 	/home/trance/go/src/github.com/grokh/gobot/toril.db \
 	/home/trance/mud/torilmud/toril.db
+itemdb=$(dirname "$src")/TorilDB.db
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 db="$tmp/toril.db"
 
 sqlite3 "$src" ".timeout 10000" "VACUUM INTO '$db'"
+# TorilDB.db is opened read-only, so it's never created or changed here.
+# -bail stops at the first error, which rolls the refill back: without it,
+# sqlite3 would go on and commit what was left.
+if [ ! -f "$itemdb" ]; then
+	echo "dbcopy.sh: no $itemdb, so the item tables aren't refreshed" >&2
+elif ! sqlite3 -bail "$db" "ATTACH 'file:$itemdb?mode=ro' AS k" \
+	".read '$(dirname "$0")/dbcopy_items.sql'"; then
+	echo "dbcopy.sh: the item tables weren't refreshed from $itemdb" >&2
+fi
 sqlite3 "$db" "DELETE FROM chars WHERE vis = 'f';
 	UPDATE accounts SET player_name = NULL;
 	VACUUM;"

@@ -1,6 +1,8 @@
 -- toril.db: the characters, accounts, boots and load reports the bot keeps.
 -- Item stats come from Kegor's TorilDB.db instead (see items.go); the item
--- tables toril.db used to have are in this file's history.
+-- tables toril.db used to have are in this file's history. dbcopy_items.sql
+-- makes items and item_flags, from TorilDB.db, in the copy dbcopy.sh
+-- publishes.
 
 -- create new character tracking tables
 BEGIN TRANSACTION;

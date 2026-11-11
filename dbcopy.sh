@@ -2,9 +2,10 @@
 # Publish a copy of the bot's toril.db that holds only what's meant to be
 # public. The copy starts as a new, empty database and gets what
 # dbcopy_public.sql lists, read from the bot's database, which is only ever
-# opened read-only. Hidden alts, real names and the hourly counts in online
-# aren't on that list, so they're never written to the copy, and nor is
-# anything added to the bot's database later, until it's listed.
+# opened read-only. Hidden alts, real names, load reports and the hourly
+# counts in online aren't on that list, so they're never written to the
+# copy, and nor is anything added to the bot's database later, until it's
+# listed.
 #
 # The bot can be writing meanwhile: the read is one transaction, which waits
 # up to 10 seconds for a write to finish. Each copy is renamed into place,

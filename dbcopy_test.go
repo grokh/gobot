@@ -222,9 +222,11 @@ INSERT INTO item_slots VALUES (3, 'wield');
 INSERT INTO item_attribs VALUES (3, 'hit', 2);
 `
 
-// people are a char and an account, with what dbcopy.sh mustn't publish of
-// them: the player's name, a hidden alt, and an alt whose vis is neither
-// 't' nor 'f', which isn't marked visible either.
+// people are two accounts and their chars, with what dbcopy.sh mustn't
+// publish of them: a player's name, a hidden alt, and an alt whose vis is
+// neither 't' nor 'f', which isn't marked visible either. The second
+// account and its char sort before the first, so the order they were added
+// in, which a copy keeps, isn't the order of their keys.
 const people = `INSERT INTO accounts VALUES ('yog', 'Yogi Bear');
 INSERT INTO chars VALUES ('yog', 'Yog', 'Shaman', 'Barbarian', 50,
 	'2026-11-01 12:00:00', 't');
@@ -232,12 +234,13 @@ INSERT INTO chars VALUES ('yog', 'Hiddenalt', 'Rogue', 'Human', 50,
 	'2026-11-01 12:00:00', 'f');
 INSERT INTO chars VALUES ('yog', 'Limboalt', 'Bard', 'Gnome', 3,
 	'2026-11-01 12:00:00', '?');
+INSERT INTO accounts VALUES ('ant', NULL);
+INSERT INTO chars VALUES ('ant', 'Anthill', 'Druid', 'Halfling', 12,
+	'2026-11-01 12:10:00', 't');
 `
 
-// counts are two hours of who's counts, which dbcopy.sh leaves out of what
-// it publishes, and two load reports, which it publishes like the rest: in
-// the order they were made, which here isn't the order of their times, and
-// the deleted one too.
+// counts are two hours of who's counts and two load reports, one of them
+// deleted, none of which dbcopy.sh publishes.
 const counts = `INSERT INTO online VALUES ('2026-11-01 12:00:00+00:00', 120, 2280,
 	17, 21);
 INSERT INTO online VALUES ('2026-11-01 13:00:00+00:00', 119, 2142, 16, 20);
@@ -263,10 +266,11 @@ CREATE TABLE zones(
 INSERT INTO zones VALUES ('WD', 'Waterdeep');
 `
 
-// private is text from people and later that only the bot's toril.db may
-// hold: the player's name, the two alts, the note and the email address.
-var private = []string{"Yogi Bear", "Hiddenalt", "Limboalt", "owes Katumi",
-	"jellystone"}
+// private is text from people, counts and later that only the bot's
+// toril.db may hold: the player's name, the two alts, the load reports, the
+// note and the email address.
+var private = []string{"Yogi Bear", "Hiddenalt", "Limboalt", "Tia is",
+	"owes Katumi", "jellystone"}
 
 // published are the tables dbcopy.sh publishes, and their columns: the
 // bot's that dbcopy_public.sql lists, and NyyLIB's two item tables.
@@ -654,8 +658,8 @@ func findBash(t *testing.T) string {
 
 // Test_DBCopy runs dbcopy.sh. What it publishes is what dbcopy_public.sql
 // lists and no more, whatever else the bot's toril.db holds: no hidden alts,
-// real names or online table, and nothing added to the bot's database that
-// the list doesn't name. It has NyyLIB's items from the TorilDB.db beside
+// real names, load reports or online table, and nothing added to the bot's
+// database that the list doesn't name. It has NyyLIB's items from the TorilDB.db beside
 // the source, or the bot's old ones if that's missing or can't be used,
 // with the reason on stderr. The bot's own toril.db is only read.
 func Test_DBCopy(t *testing.T) {
@@ -763,6 +767,12 @@ func Test_DBCopy(t *testing.T) {
 				cols = "account_name" // without the player's name
 			case "chars":
 				where = "WHERE vis = 't'" // without the hidden alt
+			case "loads":
+				// the table, for gobot's lr, without the reports
+				if got := tableDump(t, db, name, cols, ""); len(got) > 0 {
+					t.Errorf("%s: published loads: %q, want none", what, got)
+				}
+				continue
 			}
 			want := tableDump(t, from, name, cols, where)
 			got := tableDump(t, db, name, cols, "")

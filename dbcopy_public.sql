@@ -8,6 +8,10 @@
 --   * hidden alts: only chars whose vis is 't' are copied.
 --   * real names: accounts has its player_name column, since gobot run on a
 --     copy reads it, but nothing is ever put in it.
+--   * load reports: nothing reads them from a copy, and they'd be a third
+--     of the download. They're players' own words, years of them, with the
+--     ones they deleted, where lr only ever shows the current boot's. loads
+--     is there, empty, so that gobot run on a copy can still answer lr.
 --   * online, who's hourly counts: nothing reads them from a copy, and
 --     they'd be over 40% of the download.
 --   * the item tables the bot kept until Kegor's TorilDB.db replaced them,
@@ -17,12 +21,11 @@
 -- Who reads a copy: NyyLIB, the Mudlet package, reads chars, items and
 -- item_flags from the download. gobot, run in a folder that has a copy,
 -- works from it as the bot does from its own, which takes chars, accounts,
--- boots, loads and races, and classes when a char is added.
+-- boots, races and a loads table, and classes when a char is added.
 --
 -- The tables are made the way init_db.sql makes them. All of it is read in
 -- one transaction, so the copy is the bot's database as it was at one
--- moment, and rows go in in the order the bot has them, which is the order
--- lr numbers load reports in.
+-- moment, and rows go in in the order the bot has them.
 
 BEGIN;
 
@@ -94,7 +97,7 @@ CREATE TABLE main.boots(
 INSERT INTO main.boots (boot_id, boot_time, uptime)
 SELECT boot_id, boot_time, uptime FROM bot.boots ORDER BY boot_id;
 
--- deleted reports too, marked as such: lr skips them
+-- the table alone, for lr and lrdel: no load reports are copied
 CREATE TABLE main.loads(
 	boot_id INTEGER REFERENCES boots(boot_id) NOT NULL
 	,report_time DATETIME NOT NULL
@@ -103,10 +106,6 @@ CREATE TABLE main.loads(
 	,deleted BOOLEAN NOT NULL
 	,PRIMARY KEY (boot_id, report_time)
 );
-INSERT INTO main.loads (boot_id, report_time, report_text, char_name,
-	deleted)
-SELECT boot_id, report_time, report_text, char_name, deleted
-FROM bot.loads ORDER BY rowid;
 
 -- NyyLIB's item tables, empty: dbcopy.sh fills them, from TorilDB.db with
 -- dbcopy_items.sql, which has the same two definitions and says what NyyLIB

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"sort"
@@ -229,6 +230,14 @@ INSERT INTO chars VALUES ('yog', 'Hid', 'Rogue', 'Human', 50,
 	'2026-11-01 12:00:00', 'f');
 `
 
+// counts are two hours of who's counts, which dbcopy.sh leaves out of what
+// it publishes, and a load report, which it publishes like the rest.
+const counts = `INSERT INTO online VALUES ('2026-11-01 12:00:00+00:00', 120, 2280,
+	17, 21);
+INSERT INTO online VALUES ('2026-11-01 13:00:00+00:00', 119, 2142, 16, 20);
+INSERT INTO loads VALUES (1, '2026-11-01 12:30:00', 'Tia is up', 'Yog', 'f');
+`
+
 // makeTorilDB makes a toril.db at path with init_db.sql, then runs more in
 // it.
 func makeTorilDB(t *testing.T, path, more string) {
@@ -270,6 +279,29 @@ func queryInt(t *testing.T, db *sql.DB, query string) int {
 	var n int
 	if err := db.QueryRow(query).Scan(&n); err != nil {
 		t.Errorf("%s: %v", query, err)
+	}
+	return n
+}
+
+// tableRows counts the rows in each table of the database at path, but for
+// the item tables, which checkNyyLIB and chkOldItems check.
+func tableRows(t *testing.T, path string) map[string]int {
+	t.Helper()
+	db := openRO(t, path)
+	defer db.Close()
+	rows, err := db.Query("SELECT name FROM sqlite_master WHERE " +
+		"type = 'table' AND name NOT LIKE 'item%'")
+	chkErr(t, err)
+	var tables []string
+	for rows.Next() {
+		var name string
+		chkErr(t, rows.Scan(&name))
+		tables = append(tables, name)
+	}
+	ChkRows(rows)
+	n := make(map[string]int)
+	for _, name := range tables {
+		n[name] = queryInt(t, db, "SELECT count(*) FROM "+name)
 	}
 	return n
 }
@@ -536,9 +568,10 @@ func findBash(t *testing.T) string {
 }
 
 // Test_DBCopy runs dbcopy.sh. What it publishes has no hidden alts or real
-// names, and NyyLIB's items from the TorilDB.db beside the source, or the
-// item tables it had if that's missing or can't be used, with the reason
-// on stderr.
+// names and no online table, the rest of what the bot keeps, and NyyLIB's
+// items from the TorilDB.db beside the source, or the item tables it had if
+// that's missing or can't be used, with the reason on stderr. The bot's own
+// toril.db is left as it was.
 func Test_DBCopy(t *testing.T) {
 	bash := findBash(t)
 	src, err := os.Getwd()
@@ -549,7 +582,7 @@ func Test_DBCopy(t *testing.T) {
 		chkErr(t, os.Mkdir(filepath.Join(dir, d), 0750))
 	}
 	bot := filepath.Join(dir, "bot", "toril.db")
-	makeTorilDB(t, bot, oldItems+people)
+	makeTorilDB(t, bot, oldItems+people+counts)
 	kegor := filepath.Join(dir, "bot", "TorilDB.db")
 	writeItemDB(t, kegor, nyyEq)
 	pub := filepath.Join(dir, "pub", "toril.db")
@@ -560,6 +593,8 @@ func Test_DBCopy(t *testing.T) {
 	// in the environment it starts with into /c/x, which sqlite3 can't open.
 	run := func(what string) string {
 		t.Helper()
+		before, err := os.ReadFile(bot)
+		chkErr(t, err)
 		cmd := exec.Command(bash, "-c", `export TMPDIR="$1"; shift; `+
 			`exec bash "$@"`, "bash", filepath.ToSlash(tmp),
 			filepath.ToSlash(filepath.Join(src, "dbcopy.sh")),
@@ -580,6 +615,13 @@ func Test_DBCopy(t *testing.T) {
 		if _, err := os.Stat(pub + ".new"); !os.IsNotExist(err) {
 			t.Errorf("%s: dbcopy.sh left toril.db.new: %v", what, err)
 		}
+		// the bot's own toril.db is only read, so it keeps what the copy
+		// leaves out
+		after, err := os.ReadFile(bot)
+		chkErr(t, err)
+		if !bytes.Equal(after, before) {
+			t.Errorf("%s: dbcopy.sh changed the bot's toril.db", what)
+		}
 
 		db := openRO(t, pub)
 		defer db.Close()
@@ -590,12 +632,23 @@ func Test_DBCopy(t *testing.T) {
 			{"SELECT count(*) FROM chars WHERE vis = 'f'", 0},
 			{"SELECT count(*) FROM chars", 1},
 			{"SELECT count(*) FROM accounts WHERE player_name IS NOT NULL", 0},
-			// VACUUMed, so the deleted rows aren't in the file
+			// who's counts aren't published, table or index
+			{"SELECT count(*) FROM sqlite_master WHERE tbl_name = 'online'", 0},
+			// VACUUMed, so the deleted rows and the dropped table aren't in
+			// the file
 			{"PRAGMA freelist_count", 0},
 		} {
 			if got := queryInt(t, db, c.query); got != c.want {
 				t.Errorf("%s: %s: %d, want %d", what, c.query, got, c.want)
 			}
+		}
+		// the bot's other tables are all there, with every row but the
+		// hidden alt
+		want, got := tableRows(t, bot), tableRows(t, pub)
+		delete(want, "online")
+		want["chars"]--
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("%s: published tables' rows: %v, want %v", what, got, want)
 		}
 		return stderr.String()
 	}
@@ -623,4 +676,13 @@ func Test_DBCopy(t *testing.T) {
 		t.Errorf("a TorilDB.db it can't use: dbcopy.sh said %q", msg)
 	}
 	chkOldItems(t, "a TorilDB.db it can't use", pub)
+
+	// a toril.db from before gobot kept who's counts has no online table to
+	// leave out, which is no error
+	chkErr(t, os.Remove(bot))
+	makeTorilDB(t, bot, oldItems+people+counts+"DROP TABLE online;")
+	writeItemDB(t, kegor, nyyEq)
+	if msg := run("no online table"); msg != "" {
+		t.Errorf("no online table: dbcopy.sh said %q", msg)
+	}
 }

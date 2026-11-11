@@ -6,6 +6,10 @@
 # so downloads never see a half-written file. The TorilEQ site doesn't need
 # one: it reads item stats from TorilDB.db.
 #
+# The copy has no online table, the bot's hourly counts of players online:
+# nothing reads them from a copy, and they'd be over 40% of the download.
+# They stay in the bot's own toril.db, which this script only reads.
+#
 # The copy's items and item_flags are refilled from the TorilDB.db beside
 # the source, for NyyLIB, the Mudlet package (see dbcopy_items.sql). If
 # that's missing or the refill fails, the copy keeps the item tables it
@@ -38,6 +42,7 @@ elif ! sqlite3 -bail "$db" "ATTACH 'file:$itemdb?mode=ro' AS k" \
 fi
 sqlite3 "$db" "DELETE FROM chars WHERE vis = 'f';
 	UPDATE accounts SET player_name = NULL;
+	DROP TABLE IF EXISTS online;
 	VACUUM;"
 [ "$(sqlite3 "$db" "PRAGMA integrity_check;")" = ok ]
 

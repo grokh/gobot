@@ -1,8 +1,8 @@
--- dbcopy.sh runs this on its copy of toril.db, with the bot's TorilDB.db
--- attached read-only as k, to refill the copy's items and item_flags from
--- Kegor's eq table. gobot itself doesn't read these tables any more; they're
--- for NyyLIB, the Mudlet package, whose @updatedb downloads the published
--- toril.db. What NyyLIB reads from them:
+-- dbcopy.sh runs this on the copy of toril.db it's making, with the bot's
+-- TorilDB.db attached read-only as k, to fill the copy's items and
+-- item_flags from Kegor's eq table. gobot itself doesn't read these tables
+-- any more; they're for NyyLIB, the Mudlet package, whose @updatedb
+-- downloads the published toril.db. What NyyLIB reads from them:
 --   * @id: short_stats, with LIKE.
 --   * @statitems, @cid and its container listings: item_name, with LIKE,
 --     taking the first match. Items go in shortest name first, so that's
@@ -13,12 +13,16 @@
 --     for the "(Potion) Lvl:31 heal *" part (or Scroll, Poison), which
 --     labels them in bags. A row with "(Potion) " but not the rest of that
 --     shape, or with no short_stats, stops it with a Lua error, so this file
---     fails rather than publish one, and dbcopy.sh keeps the old tables.
+--     fails rather than publish one, and changes nothing.
 --   * A script of its own inserts all 13 items columns by position.
+--
+-- dbcopy.sh's copy has both tables already, empty, as dbcopy_public.sql
+-- makes them. This also works on a toril.db itself: one init_db.sql made,
+-- which has neither, or an old one that still has its item tables.
 
 BEGIN;
 
--- a toril.db made since the item tables left init_db.sql has none
+-- the same two definitions as in dbcopy_public.sql
 CREATE TABLE IF NOT EXISTS items(
 	item_id INTEGER PRIMARY KEY
 	,item_name TEXT NOT NULL
@@ -41,16 +45,17 @@ CREATE TABLE IF NOT EXISTS item_flags(
 );
 
 -- the old items' details: nothing fills these now, and NyyLIB doesn't read
--- them
-DROP TABLE IF EXISTS item_attribs;
-DROP TABLE IF EXISTS item_effects;
-DROP TABLE IF EXISTS item_enchants;
-DROP TABLE IF EXISTS item_procs;
-DROP TABLE IF EXISTS item_resists;
-DROP TABLE IF EXISTS item_restricts;
-DROP TABLE IF EXISTS item_slots;
-DROP TABLE IF EXISTS item_specials;
-DROP TABLE IF EXISTS item_supps;
+-- them. main. keeps a table of the same name in TorilDB.db, which SQLite
+-- would look in next, from being taken for one of them.
+DROP TABLE IF EXISTS main.item_attribs;
+DROP TABLE IF EXISTS main.item_effects;
+DROP TABLE IF EXISTS main.item_enchants;
+DROP TABLE IF EXISTS main.item_procs;
+DROP TABLE IF EXISTS main.item_resists;
+DROP TABLE IF EXISTS main.item_restricts;
+DROP TABLE IF EXISTS main.item_slots;
+DROP TABLE IF EXISTS main.item_specials;
+DROP TABLE IF EXISTS main.item_supps;
 DELETE FROM item_flags;
 DELETE FROM items;
 

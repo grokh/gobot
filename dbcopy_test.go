@@ -15,9 +15,10 @@ import (
 	"testing"
 )
 
-// dbcopy.sh publishes toril.db for NyyLIB, the Mudlet package, with its
-// items and item_flags refilled from TorilDB.db by dbcopy_items.sql. These
-// tests check them as NyyLIB reads them.
+// dbcopy.sh publishes a copy of toril.db with only what dbcopy_public.sql
+// lists, and with items and item_flags filled from TorilDB.db by
+// dbcopy_items.sql for NyyLIB, the Mudlet package. These tests check the
+// item tables as NyyLIB reads them, and the rest against the bot's own.
 
 // nyyEq is a test TorilDB.db's eq table, in Kegor's formats, with the cases
 // dbcopy_items.sql treats differently.
@@ -221,22 +222,68 @@ INSERT INTO item_slots VALUES (3, 'wield');
 INSERT INTO item_attribs VALUES (3, 'hit', 2);
 `
 
-// people are a char, a hidden alt and an account with its player's name,
-// which dbcopy.sh mustn't publish.
+// people are a char and an account, with what dbcopy.sh mustn't publish of
+// them: the player's name, a hidden alt, and an alt whose vis is neither
+// 't' nor 'f', which isn't marked visible either.
 const people = `INSERT INTO accounts VALUES ('yog', 'Yogi Bear');
 INSERT INTO chars VALUES ('yog', 'Yog', 'Shaman', 'Barbarian', 50,
 	'2026-11-01 12:00:00', 't');
-INSERT INTO chars VALUES ('yog', 'Hid', 'Rogue', 'Human', 50,
+INSERT INTO chars VALUES ('yog', 'Hiddenalt', 'Rogue', 'Human', 50,
 	'2026-11-01 12:00:00', 'f');
+INSERT INTO chars VALUES ('yog', 'Limboalt', 'Bard', 'Gnome', 3,
+	'2026-11-01 12:00:00', '?');
 `
 
 // counts are two hours of who's counts, which dbcopy.sh leaves out of what
-// it publishes, and a load report, which it publishes like the rest.
+// it publishes, and two load reports, which it publishes like the rest: in
+// the order they were made, which here isn't the order of their times, and
+// the deleted one too.
 const counts = `INSERT INTO online VALUES ('2026-11-01 12:00:00+00:00', 120, 2280,
 	17, 21);
 INSERT INTO online VALUES ('2026-11-01 13:00:00+00:00', 119, 2142, 16, 20);
 INSERT INTO loads VALUES (1, '2026-11-01 12:30:00', 'Tia is up', 'Yog', 'f');
+INSERT INTO loads VALUES (1, '2026-11-01 12:20:00', 'Tia is down', 'Yog', 't');
 `
+
+// later is what a later change to the bot's toril.db might add: a table of
+// its own, and a column of chars. dbcopy_public.sql doesn't list them, so
+// dbcopy.sh mustn't publish them. zones is one of the lists that went with
+// the old item tables, which isn't published either.
+const later = `CREATE TABLE notes(
+	char_name TEXT PRIMARY KEY
+	,note TEXT NOT NULL
+);
+INSERT INTO notes VALUES ('Yog', 'owes Katumi 5 platinum');
+ALTER TABLE chars ADD COLUMN email TEXT;
+UPDATE chars SET email = 'yogi@jellystone.example';
+CREATE TABLE zones(
+	zone_abbr VARCHAR(25) PRIMARY KEY
+	,zone_name VARCHAR(150) NOT NULL
+);
+INSERT INTO zones VALUES ('WD', 'Waterdeep');
+`
+
+// private is text from people and later that only the bot's toril.db may
+// hold: the player's name, the two alts, the note and the email address.
+var private = []string{"Yogi Bear", "Hiddenalt", "Limboalt", "owes Katumi",
+	"jellystone"}
+
+// published are the tables dbcopy.sh publishes, and their columns: the
+// bot's that dbcopy_public.sql lists, and NyyLIB's two item tables.
+var published = map[string]string{
+	"race_types":  "race_type anti_flag",
+	"races":       "race_name race_abbr anti_flag race_type",
+	"class_types": "class_type anti_flag",
+	"classes":     "class_name class_abbr class_type anti_flag",
+	"accounts":    "account_name player_name",
+	"chars": "account_name char_name class_name char_race char_level " +
+		"last_seen vis",
+	"boots": "boot_id boot_time uptime",
+	"loads": "boot_id report_time report_text char_name deleted",
+	"items": "item_id item_name keywords weight c_value item_type " +
+		"from_zone from_mob short_stats long_stats full_stats comments last_id",
+	"item_flags": "item_id flag_abbr",
+}
 
 // makeTorilDB makes a toril.db at path with init_db.sql, then runs more in
 // it.
@@ -283,27 +330,45 @@ func queryInt(t *testing.T, db *sql.DB, query string) int {
 	return n
 }
 
-// tableRows counts the rows in each table of the database at path, but for
-// the item tables, which checkNyyLIB and chkOldItems check.
-func tableRows(t *testing.T, path string) map[string]int {
+// queryStrings runs a query for one column of text.
+func queryStrings(t *testing.T, db *sql.DB, query string) []string {
 	t.Helper()
-	db := openRO(t, path)
-	defer db.Close()
-	rows, err := db.Query("SELECT name FROM sqlite_master WHERE " +
-		"type = 'table' AND name NOT LIKE 'item%'")
+	rows, err := db.Query(query)
 	chkErr(t, err)
-	var tables []string
+	var vals []string
 	for rows.Next() {
-		var name string
-		chkErr(t, rows.Scan(&name))
-		tables = append(tables, name)
+		var v string
+		chkErr(t, rows.Scan(&v))
+		vals = append(vals, v)
 	}
 	ChkRows(rows)
-	n := make(map[string]int)
-	for _, name := range tables {
-		n[name] = queryInt(t, db, "SELECT count(*) FROM "+name)
+	return vals
+}
+
+// tableColumns lists the tables of a database, each with its columns in
+// order.
+func tableColumns(t *testing.T, db *sql.DB) map[string]string {
+	t.Helper()
+	cols := make(map[string]string)
+	for _, name := range queryStrings(t, db,
+		"SELECT name FROM sqlite_master WHERE type = 'table'") {
+		cols[name] = strings.Join(queryStrings(t, db, "SELECT name FROM "+
+			"pragma_table_info('"+name+"') ORDER BY cid"), " ")
 	}
-	return n
+	return cols
+}
+
+// tableDump lists a table's rows in the order the database has them, by the
+// columns named, each value written as SQL would write it. where picks the
+// rows.
+func tableDump(t *testing.T, db *sql.DB, table, cols, where string) []string {
+	t.Helper()
+	vals := strings.Fields(cols)
+	for i, c := range vals {
+		vals[i] = "quote(" + c + ")"
+	}
+	return queryStrings(t, db, "SELECT "+strings.Join(vals, " || ' ' || ")+
+		" FROM "+table+" "+where+" ORDER BY rowid")
 }
 
 // weaponButton is NyyLIB's choice of weapon buttons for a non-ranger who
@@ -486,6 +551,25 @@ func chkOldItems(t *testing.T, what, path string) {
 	}
 }
 
+// chkOldPublished checks that the published toril.db at path has oldItems'
+// item and its flag, which are the two of the old tables NyyLIB reads.
+func chkOldPublished(t *testing.T, what, path string) {
+	t.Helper()
+	db := openRO(t, path)
+	defer db.Close()
+	items := tableDump(t, db, "items", published["items"], "")
+	flags := tableDump(t, db, "item_flags", published["item_flags"], "")
+	if want := []string{"3 'an old sword' 'old sword' 5 100 'weapon' 'WD' " +
+		"NULL 'an old sword (Wielded) * 2D4 * Zone: WD * Last ID: " +
+		"2010-01-01' NULL NULL NULL '2010-01-01'"}; !reflect.DeepEqual(items,
+		want) {
+		t.Errorf("%s: published items: %q, want %q", what, items, want)
+	}
+	if want := []string{"3 'two_hand'"}; !reflect.DeepEqual(flags, want) {
+		t.Errorf("%s: published item_flags: %q, want %q", what, flags, want)
+	}
+}
+
 // writeEq makes a TorilDB.db at path whose eq table is made by schema.
 func writeEq(t *testing.T, path, schema string) {
 	t.Helper()
@@ -497,9 +581,10 @@ func writeEq(t *testing.T, path, schema string) {
 	chkErr(t, err)
 }
 
-// Test_DBCopyItems runs dbcopy_items.sql as dbcopy.sh does: on a toril.db
-// made by init_db.sql, which has no item tables, and on one with the old
-// ones. When it fails, nothing changes.
+// Test_DBCopyItems runs dbcopy_items.sql on a toril.db itself: one made by
+// init_db.sql, which has no item tables, and one with the old ones. When it
+// fails, nothing changes. Test_DBCopy runs it the way dbcopy.sh does, on the
+// copy it's making.
 func Test_DBCopyItems(t *testing.T) {
 	dir := t.TempDir()
 	kegor := filepath.Join(dir, "TorilDB.db")
@@ -567,11 +652,12 @@ func findBash(t *testing.T) string {
 	return bash
 }
 
-// Test_DBCopy runs dbcopy.sh. What it publishes has no hidden alts or real
-// names and no online table, the rest of what the bot keeps, and NyyLIB's
-// items from the TorilDB.db beside the source, or the item tables it had if
-// that's missing or can't be used, with the reason on stderr. The bot's own
-// toril.db is left as it was.
+// Test_DBCopy runs dbcopy.sh. What it publishes is what dbcopy_public.sql
+// lists and no more, whatever else the bot's toril.db holds: no hidden alts,
+// real names or online table, and nothing added to the bot's database that
+// the list doesn't name. It has NyyLIB's items from the TorilDB.db beside
+// the source, or the bot's old ones if that's missing or can't be used,
+// with the reason on stderr. The bot's own toril.db is only read.
 func Test_DBCopy(t *testing.T) {
 	bash := findBash(t)
 	src, err := os.Getwd()
@@ -582,30 +668,39 @@ func Test_DBCopy(t *testing.T) {
 		chkErr(t, os.Mkdir(filepath.Join(dir, d), 0750))
 	}
 	bot := filepath.Join(dir, "bot", "toril.db")
-	makeTorilDB(t, bot, oldItems+people+counts)
+	makeTorilDB(t, bot, oldItems+people+counts+later)
 	kegor := filepath.Join(dir, "bot", "TorilDB.db")
 	writeItemDB(t, kegor, nyyEq)
 	pub := filepath.Join(dir, "pub", "toril.db")
 
-	// run runs dbcopy.sh, with its snapshot in tmp, and returns its stderr.
-	// Paths go to bash as C:/x on Windows, which it and sqlite3 both take.
-	// TMPDIR is set inside bash, since Git for Windows' bash turns a C:/x
-	// in the environment it starts with into /c/x, which sqlite3 can't open.
+	// dbcopy runs dbcopy.sh on a source, with its work in tmp, and returns
+	// what it printed. Paths go to bash as C:/x on Windows, which it and
+	// sqlite3 both take. TMPDIR is set inside bash, since Git for Windows'
+	// bash turns a C:/x in the environment it starts with into /c/x, which
+	// sqlite3 can't open.
+	dbcopy := func(source string) (string, string, error) {
+		cmd := exec.Command(bash, "-c", `export TMPDIR="$1"; shift; `+
+			`exec bash "$@"`, "bash", filepath.ToSlash(tmp),
+			filepath.ToSlash(filepath.Join(src, "dbcopy.sh")),
+			filepath.ToSlash(source), filepath.ToSlash(pub))
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout, cmd.Stderr = &stdout, &stderr
+		err := cmd.Run()
+		return stdout.String(), stderr.String(), err
+	}
+
+	// run publishes the bot's toril.db, checks the copy against it, and
+	// returns what dbcopy.sh said on stderr.
 	run := func(what string) string {
 		t.Helper()
 		before, err := os.ReadFile(bot)
 		chkErr(t, err)
-		cmd := exec.Command(bash, "-c", `export TMPDIR="$1"; shift; `+
-			`exec bash "$@"`, "bash", filepath.ToSlash(tmp),
-			filepath.ToSlash(filepath.Join(src, "dbcopy.sh")),
-			filepath.ToSlash(bot), filepath.ToSlash(pub))
-		var stdout, stderr bytes.Buffer
-		cmd.Stdout, cmd.Stderr = &stdout, &stderr
-		if err := cmd.Run(); err != nil {
-			t.Fatalf("%s: dbcopy.sh: %v\n%s", what, err, stderr.String())
+		stdout, stderr, err := dbcopy(bot)
+		if err != nil {
+			t.Fatalf("%s: dbcopy.sh: %v\n%s", what, err, stderr)
 		}
-		if stdout.Len() > 0 {
-			t.Errorf("%s: dbcopy.sh printed %q", what, stdout.String())
+		if stdout != "" {
+			t.Errorf("%s: dbcopy.sh printed %q", what, stdout)
 		}
 		left, err := os.ReadDir(tmp)
 		chkErr(t, err)
@@ -615,46 +710,77 @@ func Test_DBCopy(t *testing.T) {
 		if _, err := os.Stat(pub + ".new"); !os.IsNotExist(err) {
 			t.Errorf("%s: dbcopy.sh left toril.db.new: %v", what, err)
 		}
-		// the bot's own toril.db is only read, so it keeps what the copy
-		// leaves out
+		// the bot's own toril.db is only read
 		after, err := os.ReadFile(bot)
 		chkErr(t, err)
 		if !bytes.Equal(after, before) {
 			t.Errorf("%s: dbcopy.sh changed the bot's toril.db", what)
 		}
+		// what's private is nowhere in the copy's file, in a row or out of
+		// one
+		copied, err := os.ReadFile(pub)
+		chkErr(t, err)
+		for _, s := range private {
+			if !bytes.Contains(before, []byte(s)) {
+				t.Errorf("%s: the bot's toril.db has no %q to leave out",
+					what, s)
+			}
+			if bytes.Contains(copied, []byte(s)) {
+				t.Errorf("%s: dbcopy.sh published %q", what, s)
+			}
+		}
 
+		from := openRO(t, bot)
+		defer from.Close()
 		db := openRO(t, pub)
 		defer db.Close()
+		// the listed tables and columns, and no others
+		if got := tableColumns(t, db); !reflect.DeepEqual(got, published) {
+			t.Errorf("%s: published tables: %v, want %v", what, got, published)
+		}
 		for _, c := range []struct {
 			query string
 			want  int
 		}{
-			{"SELECT count(*) FROM chars WHERE vis = 'f'", 0},
-			{"SELECT count(*) FROM chars", 1},
+			{"SELECT count(*) FROM chars WHERE vis <> 't'", 0},
 			{"SELECT count(*) FROM accounts WHERE player_name IS NOT NULL", 0},
-			// who's counts aren't published, table or index
-			{"SELECT count(*) FROM sqlite_master WHERE tbl_name = 'online'", 0},
-			// VACUUMed, so the deleted rows and the dropped table aren't in
-			// the file
-			{"PRAGMA freelist_count", 0},
+			// nothing else either, but the indexes the tables' keys make
+			{"SELECT count(*) FROM sqlite_master WHERE type <> 'table' " +
+				"AND name NOT LIKE 'sqlite_autoindex_%'", 0},
 		} {
 			if got := queryInt(t, db, c.query); got != c.want {
 				t.Errorf("%s: %s: %d, want %d", what, c.query, got, c.want)
 			}
 		}
-		// the bot's other tables are all there, with every row but the
-		// hidden alt
-		want, got := tableRows(t, bot), tableRows(t, pub)
-		delete(want, "online")
-		want["chars"]--
-		if !reflect.DeepEqual(got, want) {
-			t.Errorf("%s: published tables' rows: %v, want %v", what, got, want)
+		// each of the bot's tables has the bot's rows, as the bot has them
+		// and in its order
+		for name, cols := range published {
+			where := ""
+			switch name {
+			case "items", "item_flags":
+				continue // checkNyyLIB's and chkOldPublished's
+			case "accounts":
+				cols = "account_name" // without the player's name
+			case "chars":
+				where = "WHERE vis = 't'" // without the hidden alt
+			}
+			want := tableDump(t, from, name, cols, where)
+			got := tableDump(t, db, name, cols, "")
+			if len(want) == 0 || !reflect.DeepEqual(got, want) {
+				t.Errorf("%s: published %s: %q, want %q", what, name, got, want)
+			}
 		}
-		return stderr.String()
+		// a download is an ordinary database, whatever the bot's is
+		var mode string
+		chkErr(t, db.QueryRow("PRAGMA journal_mode").Scan(&mode))
+		if mode != "delete" {
+			t.Errorf("%s: published in journal mode %s", what, mode)
+		}
+		return stderr
 	}
 
-	if msg := run("refilled"); msg != "" {
-		t.Errorf("refilled: dbcopy.sh said %q", msg)
+	if msg := run("filled"); msg != "" {
+		t.Errorf("filled: dbcopy.sh said %q", msg)
 	}
 	checkNyyLIB(t, "published", pub)
 
@@ -663,7 +789,7 @@ func Test_DBCopy(t *testing.T) {
 		"TorilDB.db, so the item tables aren't refreshed") {
 		t.Errorf("no TorilDB.db: dbcopy.sh said %q", msg)
 	}
-	chkOldItems(t, "no TorilDB.db", pub)
+	chkOldPublished(t, "no TorilDB.db", pub)
 	if _, err := os.Stat(kegor); !os.IsNotExist(err) {
 		t.Errorf("no TorilDB.db: one was made: %v", err)
 	}
@@ -675,14 +801,83 @@ func Test_DBCopy(t *testing.T) {
 		"the item tables weren't refreshed from") {
 		t.Errorf("a TorilDB.db it can't use: dbcopy.sh said %q", msg)
 	}
-	chkOldItems(t, "a TorilDB.db it can't use", pub)
+	chkOldPublished(t, "a TorilDB.db it can't use", pub)
 
-	// a toril.db from before gobot kept who's counts has no online table to
-	// leave out, which is no error
+	// a toril.db from before gobot kept who's counts has no online table,
+	// which changes nothing
 	chkErr(t, os.Remove(bot))
-	makeTorilDB(t, bot, oldItems+people+counts+"DROP TABLE online;")
+	makeTorilDB(t, bot, oldItems+people+counts+later+"DROP TABLE online;")
 	writeItemDB(t, kegor, nyyEq)
 	if msg := run("no online table"); msg != "" {
 		t.Errorf("no online table: dbcopy.sh said %q", msg)
+	}
+	checkNyyLIB(t, "no online table", pub)
+
+	// a toril.db that never had item tables, and no TorilDB.db: NyyLIB's two
+	// tables are published empty
+	chkErr(t, os.Remove(bot))
+	makeTorilDB(t, bot, people+counts+later)
+	chkErr(t, os.Remove(kegor))
+	if msg := run("no items anywhere"); !strings.Contains(msg,
+		"TorilDB.db, so the item tables aren't refreshed") {
+		t.Errorf("no items anywhere: dbcopy.sh said %q", msg)
+	}
+	empty := openRO(t, pub)
+	if n := queryInt(t, empty, "SELECT (SELECT count(*) FROM items) + "+
+		"(SELECT count(*) FROM item_flags)"); n != 0 {
+		t.Errorf("no items anywhere: %d rows in the item tables", n)
+	}
+	chkErr(t, empty.Close())
+
+	// The bot's toril.db in WAL mode, with a char that is so far only in its
+	// write-ahead log, which is how a bot that's running would have it. The
+	// copy has the char, and run has checked that the copy itself isn't in
+	// WAL mode and that the bot's file wasn't written to.
+	chkErr(t, os.Remove(bot))
+	makeTorilDB(t, bot, oldItems+people+counts+later+
+		"PRAGMA journal_mode = WAL;")
+	writeItemDB(t, kegor, nyyEq)
+	live, err := sql.Open("sqlite3", bot)
+	chkErr(t, err)
+	defer live.Close()
+	_, err = live.Exec("INSERT INTO accounts (account_name) VALUES ('boo'); " +
+		"INSERT INTO chars (account_name, char_name, class_name, char_race, " +
+		"char_level, last_seen, vis) VALUES ('boo', 'Booboo', 'Druid', " +
+		"'Halfling', 12, '2026-11-02 08:00:00', 't')")
+	chkErr(t, err)
+	if wal, err := os.Stat(bot + "-wal"); err != nil || wal.Size() == 0 {
+		t.Fatalf("WAL mode: the bot's toril.db has no write-ahead log: %v", err)
+	}
+	if msg := run("WAL mode"); msg != "" {
+		t.Errorf("WAL mode: dbcopy.sh said %q", msg)
+	}
+	logged := openRO(t, pub)
+	if n := queryInt(t, logged, "SELECT count(*) FROM chars "+
+		"WHERE char_name = 'Booboo'"); n != 1 {
+		t.Errorf("WAL mode: %d chars from the write-ahead log, want 1", n)
+	}
+	chkErr(t, logged.Close())
+	chkErr(t, live.Close())
+	checkNyyLIB(t, "WAL mode", pub)
+
+	// a source that isn't there is an error: nothing is published, and no
+	// database is made where the bot's should be
+	none := filepath.Join(dir, "bot", "none.db")
+	before, err := os.ReadFile(pub)
+	chkErr(t, err)
+	if _, msg, err := dbcopy(none); err == nil ||
+		!strings.Contains(msg, "unable to open database") {
+		t.Errorf("no toril.db: %v %s", err, msg)
+	}
+	after, err := os.ReadFile(pub)
+	chkErr(t, err)
+	if !bytes.Equal(after, before) {
+		t.Errorf("no toril.db: dbcopy.sh published all the same")
+	}
+	if _, err := os.Stat(none); !os.IsNotExist(err) {
+		t.Errorf("no toril.db: one was made: %v", err)
+	}
+	if left, err := os.ReadDir(tmp); err != nil || len(left) > 0 {
+		t.Errorf("no toril.db: dbcopy.sh left its work in TMPDIR: %v", err)
 	}
 }

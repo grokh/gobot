@@ -26,7 +26,6 @@ func WhoBatch(batch string) []string {
 	db := OpenDB()
 	defer db.Close()
 
-	// TODO: also check for account name change
 	tx, err := db.Begin()
 	ChkErr(err)
 	query := "UPDATE chars SET char_level = ?, last_seen = ? " +
@@ -56,7 +55,8 @@ func WhoBatch(batch string) []string {
 					cmd := fmt.Sprintf("who %s\n", name)
 					cmds = append(cmds, cmd)
 				} else if newClass(tx, name, char[2]) {
-					// look it up again, so c.who() can catch a new race
+					// look it up again, so c.who() can catch a new race or
+					// account
 					cmd := fmt.Sprintf("who %s\n", name)
 					cmds = append(cmds, cmd)
 				}
@@ -106,45 +106,21 @@ func (c *Char) who() []string {
 	stmt, err := db.Prepare(query)
 	ChkErr(err)
 	defer stmt.Close()
-	var race string
-	err = stmt.QueryRow(c.name).Scan(&c.acct, &c.name, &race)
-	if err == nil && !strings.EqualFold(c.race, race) {
-		c.newRace(db, race)
+	var acct, race string
+	err = stmt.QueryRow(c.name).Scan(&acct, &c.name, &race)
+	if err == nil {
+		// the account first, as newRace finds the char by it
+		if strings.EqualFold(c.acct, acct) {
+			c.acct = acct
+		} else {
+			txt = c.newAcct(db, acct)
+		}
+		if !strings.EqualFold(c.race, race) {
+			c.newRace(db, race)
+		}
 	} else if err == sql.ErrNoRows {
 		// if no char, check if account exists in DB, create char
-		query = "SELECT account_name FROM accounts " +
-			"WHERE LOWER(account_name) = LOWER(?)"
-		stmt, err = db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		err = stmt.QueryRow(c.acct).Scan(&c.acct)
-		if err == sql.ErrNoRows {
-			//if no acct, create acccount
-			tx, err := db.Begin()
-			ChkErr(err)
-
-			query = "INSERT INTO accounts (account_name) VALUES(?)"
-			stmt, err := tx.Prepare(query)
-			ChkErr(err)
-			defer stmt.Close()
-
-			log.Printf("New acct: @%s", c.acct)
-			if c.lvl <= 20 {
-				txt = append(txt,
-					fmt.Sprintf(
-						"nhc Welcome, %s. If you have any questions, "+
-							"feel free to ask on this channel.",
-						c.name,
-					),
-				)
-			}
-			_, err = stmt.Exec(c.acct)
-			ChkErr(err)
-			tx.Commit()
-		} else if err != nil {
-			log.Fatal(err)
-		}
+		txt = c.account(db)
 		// create character
 		tx, err := db.Begin()
 		ChkErr(err)
@@ -165,6 +141,48 @@ func (c *Char) who() []string {
 	} else if err != nil {
 		log.Fatal(err)
 	}
+	return txt
+}
+
+// account finds the who line's account in the DB, adding it if it's new, and
+// leaves c.acct spelled the way the DB has it. A new account with a char of
+// level 20 or under is a new player, so the welcome for them is returned.
+func (c *Char) account(db *sql.DB) []string {
+	var txt []string
+	err := db.QueryRow("SELECT account_name FROM accounts "+
+		"WHERE LOWER(account_name) = LOWER(?)", c.acct).Scan(&c.acct)
+	if err == sql.ErrNoRows {
+		log.Printf("New acct: @%s", c.acct)
+		if c.lvl <= 20 {
+			txt = append(txt,
+				fmt.Sprintf(
+					"nhc Welcome, %s. If you have any questions, "+
+						"feel free to ask on this channel.",
+					c.name,
+				),
+			)
+		}
+		_, err = db.Exec("INSERT INTO accounts (account_name) VALUES(?)",
+			c.acct)
+		ChkErr(err)
+	} else if err != nil {
+		log.Fatal(err)
+	}
+	return txt
+}
+
+// newAcct moves a char already in the DB to the account its who line shows.
+// A name gets a new account when its char is deleted and someone else makes
+// one of the same name, or when the char changes hands. Left under the old
+// account, it would be listed among that player's alts, and looked up by
+// their real name. Whether the char is hidden stays as it was: only its
+// player unhides it.
+func (c *Char) newAcct(db *sql.DB, old string) []string {
+	txt := c.account(db)
+	_, err := db.Exec("UPDATE chars SET account_name = ? "+
+		"WHERE account_name = ? AND char_name = ?", c.acct, old, c.name)
+	ChkErr(err)
+	log.Printf("Account change: %s from @%s to @%s\n", c.name, old, c.acct)
 	return txt
 }
 

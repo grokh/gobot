@@ -396,6 +396,80 @@ func testCharChanges(t *testing.T) {
 	chkPrefix(t, "char after unknown race",
 		"t Yog [50 Warrior] Yog (Half-Elf) (@Yog) seen ",
 		ReplyTo("Yog", "char yog"))
+
+	testAcctChanges(t)
+}
+
+// testAcctChanges checks that a char whose who line shows another account
+// than the DB has moves to it, starting and ending with Tom, a level 1 Drow
+// Elf Warrior, on Bob's account.
+func testAcctChanges(t *testing.T) {
+	// on Yog's account, which the DB has and spells with a capital: Tom
+	// moves, nobody is welcomed and Bob's alts no longer include him
+	c := Char{
+		name: "Tom", lvl: 1, class: "Warrior   ", race: "Drow Elf", acct: "yog",
+	}
+	chk(t, "c.who() account change", []string{}, c.who())
+	chkPrefix(t, "char after account change",
+		"t Yog [1 Warrior] Tom (Drow Elf) (@Yog) seen ",
+		ReplyTo("Yog", "char tom"))
+	chkPrefix(t, "old account's clist after account change",
+		"t Yog [50 Bard] Bob (Human) (@Bob) seen ",
+		ReplyTo("Yog", "clist bob"))
+	if txt := ReplyTo("Bob", "clist yog"); len(txt) != 2 {
+		t.Errorf("new account's clist check failed: %q", txt)
+	}
+	// seen again on the same account, he stays
+	chk(t, "c.who() same account", []string{}, c.who())
+	chkPrefix(t, "char after same account",
+		"t Yog [1 Warrior] Tom (Drow Elf) (@Yog) seen ",
+		ReplyTo("Yog", "char tom"))
+
+	// Yog hides him, and he turns up as a Human on an account new to the DB:
+	// a new player's low-level char, so they're welcomed, and the new race is
+	// recorded with the new account
+	chk(t, "delalt before account change",
+		[]string{"t Yog Removed character from your alt list:: tom\n"},
+		ReplyTo("Yog", "delalt tom"))
+	c = Char{
+		name: "Tom", lvl: 1, class: "Warrior   ", race: "Human", acct: "Zed",
+	}
+	chk(t, "c.who() new account", []string{
+		"nhc Welcome, Tom. If you have any questions, " +
+			"feel free to ask on this channel.",
+	}, c.who())
+	// he's still hidden, and only his new account can change that
+	chk(t, "char hidden after account change",
+		[]string{"t Yog 404 character not found: tom\n"},
+		ReplyTo("Yog", "char tom"))
+	chk(t, "old account's addalt after account change",
+		[]string{"t Yog 404 character or account not found: tom\n"},
+		ReplyTo("Yog", "addalt tom"))
+	chk(t, "new account's addalt after account change",
+		[]string{"t Tom Re-added character to your alt list:: tom\n"},
+		ReplyTo("Tom", "addalt tom"))
+	chkPrefix(t, "char after new account",
+		"t Yog [1 Warrior] Tom (Human) (@Zed) seen ",
+		ReplyTo("Yog", "char tom"))
+
+	// back on Bob's account as a Drow Elf, where the checks after this one
+	// expect him
+	c = Char{
+		name: "Tom", lvl: 1, class: "Warrior   ", race: "Drow Elf", acct: "Bob",
+	}
+	chk(t, "c.who() account change back", []string{}, c.who())
+	chk(t, "clist after account change back", []string{
+		"t Yog [50 Bard] Bob (Human) (@Bob) seen ",
+		"t Yog [1 Warrior] Tom (Drow Elf) (@Bob) seen ",
+	}, func() []string {
+		txt := ReplyTo("Yog", "clist bob")
+		for i := range txt {
+			if j := strings.Index(txt[i], "seen "); j >= 0 {
+				txt[i] = txt[i][:j+len("seen ")]
+			}
+		}
+		return txt
+	}())
 }
 
 // testNewClasses checks Blackguard, Hexblade, Sorcerer and Wizard, which

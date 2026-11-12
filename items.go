@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -31,6 +33,60 @@ func openItemDB(path string) (*sql.DB, error) {
 		return nil, err
 	}
 	return sql.Open("sqlite3", "file:"+path+"?mode=ro")
+}
+
+// variantRest is what Kegor adds to the name of an item that shares it with
+// others: a number, a label in brackets, or both, as in "a sunrod 1", "a
+// frigid heart (shimmering)" and "a bracelet of mages (blue) 1". The label
+// and the number are its two groups.
+var variantRest = regexp.MustCompile(`^ ?(\([^()]*\))?(?: ?(\d+))?$`)
+
+// eqName finds the item that a name from the game means, as a pasted list or
+// a glist gives it: the eq row of exactly that name or, since the game shows
+// every variant by the one name, the first of its variants. Variants come
+// in the order of their labels, then their numbers. It's "" if eq has
+// neither.
+func eqName(db *sql.DB, name string) (string, error) {
+	if name == "" {
+		return "", nil
+	}
+	// what nearly every name is: the item itself, or its first numbered one
+	for _, n := range []string{name, name + " 1"} {
+		var found string
+		err := db.QueryRow("SELECT name FROM eq WHERE name = ?", n).
+			Scan(&found)
+		if err == nil {
+			return found, nil
+		}
+		if err != sql.ErrNoRows {
+			return "", err
+		}
+	}
+	// Any other variant follows the name with a space or a bracket, so only
+	// the rows from name+" " up to name+")" are read, by eq's index on name.
+	rows, err := db.Query("SELECT name FROM eq WHERE name >= ? AND name < ?",
+		name+" ", name+")")
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	best, bestLabel, bestNum := "", "", 0
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			return "", err
+		}
+		m := variantRest.FindStringSubmatch(strings.TrimPrefix(n, name))
+		if !strings.HasPrefix(n, name) || m == nil {
+			continue
+		}
+		num, _ := strconv.Atoi(m[2])
+		if best == "" || m[1] < bestLabel ||
+			m[1] == bestLabel && num < bestNum {
+			best, bestLabel, bestNum = n, m[1], num
+		}
+	}
+	return best, rows.Err()
 }
 
 // col quotes a TorilDB.db column name for SQL. Column names can't be ?

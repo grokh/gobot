@@ -693,3 +693,54 @@ func testItemDBDown(t *testing.T) {
 			w.Code, w.Body.String())
 	}
 }
+
+// Test_EqName checks that a name from the game finds the item Kegor lists
+// under it: the name itself, or the first of the variants he tells apart
+// with a number, a label, or both.
+func Test_EqName(t *testing.T) {
+	var items []dbRow
+	for _, name := range []string{
+		"a bracelet of mages (red) 2", "a bracelet of mages (red) 1",
+		"a bracelet of mages (blue) 2", "a bracelet of mages (blue) 1",
+		"a signet ring", "a signet ring (blessed) 1", "a sunrod 2",
+		"a sunrod 1", "a dirty rag 3", "a fishing pole 10",
+		"a fishing pole 3", "a fishing pole 2", "rothe sausage(tainted)",
+		"a frigid heart (shimmering)", "a staff of power", "a staff, broken",
+	} {
+		items = append(items, dbRow{"name": name, "long_stats": "long " + name})
+	}
+	path := filepath.Join(t.TempDir(), itemDBFile)
+	writeItemDB(t, path, items)
+	db, err := openItemDB(path)
+	chkErr(t, err)
+	defer db.Close()
+
+	for name, want := range map[string]string{
+		// labelled variants, which a pasted bag showed as a 404
+		"a bracelet of mages": "a bracelet of mages (blue) 1",
+		// the item itself comes before its variants
+		"a signet ring": "a signet ring",
+		"a sunrod":      "a sunrod 1",
+		// numbered ones with no 1, lowest number first, not "10" before "2"
+		"a dirty rag":    "a dirty rag 3",
+		"a fishing pole": "a fishing pole 2",
+		// a label alone, with or without a space before it
+		"rothe sausage":  "rothe sausage(tainted)",
+		"a frigid heart": "a frigid heart (shimmering)",
+		// a longer name isn't a variant of a shorter one
+		"a staff":   "",
+		"a bracele": "",
+		"":          "",
+	} {
+		got, err := eqName(db, name)
+		chkErr(t, err)
+		if got != want {
+			t.Errorf("eqName(%q) = %q, want %q", name, got, want)
+		}
+	}
+	// and the pasted-list lookup built on it
+	if got := exactItem(db, "a bracelet of mages"); got !=
+		"long a bracelet of mages (blue) 1" {
+		t.Errorf("exactItem() of a labelled variant = %q", got)
+	}
+}

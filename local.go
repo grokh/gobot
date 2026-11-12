@@ -23,18 +23,15 @@ func GlistStats(list string) []string {
 
 	var txt []string
 	for _, name := range listNames(list) {
-		found, date := "", ""
 		// the name exactly, or the first of its variants, as the site finds it
-		for _, n := range []string{name, name + " 1"} {
+		found, err := eqName(db, name)
+		ChkErr(err)
+		date := ""
+		if found != "" {
 			var d sql.NullString
-			err := db.QueryRow("SELECT name, date FROM eq WHERE name = ?", n).
-				Scan(&found, &d)
-			if err == sql.ErrNoRows {
-				continue
-			}
-			ChkErr(err)
+			ChkErr(db.QueryRow("SELECT date FROM eq WHERE name = ?", found).
+				Scan(&d))
 			date = d.String
-			break
 		}
 		switch {
 		case found == "":

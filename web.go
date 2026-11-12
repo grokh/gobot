@@ -357,20 +357,18 @@ func webFstat(oper string, format string) []string {
 }
 
 // exactItem returns long stats for the item with exactly the name given,
-// or, failing that, for the first of its variants, as in "a sunrod 1".
+// or, failing that, for the first of its variants, as in "a sunrod 1" (see
+// eqName).
 func exactItem(db *sql.DB, name string) string {
-	for _, n := range []string{name, name + " 1"} {
-		var text sql.NullString
-		err := db.QueryRow("SELECT long_stats FROM eq WHERE name = ?", n).
-			Scan(&text)
-		if err == nil {
-			return text.String
-		}
-		if err != sql.ErrNoRows {
-			fatal(err)
-		}
+	found, err := eqName(db, name)
+	ChkErr(err)
+	if found == "" {
+		return NotFound("item", name)
 	}
-	return NotFound("item", name)
+	var text sql.NullString
+	ChkErr(db.QueryRow("SELECT long_stats FROM eq WHERE name = ?", found).
+		Scan(&text))
+	return text.String
 }
 
 // listNames picks the item names out of output from 'glist', 'equip',

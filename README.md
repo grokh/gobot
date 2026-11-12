@@ -18,7 +18,12 @@ Tells: `stat`, `astat`, `fstat`, `mstat`, `who`, `clist`, `char`, `find`, `class
 
 Guesses are only ever offered, never run, since some commands change what Katumi keeps. A reply sends the MUD at most 3,000 bytes (`maxReplyBytes` in `tell.go`), because the MUD disconnects a character that sends it more than about 4 KB at once. A longer one, like a `clist` of an account with dozens of alts, ends with a count of the tells left out.
 
-The website is `gobot -port 8080` (`torileq.service`, behind nginx, which has to proxy to `127.0.0.1:8080`: gobot listens there only), reading the `TorilDB.db` in its own folder. Its searches work by GET as well as by the form's POST, so each results page links to its own search, and `?fstat=<search>` runs an fstat search there, which is where `fstat`'s links go. Results can be ordered by either attribute. Other flags: `-item`, `-glist` (items missing from `TorilDB.db` or last identified before 2020-11-01), and `-checkitems <file>`. Logs: `logs/bot.log`.
+The website is `gobot -port 8080` (`torileq.service`, behind nginx, which has to proxy to `127.0.0.1:8080`: gobot listens there only), reading the `TorilDB.db` in its own folder. Its searches work by GET as well as by the form's POST, so each results page links to its own search, and `?fstat=<search>` runs an fstat search there, which is where `fstat`'s links go. Results can be ordered by either attribute. Other flags: `-item`, `-glist` (items missing from `TorilDB.db` or last identified before 2020-11-01), and `-checkitems <file>`. Logs: `logs/bot.log`, one line per entry of at most 1,000 bytes, with any control characters a tell or a pasted list carried turned to spaces.
+
+`torileq.service` shuts the site in: it runs as `trance`, but can write only `/srv/web/torileq/logs` and can't see `/home`, `/srv/bot` or `/srv/irc`. After changing it:
+
+    sudo cp torileq.service /etc/systemd/system/ && sudo systemctl daemon-reload && sudo systemctl restart torileq
+    systemctl status torileq && curl -sI https://www.grokh.com/torileq/ | head -1
 
 ## TorilDB.db
 

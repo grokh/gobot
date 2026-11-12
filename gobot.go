@@ -3,9 +3,13 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // webServer is true when gobot is running as the TorilEQ site (-port).
@@ -22,6 +26,38 @@ func fatal(v ...interface{}) {
 	log.Fatalln(v...)
 }
 
+// maxLogEntry is the most bytes of one entry cleanLog writes.
+const maxLogEntry = 1000
+
+// cleanLog is where gobot's log goes. Entries repeat what players send in
+// tells and what anyone pastes into the site, so each one is kept to a
+// single line of at most maxLogEntry bytes, with its control characters
+// turned to spaces: a pasted escape code can't act on the terminal the log
+// is read in, a carriage return can't dress one entry up as another, and one
+// long line can't fill the disk on its own. The log package hands Write one
+// whole entry at a time.
+type cleanLog struct{ w io.Writer }
+
+func (c cleanLog) Write(p []byte) (int, error) {
+	entry := strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, strings.ToValidUTF8(strings.TrimRight(string(p), "\r\n"), "?"))
+	if len(entry) > maxLogEntry {
+		cut := maxLogEntry
+		for cut > 0 && !utf8.RuneStart(entry[cut]) {
+			cut--
+		}
+		entry = entry[:cut] + "..."
+	}
+	if _, err := io.WriteString(c.w, entry+"\n"); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
 func ChkErr(err error) {
 	if err != nil {
 		fatal(err)
@@ -36,7 +72,7 @@ func main() {
 	)
 	defer f.Close()
 	ChkErr(err)
-	log.SetOutput(f)
+	log.SetOutput(cleanLog{f})
 
 	// for who.go WhoChar(char string, lvl int,
 	// class string, race string, acct string)

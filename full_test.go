@@ -425,6 +425,31 @@ func testAcctChanges(t *testing.T) {
 		"t Yog [1 Warrior] Tom (Drow Elf) (@Yog) seen ",
 		ReplyTo("Yog", "char tom"))
 
+	// a who line read wrong, its account running on into what followed it:
+	// no account is made of that, and he stays where he is
+	c = Char{
+		name: "Tom", lvl: 1, class: "Warrior   ", race: "Drow Elf",
+		acct: "Bob) (Half-Orc",
+	}
+	chk(t, "c.who() misread account", []string{}, c.who())
+	chkPrefix(t, "char after misread account",
+		"t Yog [1 Warrior] Tom (Drow Elf) (@Yog) seen ",
+		ReplyTo("Yog", "char tom"))
+	chk(t, "misread account not added",
+		[]string{"t Yog 404 character or account not found: Bob) (Half-Orc\n"},
+		ReplyTo("Yog", "who Bob) (Half-Orc"))
+	// a light flag after the account is the MUD's, and read past; an account
+	// written into a title isn't, so the line's last one is the one that
+	// counts. Either way he's still Yog's.
+	for _, acct := range []string{"yog)(In Dark", "Yog) (Daylight",
+		"Bob) (Drow Elf) (@Yog", "Bob) (Drow Elf) (@yog)(In Dark"} {
+		c.acct = acct
+		chk(t, "c.who() account "+acct, []string{}, c.who())
+		chkPrefix(t, "char after account "+acct,
+			"t Yog [1 Warrior] Tom (Drow Elf) (@Yog) seen ",
+			ReplyTo("Yog", "char tom"))
+	}
+
 	// Yog hides him, and he turns up as a Human on an account new to the DB:
 	// a new player's low-level char, so they're welcomed, and the new race is
 	// recorded with the new account

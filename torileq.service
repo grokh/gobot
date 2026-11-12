@@ -14,5 +14,30 @@ ExecStart=/srv/web/torileq/gobot -port 8080
 Restart=on-failure
 RestartSec=10
 
+# The site answers anyone on the internet, as the account that also owns the
+# bot, its password file and the server's keys. It only needs to read its
+# own folder, write logs/bot.log and listen on 127.0.0.1, so that's all it
+# gets: the rest of the disk is read-only, and /home, the bot's folder and
+# irssi's can't be seen at all. logs/ has to exist before the site starts.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ReadWritePaths=/srv/web/torileq/logs
+ProtectHome=yes
+InaccessiblePaths=-/srv/bot -/srv/irc
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+
 [Install]
 WantedBy=multi-user.target

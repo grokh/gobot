@@ -92,10 +92,48 @@ func newClass(tx *sql.Tx, name string, abbr string) bool {
 	return true
 }
 
+// acctName is what an account's name looks like: every one the MUD has shown
+// is letters only.
+var acctName = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
+
+// lightFlag is the one thing the MUD puts after a who line's account, with
+// the ) before it: (Daylight) or (In Dark), for a char the light bothers.
+var lightFlag = regexp.MustCompile(`(?i)\)\s*\((daylight|in dark)$`)
+
+// whoAcct picks the account out of what katumi.tin's who triggers take for
+// it: everything from the line's first "(@" to its last ")". That's the
+// account alone on nearly every line, but a light flag can follow it, and a
+// title comes before it, where a player could write a "(@name)" of their
+// own. The MUD's account is the last one on the line, so that's the one
+// read. ok is false if what's left isn't an account's name.
+func whoAcct(s string) (acct string, ok bool) {
+	s = strings.TrimSpace(s)
+	for {
+		loc := lightFlag.FindStringIndex(s)
+		if loc == nil {
+			break
+		}
+		s = s[:loc[0]]
+	}
+	if i := strings.LastIndex(s, "(@"); i >= 0 {
+		s = s[i+len("(@"):]
+	}
+	return s, acctName.MatchString(s)
+}
+
 func (c *Char) who() []string {
 	var txt []string
 	c.tseen = now().UTC()
 	c.race = strings.TrimSpace(c.race)
+	// Since a char moves to the account its who line shows, a line read
+	// wrong mustn't make an account or move anyone to it.
+	shown, ok := whoAcct(c.acct)
+	if !ok {
+		log.Printf("Who line skipped: %s's account read as %q\n",
+			c.name, c.acct)
+		return txt
+	}
+	c.acct = shown
 
 	db := OpenDB()
 	defer db.Close()

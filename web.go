@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"html/template"
 	"log"
 	"net/http"
@@ -276,9 +277,9 @@ func parseForm(r *http.Request) []string {
 	}
 	query := "SELECT " + length + " FROM eq WHERE " +
 		strings.Join(tests, " AND ")
-	// TODO worn sorting
-	if order := formOrder(r); order != "" {
+	if order, oargs := formOrder(r); order != "" {
 		query += " ORDER BY " + order
+		args = append(args, oargs...)
 	}
 
 	db, err := OpenItemDB()
@@ -289,20 +290,41 @@ func parseForm(r *http.Request) []string {
 	return results
 }
 
-// formOrder is the ORDER BY for the form's Order By choice, then name: a
-// column, or the stat chosen as Attribute 1 or 2, or name if that was left
-// empty. It's "" for a choice the form doesn't offer.
-func formOrder(r *http.Request) string {
+// wornOrder is the ORDER BY term for the form's Worn Slot choice, with its ?
+// values: an item's place in slots, so results run in the order of the
+// form's Worn Slot list. An item worn on several slots goes with the first
+// of them in that list, and one with no slot gobot knows goes last.
+func wornOrder() (string, []interface{}) {
+	order := "CASE"
+	var args []interface{}
+	for n, s := range slots {
+		test, targs := hasToken("worn", s.worn...)
+		order += fmt.Sprintf(" WHEN %s THEN %d", test, n)
+		args = append(args, targs...)
+	}
+	return order + fmt.Sprintf(" ELSE %d END", len(slots)), args
+}
+
+// formOrder is the ORDER BY for the form's Order By choice, then name, with
+// its ? values: a column, or the stat chosen as Attribute 1 or 2 (name if
+// that was left empty), or the worn slot. It's "" for a choice the form
+// doesn't offer.
+func formOrder(r *http.Request) (string, []interface{}) {
 	by := formValue(r, "orderBy")
 	order, ok := orderSQL[by]
-	if by == "attrib1" || by == "attrib2" {
+	var args []interface{}
+	switch by {
+	case "attrib1", "attrib2":
 		order, ok = "name", true
 		if s, found := findStat(formValue(r, by)); found {
 			order = col(s.col)
 		}
+	case "worn":
+		order, args = wornOrder()
+		ok = true
 	}
 	if !ok {
-		return ""
+		return "", nil
 	}
 	switch formValue(r, "ascDesc") {
 	case "up":
@@ -313,7 +335,7 @@ func formOrder(r *http.Request) string {
 	if !strings.HasPrefix(order, "name") {
 		order += ", name"
 	}
-	return order
+	return order, args
 }
 
 // searchLink is a link to the search r asked for, which the site runs by

@@ -467,6 +467,17 @@ func testWeb(t *testing.T, src string) {
 			[]string{stilettoShort, swordShort}},
 		{"by attribute 2, left empty", short("attrib1", "hit",
 			"orderBy", "attrib2"), []string{swordShort, stilettoShort}},
+		{"by worn slot, in the form's order", short("attrib1", "dam",
+			"orderBy", "worn"),
+			[]string{studShort, rubyShort, swordShort, stilettoShort}},
+		{"by worn slot, last first", short("attrib1", "dam",
+			"orderBy", "worn", "ascDesc", "down"),
+			[]string{swordShort, stilettoShort, studShort, rubyShort}},
+		{"by worn slot, with a slot chosen", short("worn", "ear",
+			"orderBy", "worn"), []string{studShort, rubyShort}},
+		{"by worn slot, unwearable after worn", short(
+			"zoneName", "Skullport", "orderBy", "worn"),
+			[]string{studShort, rubyShort, "a pet catalog"}},
 	}
 	for _, c := range checks {
 		chk(t, "parseForm() "+c.what, c.good, post(c.form))

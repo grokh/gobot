@@ -200,7 +200,7 @@ func parseForm(r *http.Request) []string {
 	}
 
 	if name := formValue(r, "itemName"); name != "" {
-		add("name LIKE ?", vals("%"+name+"%")) // TODO needs a lot of work
+		add("name LIKE ?", vals("%"+name+"%"))
 	}
 
 	if zone := formValue(r, "zoneName"); zone != "" {

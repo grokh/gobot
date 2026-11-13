@@ -70,8 +70,8 @@ func main() {
 		os.O_RDWR|os.O_APPEND|os.O_CREATE,
 		0640,
 	)
-	defer f.Close()
 	ChkErr(err)
+	defer f.Close()
 	log.SetOutput(cleanLog{f})
 
 	// for who.go WhoChar(char string, lvl int,

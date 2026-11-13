@@ -418,17 +418,17 @@ func listNames(txt string) []string {
 			// remove everything before the first "] "
 			// to parse combined [5]-style items from inv or look in
 			if n := strings.Index(v, "] "); n > 0 {
-				v = v[n+1 : len(v)]
+				v = v[n+1:]
 			}
 			// remove everything before the first "   "
 			// to parse items from a 'glist'
 			if n := strings.Index(v, "   "); n > 0 {
-				v = v[n+1 : len(v)]
+				v = v[n+1:]
 			}
 			// remove everything before the first "> "
 			// to parse items from an 'eq' list
 			if n := strings.Index(v, "> "); n > 0 {
-				v = v[n+1 : len(v)]
+				v = v[n+1:]
 			}
 			// remove leading and trailing whitespace
 			if v = strings.TrimSpace(v); v != "" {

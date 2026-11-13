@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 func NotFound(four string, oper string) string {
@@ -622,7 +624,7 @@ func Who(oper string) string {
 
 	var c Char
 	for rows.Next() {
-		err = rows.Scan(&c.acct, &c.name)
+		ChkErr(rows.Scan(&c.acct, &c.name))
 		if strings.Contains(txt, "@") {
 			txt += ", " + c.name
 		} else {
@@ -659,8 +661,8 @@ func Clist(oper string) []string {
 	var found bool
 	var c Char
 	for rows.Next() {
-		err = rows.Scan(&c.lvl, &c.class, &c.name,
-			&c.race, &c.acct, &c.seen)
+		ChkErr(rows.Scan(&c.lvl, &c.class, &c.name,
+			&c.race, &c.acct, &c.seen))
 		char := fmt.Sprintf(
 			"[%d %s] %s (%s) (@%s) seen %s UTC",
 			c.lvl, c.class, c.name, c.race, c.acct, c.seen,
@@ -836,8 +838,8 @@ func FindClass(oper string) []string {
 	var found bool
 	var c Char
 	for rows.Next() {
-		err = rows.Scan(&c.name, &c.class, &c.race,
-			&c.lvl, &c.acct)
+		ChkErr(rows.Scan(&c.name, &c.class, &c.race,
+			&c.lvl, &c.acct))
 		txt := fmt.Sprintf(
 			"[%d %s] %s (%s) (@%s)",
 			c.lvl, c.class, c.name, c.race, c.acct,
@@ -929,6 +931,32 @@ func AddAlt(oper string, char string) string {
 	return txt
 }
 
+// titleCase gives each word of a name a capital first letter and leaves the
+// rest as typed, so "mary-jane o'brien" becomes "Mary-Jane O'Brien". It does
+// what strings.Title did, which Go has deprecated: a word starts wherever
+// the character before isn't part of one.
+func titleCase(s string) string {
+	startsWord := true
+	return strings.Map(func(r rune) rune {
+		first := startsWord
+		startsWord = !inWord(r)
+		if first {
+			return unicode.ToTitle(r)
+		}
+		return r
+	}, s)
+}
+
+// inWord reports whether r is part of a word for titleCase: a letter, a
+// digit or an underscore, and, as in strings.Title, anything outside ASCII
+// that isn't a space.
+func inWord(r rune) bool {
+	if r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r) {
+		return true
+	}
+	return r >= utf8.RuneSelf && !unicode.IsSpace(r)
+}
+
 func AddName(oper string, char string) string {
 	db := OpenDB()
 	defer db.Close()
@@ -959,7 +987,7 @@ func AddName(oper string, char string) string {
 		ChkErr(err)
 		defer stmt.Close()
 
-		name := strings.Title(oper)
+		name := titleCase(oper)
 		_, err = stmt.Exec(name, c.acct)
 		ChkErr(err)
 		tx.Commit()
@@ -991,7 +1019,7 @@ func LoadReport(oper string, char string) []string {
 		for rows.Next() {
 			var report string
 			var date string
-			err = rows.Scan(&c.name, &report, &date)
+			ChkErr(rows.Scan(&c.name, &report, &date))
 			txt = fmt.Sprintf(
 				"%d: %s [%s at %s UTC]",
 				counter, report, c.name, date,

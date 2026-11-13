@@ -63,3 +63,23 @@ func Test_CapTells(t *testing.T) {
 		[]string{"t Yog ...and 1 more tell, too many to send at once.\n"},
 		[]string{moreTells("Yog", 1)})
 }
+
+// Test_TitleCase checks the capitals addname gives a real name: one at the
+// start of each word, with the rest left as typed.
+func Test_TitleCase(t *testing.T) {
+	for in, good := range map[string]string{
+		"":                  "",
+		"Bob":               "Bob",
+		"john smith":        "John Smith",
+		"mary-jane o'brien": "Mary-Jane O'Brien",
+		"JOHN mcDonald":     "JOHN McDonald",
+		"  two  spaces":     "  Two  Spaces",
+		"jean_luc 2nd":      "Jean_luc 2nd",
+		"élodie":            "Élodie",
+	} {
+		if got := titleCase(in); got != good {
+			t.Errorf("titleCase(%q) check failed: %q, should be %q",
+				in, got, good)
+		}
+	}
+}

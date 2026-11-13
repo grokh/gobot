@@ -47,8 +47,8 @@ func Test_All(t *testing.T) {
 		os.O_RDWR|os.O_APPEND|os.O_CREATE,
 		0640,
 	)
-	defer f.Close()
 	chkErr(t, err)
+	defer f.Close()
 	log.SetOutput(f)
 
 	// Run in a temp folder with a fresh toril.db, so the test never touches

@@ -83,6 +83,16 @@ func Test_NyyLIB(t *testing.T) {
 		})
 	chkCharLines(t, "char zed", heard(t, "Yog", ReplyTo("Yog", "char zed")),
 		[][4]string{{"Anti-Paladin", "Zed", "Shield Dwarf", "Bob"}})
+	// a clist narrowed to a class or level lists the same lines, and one
+	// that finds none says so in a line the trigger doesn't take for an alt
+	chkCharLines(t, "clist tom anti 30+",
+		heard(t, "Yog", ReplyTo("Yog", "clist tom anti 30+")),
+		[][4]string{{"Anti-Paladin", "Zed", "Shield Dwarf", "Bob"}})
+	none := heard(t, "Yog", ReplyTo("Yog", "clist tom cleric"))
+	if len(none) != 1 || nyyCharLine.MatchString(none[0]) {
+		t.Errorf("NyyLIB clist tom cleric check failed: Expected: one line "+
+			"its trigger doesn't match, Actual: %q", none)
+	}
 }
 
 // heard is a reply from ReplyTo as the asker sees it: the MUD shows the

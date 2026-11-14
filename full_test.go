@@ -160,8 +160,9 @@ func Test_All(t *testing.T) {
 			"Find items by attributes, slots, etc.: (for proper usage, " +
 			"tell katumi help fstat)\n",
 		"t Yog Find mobs: Stats and the eq they carry: mstat <mob name>\n",
-		"t Yog Find people: Provide acct and char info: who <char/acct>, " +
-			"clist <char/acct>, char <char>, Show last online alt: " +
+		"t Yog Find people: Acct and char info: who <char/acct>, " +
+			"clist <char/acct> [class] [level], char <char>, " +
+			"Show last online alt: " +
 			"find <char/acct>, Find level 50 alts of a class among people " +
 			"online: class <class>, RL names: name <char/acct>, " +
 			"addname <name>, Control your listing: delalt <char>, " +
@@ -701,7 +702,8 @@ func testSplit(t *testing.T) {
 }
 
 // testTellCap checks that a clist of an account with 60 alts, which runs
-// past maxReplyBytes, is cut short and ends with how many more there were.
+// past maxReplyBytes, is cut short and ends with how many more there were,
+// and, as nothing narrowed it, how to list fewer.
 func testTellCap(t *testing.T, db *sql.DB) {
 	_, err := db.Exec("INSERT INTO accounts (account_name) VALUES ('Many')")
 	chkErr(t, err)
@@ -712,14 +714,22 @@ func testTellCap(t *testing.T, db *sql.DB) {
 			fmt.Sprintf("Many%c%c", 'a'+i/26, 'a'+i%26), time.Now())
 		chkErr(t, err)
 	}
-	txt := ReplyTo("Yog", "clist many")
-	bytes := 0
-	for _, line := range txt {
-		bytes += len(line) + 1
-	}
-	k := len(txt) - 1
-	if bytes > maxReplyBytes || k < 1 || txt[k] != moreTells("Yog", alts-k) {
-		t.Errorf("clist cap check failed: %d bytes: %q", bytes, txt)
+	for tell, hint := range map[string]string{
+		"clist many": "To list fewer, add a class or level: " +
+			"clist many cleric 50",
+		// all 60 are level 50 warriors, so this lists as many
+		"clist many war 50": "",
+	} {
+		txt := ReplyTo("Yog", tell)
+		bytes := 0
+		for _, line := range txt {
+			bytes += len(line) + 1
+		}
+		k := len(txt) - 1
+		if bytes > maxReplyBytes || k < 1 ||
+			txt[k] != moreTells("Yog", alts-k, hint) {
+			t.Errorf("%s cap check failed: %d bytes: %q", tell, bytes, txt)
+		}
 	}
 }
 

@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"math"
+	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -227,12 +230,19 @@ func Help(oper string) []string {
 			"the time will measure in seconds. "+
 			"Also works with account names.")
 	case "clist":
-		txt = append(txt, "Syntax: tell katumi clist <acct/char> -- "+
+		txt = append(txt, "Syntax: tell katumi clist <acct/char> "+
+			"[class] [level] -- "+
 			"Example: tell katumi clist rynshana -- "+
 			"Katumi provides a full "+
 			"listing of every known alt belonging to <char>, including race, "+
 			"class, level, and date/time last seen, matching the format of "+
 			"the 'char' command. Also works with account names.")
+		txt = append(txt, "Katumi lists only the alts of a class, a level, "+
+			"or both, given after the name in either order -- "+
+			"Example: tell katumi clist rynshana cleric 50 -- "+
+			"The class can be its who list abbreviation (cle) or the start "+
+			"of its name (necro), and the level a range (40-50) or a lowest "+
+			"(45+).")
 	case "class":
 		txt = append(txt, "Syntax: tell katumi class <class> -- "+
 			"Example: tell katumi class cleric -- "+
@@ -642,10 +652,16 @@ func Who(oper string) string {
 	return txt
 }
 
+// Clist lists the visible alts of the account oper names, by its name or
+// one of its chars', highest level first, a line each in the form NyyLIB
+// reads (see nyylib_test.go). A name that is one account's and another's
+// char lists both accounts. A class or a level after the name, or both,
+// lists only the alts that fit (see parseClist).
 func Clist(oper string) []string {
 	db := OpenDB()
 	defer db.Close()
 
+	name, f, noClass := parseClist(db, oper)
 	query := "SELECT char_level, class_name, char_name, char_race, " +
 		"account_name, DATETIME(last_seen) " +
 		"FROM chars WHERE vis = 't' " +
@@ -655,28 +671,126 @@ func Clist(oper string) []string {
 		"OR LOWER(account_name) = LOWER(?)) " +
 		"ORDER BY char_level DESC, char_name ASC"
 
-	rows, err := db.Query(query, oper, oper)
+	rows, err := db.Query(query, name, name)
 	ChkErr(err)
 	defer rows.Close()
 
 	var txts []string
-	var found bool
+	var accts []string
 	var c Char
 	for rows.Next() {
 		ChkErr(rows.Scan(&c.lvl, &c.class, &c.name,
 			&c.race, &c.acct, &c.seen))
+		if !slices.Contains(accts, c.acct) {
+			accts = append(accts, c.acct)
+		}
+		if !f.fits(c) {
+			continue
+		}
 		char := fmt.Sprintf(
 			"[%d %s] %s (%s) (@%s) seen %s UTC",
 			c.lvl, c.class, c.name, c.race, c.acct, c.seen,
 		)
 		txts = append(txts, char)
-		found = true
 	}
 	ChkRows(rows)
-	if !found {
-		txts = append(txts, NotFound("character or account", oper))
+	switch {
+	case len(accts) == 0:
+		return []string{NotFound("character or account", name)}
+	case noClass != "":
+		return []string{NotFound("class", noClass)}
+	case len(txts) == 0 && len(accts) == 1:
+		return []string{"@" + accts[0] + " has no " + f.String() + "."}
+	case len(txts) == 0:
+		return []string{"@" + strings.Join(accts, " and @") + " have no " +
+			f.String() + "."}
 	}
 	return txts
+}
+
+// clistFilter is which alts a clist lists: those of class, or of any class
+// if it's "", from level lo to level hi.
+type clistFilter struct {
+	class  string
+	lo, hi int
+}
+
+// anyLevel is the top of a level range that has none.
+const anyLevel = math.MaxInt
+
+// clistLevel is a level in a clist: one level (50), a range (40-50), or
+// the bottom of a range with no top (45+).
+var clistLevel = regexp.MustCompile(`^(\d{1,3})(?:-(\d{1,3})|(\+))?$`)
+
+// parseClist reads a clist's oper: the name of a char or account, then
+// which of its alts to list, if not all: a class, a level, or both, in
+// either order. The class can be named any way class takes one (cleric,
+// cle, cler, dire raider). The level can be one (50), a range (40-50, or
+// 40 50) or a lowest (45+), and can come after the word level or lvl.
+// noClass is what was given as a class if it names none.
+func parseClist(db *sql.DB, oper string) (name string, f clistFilter,
+	noClass string) {
+	f = clistFilter{lo: 0, hi: anyLevel}
+	words := strings.Fields(oper)
+	if len(words) == 0 {
+		return "", f, ""
+	}
+	var class []string
+	var levels []int
+	for _, w := range words[1:] {
+		m := clistLevel.FindStringSubmatch(w)
+		switch {
+		case m != nil:
+			for _, n := range m[1:3] {
+				if n != "" {
+					lvl, _ := strconv.Atoi(n) // three digits at most
+					levels = append(levels, lvl)
+				}
+			}
+			if m[3] != "" {
+				levels = append(levels, anyLevel)
+			}
+		case strings.EqualFold(w, "level") || strings.EqualFold(w, "lvl"):
+		default:
+			class = append(class, w)
+		}
+	}
+	// levels given more than once, or a range given high to low, are read
+	// as the one range they span
+	if len(levels) > 0 {
+		f.lo, f.hi = slices.Min(levels), slices.Max(levels)
+	}
+	if len(class) > 0 {
+		var ok bool
+		if f.class, ok = classFor(db, strings.Join(class, " ")); !ok {
+			noClass = strings.Join(class, " ")
+		}
+	}
+	return words[0], f, noClass
+}
+
+// fits reports whether c is one of the alts f lists.
+func (f clistFilter) fits(c Char) bool {
+	return (f.class == "" || c.class == f.class) &&
+		c.lvl >= f.lo && c.lvl <= f.hi
+}
+
+// String names the alts f lists, as a reply that found none says it:
+// "@Bob has no level 50 Cleric."
+func (f clistFilter) String() string {
+	alts := "alt"
+	if f.class != "" {
+		alts = f.class
+	}
+	switch {
+	case f.lo == 0 && f.hi == anyLevel:
+		return alts
+	case f.lo == f.hi:
+		return fmt.Sprintf("level %d %s", f.lo, alts)
+	case f.hi == anyLevel:
+		return fmt.Sprintf("%s of level %d or higher", alts, f.lo)
+	}
+	return fmt.Sprintf("%s of level %d to %d", alts, f.lo, f.hi)
 }
 
 func CharInfo(oper string) string {
@@ -1238,8 +1352,9 @@ func ReplyTo(char string, tell string) []string {
 			"Find items by attributes, slots, etc.: (for proper usage, " +
 			"tell katumi help fstat)",
 		"Find mobs: Stats and the eq they carry: mstat <mob name>",
-		"Find people: Provide acct and char info: who <char/acct>, " +
-			"clist <char/acct>, char <char>, Show last online alt: " +
+		"Find people: Acct and char info: who <char/acct>, " +
+			"clist <char/acct> [class] [level], char <char>, " +
+			"Show last online alt: " +
 			"find <char/acct>, Find level 50 alts of a class among people " +
 			"online: class <class>, RL names: name <char/acct>, " +
 			"addname <name>, Control your listing: delalt <char>, " +
@@ -1249,6 +1364,8 @@ func ReplyTo(char string, tell string) []string {
 			"global mobs: lr, lr <report>, lrdel <num>",
 	}
 	var txt []string
+	// what a reply cut short says after the count of tells left out
+	hint := ""
 
 	oper := ""
 	split := strings.SplitN(tell, " ", 2)
@@ -1284,6 +1401,10 @@ func ReplyTo(char string, tell string) []string {
 		txt = append(txt, Who(oper))
 	case cmd == "clist" && oper != "":
 		txt = Clist(oper)
+		if len(strings.Fields(oper)) == 1 {
+			hint = "To list fewer, add a class or level: clist " + oper +
+				" cleric 50"
+		}
 	case cmd == "char" && oper != "":
 		txt = append(txt, CharInfo(oper))
 	case cmd == "find" && oper != "":
@@ -1316,7 +1437,7 @@ func ReplyTo(char string, tell string) []string {
 			tells = append(tells, tellSafe("t "+char+" "+part)+"\n")
 		}
 	}
-	return capTells(char, tells)
+	return capTells(char, tells, hint)
 }
 
 // maxReplyBytes is the most a reply to one tell sends the MUD. The MUD
@@ -1330,8 +1451,8 @@ const maxReplyBytes = 3000
 
 // capTells cuts a reply down to maxReplyBytes, counting each tell with the
 // \r\n tintin ends it with. A reply cut short keeps as many tells as fit and
-// ends with how many more there were.
-func capTells(char string, tells []string) []string {
+// ends with how many more there were, and hint, if there is one.
+func capTells(char string, tells []string, hint string) []string {
 	used := 0
 	for _, t := range tells {
 		used += len(t) + 1
@@ -1343,9 +1464,9 @@ func capTells(char string, tells []string) []string {
 	used = 0
 	for i, t := range tells {
 		// keep this tell only if the count of the ones after it still fits
-		if used+len(t)+1+len(moreTells(char, len(tells)-i-1))+1 >
+		if used+len(t)+1+len(moreTells(char, len(tells)-i-1, hint))+1 >
 			maxReplyBytes {
-			return append(kept, moreTells(char, len(tells)-i))
+			return append(kept, moreTells(char, len(tells)-i, hint))
 		}
 		kept = append(kept, t)
 		used += len(t) + 1
@@ -1354,15 +1475,18 @@ func capTells(char string, tells []string) []string {
 }
 
 // moreTells is the tell that ends a reply cut short, saying how many more
-// tells there were.
-func moreTells(char string, more int) string {
+// tells there were, then hint, if there is one.
+func moreTells(char string, more int, hint string) string {
 	s := "s"
 	if more == 1 {
 		s = ""
 	}
+	if hint != "" {
+		hint = " " + hint
+	}
 	return tellSafe(fmt.Sprintf(
-		"t %s ...and %d more tell%s, too many to send at once.",
-		char, more, s)) + "\n"
+		"t %s ...and %d more tell%s, too many to send at once.%s",
+		char, more, s, hint)) + "\n"
 }
 
 // tellLimit is the most text katumi puts in a single tell.

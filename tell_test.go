@@ -34,34 +34,44 @@ func Test_CapTells(t *testing.T) {
 		fits++
 	}
 	chk(t, "capTells() of a reply that just fits", tells(fits),
-		capTells("Yog", tells(fits)))
+		capTells("Yog", tells(fits), ""))
 
 	// one that doesn't keeps as many tells as fit with the count of the
-	// rest: one tell too many, clist aizu, and clist kalthazz
+	// rest, and the hint after it if there is one: one tell too many, clist
+	// aizu, and clist kalthazz
+	clistHint := "To list fewer, add a class or level: clist kalthazz " +
+		"cleric 50"
 	for _, n := range []int{fits + 1, 94, 523} {
-		in := tells(n)
-		out := capTells("Yog", in)
-		k := len(out) - 1
-		if k < 1 {
-			t.Errorf("capTells() of %d tells check failed: %q", n, out)
-			continue
-		}
-		chk(t, fmt.Sprintf("capTells() of %d tells", n),
-			append(in[:k:k], moreTells("Yog", n-k)), out)
-		if size(out) > maxReplyBytes {
-			t.Errorf("capTells() of %d tells check failed: %d bytes",
-				n, size(out))
-		}
-		// one more, with the count of the rest after it, wouldn't fit
-		if size(in[:k+1])+len(moreTells("Yog", n-k-1))+1 <= maxReplyBytes {
-			t.Errorf("capTells() of %d tells check failed: only %d kept",
-				n, k)
+		for _, hint := range []string{"", clistHint} {
+			in := tells(n)
+			out := capTells("Yog", in, hint)
+			k := len(out) - 1
+			if k < 1 {
+				t.Errorf("capTells() of %d tells check failed: %q", n, out)
+				continue
+			}
+			chk(t, fmt.Sprintf("capTells() of %d tells, hint %q", n, hint),
+				append(in[:k:k], moreTells("Yog", n-k, hint)), out)
+			if size(out) > maxReplyBytes {
+				t.Errorf("capTells() of %d tells check failed: %d bytes",
+					n, size(out))
+			}
+			// one more, with the count of the rest after it, wouldn't fit
+			if size(in[:k+1])+len(moreTells("Yog", n-k-1, hint))+1 <=
+				maxReplyBytes {
+				t.Errorf("capTells() of %d tells check failed: only %d kept",
+					n, k)
+			}
 		}
 	}
 
 	chk(t, "moreTells() of one",
 		[]string{"t Yog ...and 1 more tell, too many to send at once.\n"},
-		[]string{moreTells("Yog", 1)})
+		[]string{moreTells("Yog", 1, "")})
+	chk(t, "moreTells() with a hint",
+		[]string{"t Yog ...and 2 more tells, too many to send at once. " +
+			clistHint + "\n"},
+		[]string{moreTells("Yog", 2, clistHint)})
 }
 
 // Test_TitleCase checks the capitals addname gives a real name: one at the

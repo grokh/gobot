@@ -539,13 +539,21 @@ func testNewClasses(t *testing.T, db *sql.DB) {
 	}
 }
 
-// testReboot checks that Uptime notices a reboot even when the bot was
-// offline for longer than the old boot had lasted, without mistaking a
-// long-running boot for a new one.
+// testReboot checks what Uptime takes for a reboot: an uptime that went
+// down, or a MUD that came up after the old boot was last seen, as when the
+// bot was offline for longer than the old boot had lasted. A long-running
+// boot isn't one, and neither is a check written late, after a newer one.
 func testReboot(t *testing.T) {
 	alerts := 0
 	sendBootAlert = func() { alerts++ }
 	defer func() { sendBootAlert = SendBootAlert }()
+
+	// a clock that moves only when a case says time has passed, so each
+	// check comes as long after the one before as it would have
+	clock := now()
+	defer func(was func() time.Time) { now = was }(now)
+	now = func() time.Time { return clock }
+	wait := func(d time.Duration) { clock = clock.Add(d) }
 
 	db := OpenDB()
 	defer db.Close()
@@ -558,14 +566,21 @@ func testReboot(t *testing.T) {
 	lastBoot := func(ago time.Duration, up string) {
 		_, err := db.Exec("UPDATE boots SET boot_time = ?, uptime = ? "+
 			"WHERE boot_id = (SELECT MAX(boot_id) FROM boots)",
-			time.Now().Add(-ago), up)
+			clock.Add(-ago), up)
 		chkErr(t, err)
 	}
-	check := func(what string, wantBoots int, wantAlerts int) {
-		if b := boots(); b != wantBoots || alerts != wantAlerts {
+	// how many boots and alerts there have been by now, and the uptime the
+	// current boot was last seen at
+	check := func(what string, wantBoots int, wantAlerts int, wantUp string) {
+		var up string
+		chkErr(t, db.QueryRow("SELECT uptime FROM boots "+
+			"ORDER BY boot_id DESC LIMIT 1").Scan(&up))
+		if b := boots(); b != wantBoots || alerts != wantAlerts ||
+			up != wantUp {
 			t.Errorf("Uptime() check failed: %s: Expected: %d boots, "+
-				"%d alerts, Actual: %d boots, %d alerts",
-				what, wantBoots, wantAlerts, b, alerts)
+				"%d alerts, uptime %s, Actual: %d boots, %d alerts, "+
+				"uptime %s", what, wantBoots, wantAlerts, wantUp,
+				b, alerts, up)
 		}
 	}
 	n := boots()
@@ -573,24 +588,62 @@ func testReboot(t *testing.T) {
 	// bot offline for 12 hours, MUD still on the same boot
 	lastBoot(22*time.Hour, "10:00:00")
 	Uptime("22:00:00")
-	check("offline, same boot", n, 0)
+	check("offline, same boot", n, 0, "22:00:00")
 
 	// MUD rebooted 11 hours ago while the bot was offline: the new uptime
 	// is already past the 10 hours the old boot was last seen at
 	lastBoot(22*time.Hour, "10:00:00")
 	Uptime("11:00:00")
-	check("rebooted while offline", n+1, 1)
+	check("rebooted while offline", n+1, 1, "11:00:00")
 
 	// the next check-in is the same boot, and lr starts over with it
+	wait(30 * time.Second)
 	Uptime("11:00:30")
-	check("next check-in", n+1, 1)
+	check("next check-in", n+1, 1, "11:00:30")
 	chk(t, "lr after reboot",
 		[]string{"t Yog No loads reported for current boot.\n"},
 		ReplyTo("Yog", "lr"))
 
+	// The checks are held up for four minutes and come through together, as
+	// they did twice in 2014. tintin runs each in the background, and the
+	// newest is written first: the ones behind it, with their lower uptimes,
+	// are neither a reboot nor the boot's uptime now.
+	wait(4 * time.Minute)
+	Uptime("11:04:30")
+	Uptime("11:04:30")
+	Uptime("11:01:00")
+	Uptime("11:03:30")
+	Uptime("11:00:30")
+	check("checks written late", n+1, 1, "11:04:30")
+
 	// a reboot the bot is around for: the uptime drops
+	wait(150 * time.Second)
 	Uptime("0:02:00")
-	check("uptime dropped", n+2, 2)
+	check("uptime dropped", n+2, 2, "0:02:00")
+
+	// a crash loop: a boot last seen 30 seconds in, and a minute later a new
+	// one that has been up for 8
+	lastBoot(30*time.Second, "0:00:30")
+	wait(time.Minute)
+	Uptime("0:00:08")
+	check("crash loop", n+3, 3, "0:00:08")
+
+	// A boot whose first check was held up for four minutes is timed four
+	// minutes late, which puts where it was last seen, six minutes in, four
+	// minutes from now. The boot after it seems to start before then, and is
+	// still a new one.
+	lastBoot(2*time.Minute, "0:06:00")
+	wait(40 * time.Second)
+	Uptime("0:00:20")
+	check("reboot of a boot timed late", n+4, 4, "0:00:20")
+
+	// An uptime that falls by hours is a reboot wherever the times put it,
+	// as no check is that late: here the old boot is timed half an hour
+	// late, as by a clock that was wrong.
+	lastBoot(50*time.Hour-30*time.Minute, "50:00:00")
+	wait(40 * time.Second)
+	Uptime("0:00:20")
+	check("uptime fell by hours", n+5, 5, "0:00:20")
 }
 
 // testSplit checks that long replies go out as tells of at most tellLimit

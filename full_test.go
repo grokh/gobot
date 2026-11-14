@@ -162,9 +162,10 @@ func Test_All(t *testing.T) {
 		"t Yog Find mobs: Stats and the eq they carry: mstat <mob name>\n",
 		"t Yog Find people: Provide acct and char info: who <char/acct>, " +
 			"clist <char/acct>, char <char>, Show last online alt: " +
-			"find <char/acct>, Find alts of listed class for people online: " +
-			"class <class>, RL names: name <char/acct>, addname <name>, " +
-			"Control your listing: delalt <char>, addalt <char>\n",
+			"find <char/acct>, Find level 50 alts of a class among people " +
+			"online: class <class>, RL names: name <char/acct>, " +
+			"addname <name>, Control your listing: delalt <char>, " +
+			"addalt <char>\n",
 		"t Yog Misc: This message: ?, More info on each command: help <cmd>, " +
 			"Find out if you're hidden: hidden, Load reports for rares or " +
 			"global mobs: lr, lr <report>, lrdel <num>\n",
@@ -218,14 +219,24 @@ func Test_All(t *testing.T) {
 	good = []string{"t Yog 404 character or account not found: blah\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
+	char, tell = "Yog", "class blah"
+	txt = ReplyTo(char, tell)
+	good = []string{"t Yog 404 class not found: blah\n"}
+	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
+
+	// Yog is a Barbarian, so on the good side
 	char, tell = "Yog", "class enchanter"
 	txt = ReplyTo(char, tell)
-	good = []string{"t Yog 404 class not found: enchanter\n"}
+	good = []string{"t Yog No one else online has a level 50 Enchanter " +
+		"on the good side.\n"}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "class bard"
 	txt = ReplyTo(char, tell)
-	good = []string{"t Yog [50 Bard] Bob (Human) (@Bob)\n"}
+	good = []string{
+		"t Yog Accounts online with a level 50 Bard on the good side:\n",
+		"t Yog @Bob, online as Bob: Bob (Human)\n",
+	}
 	chk(t, "ReplyTo("+char+", "+tell+")", good, txt)
 
 	char, tell = "Yog", "lr"
@@ -793,7 +804,8 @@ func testTimes(t *testing.T, db *sql.DB, fix string) {
 		"('Dst', 'Dstb', 'Warrior', 'Human', 50, ?, 't')", older, newer)
 	chkErr(t, err)
 	chk(t, "class after fall-back", []string{
-		"t Yog 404 class not found: cleric\n"}, ReplyTo("Yog", "class cleric"))
+		"t Yog No one else online has a level 50 Cleric on the good side.\n"},
+		ReplyTo("Yog", "class cleric"))
 	if txt := ReplyTo("Yog", "find dst"); len(txt) != 1 ||
 		!strings.HasPrefix(txt[0], "t Yog @Dst last seen ") ||
 		!strings.HasSuffix(txt[0], " as Dstb\n") {

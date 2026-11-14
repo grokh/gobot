@@ -235,11 +235,13 @@ func Help(oper string) []string {
 			"the 'char' command. Also works with account names.")
 	case "class":
 		txt = append(txt, "Syntax: tell katumi class <class> -- "+
-			"Example: tell katumi class enchanter -- "+
-			"Katumi provides a "+
-			"list of alts matching the named class for characters who "+
-			"are currently online, letting group leaders find useful "+
-			"alts from the 'who' list.")
+			"Example: tell katumi class cleric -- "+
+			"Katumi lists the accounts online now with a level 50 alt of "+
+			"that class: who each player is online as, so you know whom to "+
+			"ask to fill a group slot, then those alts. Only alts of your "+
+			"side of the racewar are listed (half-orcs count for both), and "+
+			"none of your own. The class can be its who list abbreviation "+
+			"(cle) or the start of its name (necro).")
 	case "name":
 		txt = append(txt, "Syntax: tell katumi name <acct/char> -- "+
 			"Example: tell katumi name rynshana -- "+
@@ -813,45 +815,166 @@ func Name(oper string) string {
 	return txt
 }
 
-func FindClass(oper string) []string {
+// onlineWindow is how lately a char has to have been on the who list to
+// count as online. Katumi reads the who list every 30 seconds.
+const onlineWindow = time.Minute
+
+// FindClass is class's reply to asker, for filling a group slot: the
+// accounts online with a level 50 alt of the class oper names, one line
+// each, with the char its player is online as, so the asker knows whom to
+// tell, then those alts. Accounts online as one of them come first, then
+// the rest by name. The asker's own account is left out, and so are alts
+// that can't group with the asker's char, going by race (see otherSide).
+// Hidden alts aren't listed, and an account online only as a hidden alt
+// doesn't count as online.
+func FindClass(oper string, asker string) []string {
 	db := OpenDB()
 	defer db.Close()
 
-	// stored times carry different offsets (or none), so compare them as
-	// times, not as text: as text, the hour after clocks fall back sorts
-	// ahead of the hour before it
-	query := "SELECT char_name, class_name, char_race, " +
-		"char_level, account_name " +
-		"FROM chars WHERE LOWER(class_name) = LOWER(?) " +
-		"AND vis = 't' " +
-		"AND account_name IN " +
-		"(SELECT account_name FROM chars " +
-		"WHERE JULIANDAY(last_seen) > JULIANDAY('now', '-1 minute') " +
-		"AND vis = 't') " +
-		"ORDER BY char_level DESC"
+	class, ok := classFor(db, oper)
+	if !ok {
+		return []string{NotFound("class", oper)}
+	}
 
-	rows, err := db.Query(query, oper)
+	// the asker's account and race type, or neither for a char Katumi
+	// hasn't seen, or Someone, who she can't see
+	var askerAcct, askerSide string
+	err := db.QueryRow("SELECT c.account_name, COALESCE(r.race_type, '') "+
+		"FROM chars c LEFT JOIN races r ON r.race_name = c.char_race "+
+		"WHERE LOWER(c.char_name) = LOWER(?)", asker).Scan(
+		&askerAcct, &askerSide)
+	if err != nil && err != sql.ErrNoRows {
+		log.Fatal(err)
+	}
+
+	// Stored times carry different offsets (or none), so they're compared
+	// as times, not as text: as text, the hour after clocks fall back sorts
+	// ahead of the hour before it. The char an account is online as is its
+	// visible one seen last. An alt of a race the races table doesn't have
+	// is kept, as its side isn't known.
+	query := "WITH alts AS (" +
+		"SELECT c.char_name AS alt, c.char_race AS race, " +
+		"c.account_name AS acct, " +
+		"(SELECT o.char_name FROM chars o " +
+		"WHERE o.account_name = c.account_name AND o.vis = 't' " +
+		"ORDER BY JULIANDAY(o.last_seen) DESC, o.char_name LIMIT 1) " +
+		"AS online " +
+		"FROM chars c LEFT JOIN races r ON r.race_name = c.char_race " +
+		"WHERE c.class_name = ? AND c.char_level = 50 AND c.vis = 't' " +
+		"AND c.account_name != ? AND r.race_type IS NOT ? " +
+		"AND c.account_name IN (SELECT account_name FROM chars " +
+		"WHERE vis = 't' AND JULIANDAY(last_seen) > JULIANDAY(?))) " +
+		"SELECT alt, race, acct, online FROM alts " +
+		"ORDER BY LOWER(acct), online = alt DESC, alt"
+	since := now().UTC().Add(-onlineWindow).Format("2006-01-02 15:04:05.000")
+	rows, err := db.Query(query, class, askerAcct, otherSide(askerSide),
+		since)
 	ChkErr(err)
 	defer rows.Close()
 
-	var txts []string
-	var found bool
-	var c Char
+	// an account and its alts, the one it's online as first
+	type account struct {
+		acct, online string
+		onOne        bool // online as one of alts
+		alts         []string
+	}
+	var accts []*account
 	for rows.Next() {
-		ChkErr(rows.Scan(&c.name, &c.class, &c.race,
-			&c.lvl, &c.acct))
-		txt := fmt.Sprintf(
-			"[%d %s] %s (%s) (@%s)",
-			c.lvl, c.class, c.name, c.race, c.acct,
-		)
-		txts = append(txts, txt)
-		found = true
+		var alt, race, acct, online string
+		ChkErr(rows.Scan(&alt, &race, &acct, &online))
+		if len(accts) == 0 || accts[len(accts)-1].acct != acct {
+			accts = append(accts, &account{acct: acct, online: online})
+		}
+		a := accts[len(accts)-1]
+		a.onOne = a.onOne || alt == online
+		a.alts = append(a.alts, alt+" ("+race+")")
 	}
 	ChkRows(rows)
-	if !found {
-		txts = append(txts, NotFound("class", oper))
+	// those who can come as they are first
+	sort.SliceStable(accts, func(i, j int) bool {
+		return accts[i].onOne && !accts[j].onOne
+	})
+
+	side := ""
+	if otherSide(askerSide) != "" {
+		side = " on the " + strings.ToLower(askerSide) + " side"
+	}
+	if len(accts) == 0 {
+		return []string{"No one else online has a level 50 " + class + side +
+			"."}
+	}
+	txts := []string{"Accounts online with a level 50 " + class + side + ":"}
+	for _, a := range accts {
+		txts = append(txts, "@"+a.acct+", online as "+a.online+": "+
+			strings.Join(a.alts, ", "))
 	}
 	return txts
+}
+
+// otherSide is the race type whose chars can't group with a char of race
+// type side, as the good races and the evil ones are at war. It's "" for
+// the one neutral race: half-orcs play on both sides (there are half-orc
+// paladins and half-orc battlechanters), so their race doesn't say which,
+// and FindClass lists them for both and shows a half-orc asker both.
+func otherSide(side string) string {
+	switch side {
+	case "Good":
+		return "Evil"
+	case "Evil":
+		return "Good"
+	}
+	return ""
+}
+
+// classFor is the class oper names, as the classes table spells it: by its
+// name, its abbreviation on the who list, or the start of its name, three
+// letters or more, if that starts no other. Case, spaces, hyphens and a
+// plural's s don't count, so cleric, Cle, cler and clerics are all Cleric,
+// and a-p and anti paladin are Anti-Paladin. ok is false if oper names no
+// class.
+func classFor(db *sql.DB, oper string) (class string, ok bool) {
+	rows, err := db.Query("SELECT class_name, class_abbr FROM classes")
+	ChkErr(err)
+	defer rows.Close()
+	var names, abbrs []string
+	for rows.Next() {
+		var name, abbr string
+		ChkErr(rows.Scan(&name, &abbr))
+		names = append(names, name)
+		abbrs = append(abbrs, abbr)
+	}
+	ChkRows(rows)
+
+	want := letters(oper)
+	tries := []string{want}
+	if one := strings.TrimSuffix(want, "s"); one != want {
+		tries = append(tries, one)
+	}
+	for _, w := range tries {
+		var starts []string
+		for i, name := range names {
+			if w == letters(name) || w == letters(abbrs[i]) {
+				return name, true
+			}
+			if len(w) >= 3 && strings.HasPrefix(letters(name), w) {
+				starts = append(starts, name)
+			}
+		}
+		if len(starts) == 1 {
+			return starts[0], true
+		}
+	}
+	return "", false
+}
+
+// letters is s in lower case, with everything but its letters taken out.
+func letters(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsLetter(r) {
+			return unicode.ToLower(r)
+		}
+		return -1
+	}, s)
 }
 
 func DelAlt(oper string, char string) string {
@@ -1117,9 +1240,10 @@ func ReplyTo(char string, tell string) []string {
 		"Find mobs: Stats and the eq they carry: mstat <mob name>",
 		"Find people: Provide acct and char info: who <char/acct>, " +
 			"clist <char/acct>, char <char>, Show last online alt: " +
-			"find <char/acct>, Find alts of listed class for people online: " +
-			"class <class>, RL names: name <char/acct>, addname <name>, " +
-			"Control your listing: delalt <char>, addalt <char>",
+			"find <char/acct>, Find level 50 alts of a class among people " +
+			"online: class <class>, RL names: name <char/acct>, " +
+			"addname <name>, Control your listing: delalt <char>, " +
+			"addalt <char>",
 		"Misc: This message: ?, More info on each command: help <cmd>, " +
 			"Find out if you're hidden: hidden, Load reports for rares or " +
 			"global mobs: lr, lr <report>, lrdel <num>",
@@ -1167,7 +1291,7 @@ func ReplyTo(char string, tell string) []string {
 	case cmd == "name" && oper != "":
 		txt = append(txt, Name(oper))
 	case cmd == "class" && oper != "":
-		txt = FindClass(oper)
+		txt = FindClass(oper, char)
 	case cmd == "delalt" && oper != "":
 		txt = append(txt, DelAlt(oper, char))
 	case cmd == "addalt" && oper != "":

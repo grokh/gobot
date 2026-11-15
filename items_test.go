@@ -422,6 +422,17 @@ func testWeb(t *testing.T, src string) {
 		good []string
 	}{
 		{"name", short("itemName", "stud"), []string{studShort, rubyShort}},
+		// as stat finds a name: as typed first, so every word of "of the"
+		// would add the stiletto, but the name as typed finds the mark
+		{"name as typed, before its words", short("itemName", "of the"),
+			[]string{markShort}},
+		{"name, words in order with others between",
+			short("itemName", "black destruction"), []string{swordShort}},
+		{"name, every word in any order",
+			short("itemName", "stud ruby mithril"), []string{rubyShort}},
+		{"name, every word, with a zone", short("itemName", "stud mithril",
+			"zoneName", "Skullport"), []string{studShort, rubyShort}},
+		{"name, a word in no name", short("itemName", "mithril blah"), nil},
 		{"zone of several", short("zoneName", "Westgate"),
 			[]string{markShort}},
 		{"zone, first of several", short("zoneName", "Silverymoon"),

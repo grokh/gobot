@@ -144,21 +144,36 @@ func tintinSafe(s string) string {
 	return tellSafe(strings.ReplaceAll(s, "@", ""))
 }
 
-// FindItem returns stats for the item named in oper from TorilDB.db, in
-// the length asked for (short_stats or long_stats). Each way of matching the
-// name is tried in turn, from exact to loosest.
+// FindItem is -item's answer: the stats of the item named in oper from
+// TorilDB.db, in the length asked for (short_stats or long_stats). It's the
+// closest match alone, without the items that share its name, because
+// torilmud.tin's ASSOC stat passes on only the last line gobot prints.
 func FindItem(oper string, length string) []string {
-	return findItem(oper, length, false)
+	return findItem(oper, length, false, false)
 }
 
-// Astat is astat's reply: the long stats for the item named in oper, each
-// followed by a line naming the mobs Kegor lists as carrying it, if any.
+// Stat is stat's reply: the short stats for the item named in oper, then
+// for the items that share its name.
+func Stat(oper string) []string {
+	return findItem(oper, "short_stats", true, false)
+}
+
+// Astat is astat's reply: the long stats for the item named in oper, then
+// for the items that share its name, each followed by a line naming the mobs
+// Kegor lists as carrying it, if any.
 func Astat(oper string) []string {
-	return findItem(oper, "long_stats", true)
+	return findItem(oper, "long_stats", true, true)
 }
 
-// findItem is FindItem, adding astat's Loads on lines if loads is set.
-func findItem(oper string, length string, loads bool) []string {
+// itemLimit is the most items that share a name stat and astat list.
+const itemLimit = 10
+
+// findItem looks up the item named in oper and returns its stats, in the
+// length asked for. With namesakes, the items that share its name follow
+// (see sameName), unless oper ends in a number, which names just one of
+// them, as in stat longsword 2. With loads, each item's stats are followed
+// by its Loads on line.
+func findItem(oper string, length string, namesakes, loads bool) []string {
 	db, err := OpenItemDB()
 	if err != nil {
 		log.Printf("%s: %v\n", itemDBFile, err)
@@ -166,29 +181,94 @@ func findItem(oper string, length string, loads bool) []string {
 	}
 	defer db.Close()
 
-	for _, m := range nameMatches(oper) {
-		items, err := findStats(db, m, length)
-		if err != nil {
-			// not a database, no eq table, a column gone: say so, rather
-			// than that the item doesn't exist
-			log.Printf("%s: %s: %v\n", itemDBFile, oper, err)
-			return []string{itemsDown}
+	items, more, err := lookUpItem(db, oper, length,
+		namesakes && !endsInNumber(oper))
+	if err != nil {
+		// not a database, no eq table, a column gone: say so, rather than
+		// that the item doesn't exist
+		log.Printf("%s: %s: %v\n", itemDBFile, oper, err)
+		return []string{itemsDown}
+	}
+	if len(items) == 0 {
+		return []string{NotFound("item", oper)}
+	}
+	var res []string
+	for _, it := range items {
+		res = append(res, it.stats)
+		if !loads {
+			continue
 		}
-		var res []string
-		for _, it := range items {
-			res = append(res, it.stats)
-			if !loads {
-				continue
-			}
-			if line := loadsOn(db, it.name); line != "" {
-				res = append(res, line)
-			}
-		}
-		if len(res) > 0 {
-			return res
+		if line := loadsOn(db, it.name); line != "" {
+			res = append(res, line)
 		}
 	}
-	return []string{NotFound("item", oper)}
+	if more > 0 {
+		res = append(res, "...and "+countMore(more, "item")+" by that name.")
+	}
+	return res
+}
+
+// lookUpItem finds the item named in oper by the first of nameMatches that
+// finds anything, from exact to loosest. With namesakes, the items that
+// share its name come after it, up to itemLimit in all, and more is how many
+// more there were.
+func lookUpItem(db *sql.DB, oper, length string, namesakes bool) (
+	items []foundItem, more int, err error) {
+	for _, m := range nameMatches(oper) {
+		items, err = findStats(db, m, length)
+		if err != nil || len(items) > 0 {
+			break
+		}
+	}
+	if err != nil || len(items) == 0 || !namesakes {
+		return items, 0, err
+	}
+	return sameName(db, items[0].name, length)
+}
+
+// sameName returns the items whose names are name's but for the number
+// Kegor gives items that share one, in any case: a longsword 1, 2 and 3, or
+// a black dagger and a black dagger 2. The item called name comes first,
+// then the others, shortest name first, so a longsword 2 comes before a
+// longsword 10. It returns up to itemLimit of them, and how many more there
+// are.
+func sameName(db *sql.DB, name, length string) ([]foundItem, int, error) {
+	// the name without its number, taken off as baseName takes it
+	base := strings.TrimRight(strings.TrimRight(name, "0123456789"), " ")
+	rows, err := db.Query("SELECT name, "+length+" FROM eq WHERE "+baseName+
+		" = ? COLLATE NOCASE AND "+length+" != '' "+
+		"ORDER BY name = ? DESC, length(name), name", base, name)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	var res []foundItem
+	count := 0
+	for rows.Next() {
+		if count++; count > itemLimit {
+			continue
+		}
+		var item, text sql.NullString
+		if err := rows.Scan(&item, &text); err != nil {
+			return nil, 0, err
+		}
+		res = append(res, foundItem{item.String, tintinSafe(text.String)})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	if count <= itemLimit {
+		return res, 0, nil
+	}
+	return res, count - itemLimit, nil
+}
+
+// endsInNumber is whether a player's words end in a number, as when they
+// name one of the items Kegor numbers: stat longsword 2.
+func endsInNumber(oper string) bool {
+	oper = strings.TrimSpace(oper)
+	return oper != "" && oper[len(oper)-1] >= '0' && oper[len(oper)-1] <= '9'
 }
 
 func Help(oper string) []string {
@@ -301,7 +381,10 @@ func Help(oper string) []string {
 	case "stat":
 		txt = append(txt, "Syntax: tell katumi stat <item> -- "+
 			"Example: tell katumi stat isha cloak -- "+
-			"Katumi provides stat info for the item named. "+
+			"Katumi provides stat info for the item named, then for the "+
+			"items that share its name, up to 10, as Kegor numbers them: "+
+			"a longsword 1, 2 and 3. Add the number for one alone: stat "+
+			"longsword 2. "+
 			"Use 'astat' for the long form, with keywords and flags. "+
 			"The name search is fairly forgiving. Stats come from "+
 			"Kegor's TorilDB, updated daily. Mwrite new stats to Kegor.")
@@ -310,7 +393,8 @@ func Help(oper string) []string {
 			"Example: tell katumi astat destruction sword -- "+
 			"Katumi provides full "+
 			"stat information for the item named, then the mobs known to "+
-			"carry it, up to 5. Use 'stat' for short "+
+			"carry it, up to 5. Items that share its name follow, as with "+
+			"stat. Use 'stat' for short "+
 			"text. The name search is fairly forgiving.")
 	case "mstat":
 		txt = append(txt, "Syntax: tell katumi mstat <mob> -- "+
@@ -1127,7 +1211,7 @@ type tellCommand struct {
 func tellCommands() []tellCommand {
 	return []tellCommand{
 		{name: "stat", reply: func(_, oper string) []string {
-			return withGuess(FindItem(oper, "short_stats"), "eq", oper)
+			return withGuess(Stat(oper), "eq", oper)
 		}},
 		{name: "astat", reply: func(_, oper string) []string {
 			return withGuess(Astat(oper), "eq", oper)

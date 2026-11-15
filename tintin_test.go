@@ -272,6 +272,22 @@ func (s tinScript) tells(t *testing.T, tt, bin, work string) {
 			"quoting an ASSOC line went to the ASSOC trigger\nreplies:\n%s",
 			n, replies)
 	}
+	// A tell gets every plain dagger, in order. ASSOC gets only the closest,
+	// as torilmud.tin passes on just the last line gobot -item prints.
+	var daggers string
+	for n := 1; n <= itemLimit; n++ {
+		daggers += fmt.Sprintf("t Yog a plain dagger %d (WIELD) * 1D4 1/0\n", n)
+	}
+	daggers += "t Yog ...and 2 more items by that name.\n"
+	if !strings.Contains(replies, daggers) {
+		t.Errorf("no tells of the plain daggers, in order:\n%s\nreplies:\n%s",
+			daggers, replies)
+	}
+	if n := strings.Count(replies, "acc a plain dagger"); s.assoc && (n != 1 ||
+		!strings.Contains(replies, "acc a plain dagger 1 (WIELD) * 1D4 1/0\n")) {
+		t.Errorf("%d answers on ASSOC for the plain daggers, want 1, the "+
+			"first\nreplies:\n%s", n, replies)
+	}
 	if s.online {
 		checkOnline(t, filepath.Join(run, "toril.db"), screen)
 	}
@@ -316,6 +332,7 @@ func (s tinScript) driver() string {
 	}
 	for _, text := range []string{
 		"stat infernal stiletto",
+		"stat plain dagger",
 		"stat ${dl}(echo RAN-${dl}((6*7)))",
 		"stat `expr 912345 + 1`",
 		"stat ${dl}cpw",

@@ -21,9 +21,10 @@ const mobsDown = "Mob stats are unavailable right now. Please try again later."
 // a new TorilDB.db still has.
 var mobColumns = []string{"name", "zone", "equipment", "quests", "short_stats"}
 
-// mobBase is the SQL for a mob's name without the number Kegor gives it:
-// the bartender 12 is the bartender.
-const mobBase = "rtrim(rtrim(name, '0123456789'), ' ')"
+// baseName is the SQL for a mob's or an item's name without the number
+// Kegor gives it: the bartender 12 is the bartender, and a longsword 2 is a
+// longsword.
+const baseName = "rtrim(rtrim(name, '0123456789'), ' ')"
 
 // mobLimit is the most mobs mstat lists.
 const mobLimit = 10
@@ -64,7 +65,7 @@ func findMob(db *sql.DB, oper string) ([]string, error) {
 	if err != nil || len(res) > 0 {
 		return res, err
 	}
-	res, err = mobRows(db, mobBase+" = ? COLLATE NOCASE", "", oper)
+	res, err = mobRows(db, baseName+" = ? COLLATE NOCASE", "", oper)
 	if err != nil || len(res) > 0 {
 		return res, err
 	}
@@ -72,7 +73,7 @@ func findMob(db *sql.DB, oper string) ([]string, error) {
 		if m.op != "LIKE" || len(m.args) == 0 {
 			continue
 		}
-		query := "SELECT name, " + mobBase +
+		query := "SELECT name, " + baseName +
 			" FROM mobs WHERE short_stats != ''"
 		args := make([]interface{}, len(m.args))
 		for n, arg := range m.args {
@@ -88,7 +89,7 @@ func findMob(db *sql.DB, oper string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		return mobRows(db, mobBase+" = ?", name, base)
+		return mobRows(db, baseName+" = ?", name, base)
 	}
 	return nil, nil
 }
@@ -129,18 +130,18 @@ func mobRows(db *sql.DB, test string, first string, args ...interface{}) (
 		return nil, err
 	}
 	if more := count - mobLimit; more > 0 {
-		res = append(res, "...and "+moreMobs(more)+" by that name.")
+		res = append(res, "...and "+countMore(more, "mob")+" by that name.")
 	}
 	return res, nil
 }
 
-// moreMobs is how a reply counts the mobs it leaves out: 1 more mob, 2 more
-// mobs.
-func moreMobs(n int) string {
+// countMore is how a reply counts the mobs or items it leaves out: 1 more
+// mob, 2 more items.
+func countMore(n int, thing string) string {
 	if n == 1 {
-		return "1 more mob"
+		return "1 more " + thing
 	}
-	return strconv.Itoa(n) + " more mobs"
+	return strconv.Itoa(n) + " more " + thing + "s"
 }
 
 // mobItems makes one of Kegor's item lists, split by |, readable.
@@ -162,7 +163,7 @@ func loadsOn(db *sql.DB, name string) string {
 	rows, err := db.Query("SELECT name, coalesce(zone, '') FROM mobs "+
 		"WHERE instr('|' || lower(coalesce(equipment, '')) || '|', "+
 		"'|' || lower(?) || '|') > 0 "+
-		"ORDER BY "+mobBase+", length(name), name", name)
+		"ORDER BY "+baseName+", length(name), name", name)
 	if err != nil {
 		log.Printf("%s: loads on %s: %v\n", itemDBFile, name, err)
 		return ""
@@ -194,7 +195,7 @@ func loadsOn(db *sql.DB, name string) string {
 	}
 	line := "Loads on: " + strings.Join(mobs, ", ")
 	if more := count - loadsOnLimit; more > 0 {
-		line += ", and " + moreMobs(more)
+		line += ", and " + countMore(more, "mob")
 	}
 	return tintinSafe(line)
 }

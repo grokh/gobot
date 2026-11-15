@@ -52,15 +52,59 @@
 	#format {logdate} {%t} {%Y.%m.%d};
 	#log append logs/$char$dot$logdate${dot}log;
 }
+#nop Answer the login prompts one at a time: the account when the MUD asks
+#nop for it, the password only at its own prompt and the character at the
+#nop menu. A first line the MUD garbles only gets the account asked for
+#nop again, so the password never goes out at the account prompt. The
+#nop account goes out a second after its prompt, unless the next prompt
+#nop comes first. After three tries at the account, or a minute without
+#nop reaching the menu, the session is zapped and logs back in. A password
+#nop turned down twice stops the logins (loginstop).
+#var {ingame} {0}
 #alias {login} {
+	#var {acctsent} {0};
+	#var {pwsent} {0};
+	#var {ingame} {0};
 	#act {^Account name:} {
-		#delay (1) {logon;$acct;$cpw;$char;time;};
+		#if {$pwsent >= 2} {loginstop} {
+			#if {$acctsent >= 3} {#zap} {
+				#if {$acctsent == 0} {
+					logon;
+					#delay {loginwatch} {#zap} {60}
+				};
+				#math {acctsent} {$acctsent + 1};
+				#delay {sendacct} {$acct} {1}
+			}
+		}
+	};
+	#act {^Password:} {
+		#undelay {sendacct};
+		#math {pwsent} {$pwsent + 1};
+		$cpw
+	};
+	#act {^Your choice:} {
+		#undelay {sendacct};
+		#undelay {loginwatch};
 		#unact {^Account name:};
+		#unact {^Password:};
+		#unact {^Your choice:};
+		#var {ingame} {1};
+		$char;
+		time
 	};
 	#session $char torilmud.com 9999;
 	#split {0} {0};
 }
-#tick {Timer} {time;who} {30}
+#nop Trying a password the MUD has turned down twice can only lock the
+#nop account, so close the session without logging back in.
+#alias {loginstop} {
+	#unevent {SESSION DISCONNECTED};
+	#showme {The MUD turned down the password twice, so Katumi won't log back in. Put the right one in tokens.tin and restart tintin.};
+	#zap
+}
+#nop time and who only once the character is in, so that nothing else
+#nop reaches the MUD while the login answers its prompts.
+#tick {Timer} {#if {$ingame} {time;who}} {30}
 #nop Capture digits only, so nothing but H:M:S can reach the shell. seen is
 #nop when the line came in, in Unix seconds: gobot times the boot by it,
 #nop however long the check then waits to run.
@@ -76,7 +120,6 @@
 #event {SESSION DISCONNECTED} {#gts {#delay {relogin} {login} {5}}}
 #event {SESSION TIMED OUT} {#gts {#delay {relogin} {login} {5}}}
 #event {DAY} {#system gobot -bak}
-#act {That account does not exist. Please enter an account or} {#delay 3 #zap}
 #act {That character doesn't exist! Please try again.} {#delay 3 #zap}
 
 

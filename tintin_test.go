@@ -19,13 +19,15 @@ import (
 // from this checkout and the test TorilDB.db, through the /bin/sh tintin
 // uses. Some of the tells try to get a shell command, a tintin command or a
 // variable like $cpw through. Then it logs the script in to a stand-in MUD
-// that goes down and drops it, to check that it logs back in (reconnect).
+// that goes down, garbles a line, drops it and goes quiet, to check that it
+// answers each login prompt in turn and logs back in (reconnect), and to
+// one that turns down its password, to check that it stops (password).
 // Set TORILMUD_TIN to the path of the other character's torilmud.tin to run
 // it the same way, ASSOC included. The test is skipped without tt++.
 //
 // It must never reach the MUD. Both scripts log in when tintin starts, so
 // for the tells tintin only reads copies without #session lines or login
-// events, and for reconnect copies whose only #session line is for the
+// events, and for the logins copies whose only #session line is for the
 // stand-in on 127.0.0.1, checked before tt++ runs. The tokens.tin beside
 // them has no real account.
 func Test_Tintin(t *testing.T) {
@@ -62,7 +64,7 @@ func Test_Tintin(t *testing.T) {
 	scripts := []tinScript{
 		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
 			everyTell: true, online: true, uptime: true,
-			login: []string{fakeAcct, fakeSecret, fakeChar}},
+			login: []string{fakeAcct, fakeSecret, fakeChar}, tick: "who"},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
 		// It logs in at the start through the event the server's basic.tin
@@ -70,13 +72,16 @@ func Test_Tintin(t *testing.T) {
 		scripts = append(scripts, tinScript{name: "torilmud.tin",
 			path: path, deps: []string{"gags.tin", "ynndchiarhlizz.tin"},
 			assoc: true, start: "play ynndchiarhlizz;login",
-			login: []string{"", fakeSecret, "Ynndchiarhlizz"}})
+			login: []string{"", fakeSecret, "Ynndchiarhlizz"}, tick: "l"})
 	}
 	for _, s := range scripts {
 		t.Run(s.name, func(t *testing.T) {
 			t.Run("tells", func(t *testing.T) { s.tells(t, tt, bin, work) })
 			t.Run("reconnect", func(t *testing.T) {
 				s.reconnect(t, tt, bin, work)
+			})
+			t.Run("password", func(t *testing.T) {
+				s.password(t, tt, bin, work)
 			})
 		})
 	}
@@ -87,13 +92,14 @@ func Test_Tintin(t *testing.T) {
 // every tell, not just stat, whether it records who's count of players
 // online, and whether it records the MUD's uptime. start is the command
 // that logs in when tintin starts, for a script that leaves that to another
-// file. login is what the script sends when the MUD asks for an account:
-// the account ("" for any), password and character.
+// file. login is what the script answers the MUD's login prompts with: the
+// account ("" for any), the password and the character. tick is a line its
+// ticker sends once the character is in.
 type tinScript struct {
 	name, path                       string
 	deps                             []string
 	assoc, everyTell, online, uptime bool
-	start                            string
+	start, tick                      string
 	login                            []string
 }
 

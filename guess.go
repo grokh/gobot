@@ -12,11 +12,6 @@ import (
 // was likely after. They're only ever suggestions: a guessed command is
 // never run, since some of them change what Katumi keeps.
 
-// commands are the tell commands guessCommand picks from.
-var commands = []string{"stat", "astat", "fstat", "mstat", "who", "clist",
-	"char", "find", "class", "name", "addname", "delalt", "addalt", "hidden",
-	"help", "lr", "lrdel"}
-
 // typoEdits is how many edits a word can be from the one it's taken for a
 // typo of: one for a word of up to six letters, two for a longer one. So
 // stats is stat, but hello isn't help.
@@ -55,14 +50,15 @@ func edits(a, b string) int {
 	return d[len(ra)][len(rb)]
 }
 
-// guessCommand is the command cmd is closest to, if it's near enough to be
-// a typo of it: stats is stat and fsat fstat. It's "" if cmd is near none.
+// guessCommand is the command in tellCommands that cmd is closest to, if
+// it's near enough to be a typo of it: stats is stat and fsat fstat. It's ""
+// if cmd is near none.
 func guessCommand(cmd string) string {
 	cmd = strings.ToLower(cmd)
 	best, most := "", typoEdits(cmd)
-	for _, c := range commands {
-		if e := edits(cmd, c); e <= most {
-			best, most = c, e-1
+	for _, c := range tellCommands() {
+		if e := edits(cmd, c.name); e <= most {
+			best, most = c.name, e-1
 		}
 	}
 	return best

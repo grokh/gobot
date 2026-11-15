@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -768,16 +769,30 @@ func testTellCap(t *testing.T, db *sql.DB) {
 	}
 }
 
-// testHelp checks that each command the ? menu names has a help entry, and
-// that help fstat lists the stats, resists and slots fstat accepts.
+// testHelp checks that each command Katumi takes has a help entry and is
+// named in the ? menu, and that help fstat lists the stats, resists and
+// slots fstat accepts.
 func testHelp(t *testing.T) {
-	for _, cmd := range []string{"?", "help", "hidden", "hidden?", "stat",
-		"astat", "fstat", "mstat", "who", "clist", "char", "find", "class",
-		"name", "addname", "delalt", "addalt", "lr", "lrdel"} {
+	topics := []string{"?", "hidden?"}
+	for _, c := range tellCommands() {
+		topics = append(topics, c.name)
+	}
+	for _, cmd := range topics {
 		for _, line := range ReplyTo("Yog", "help "+cmd) {
 			if strings.Contains(line, "not found") {
 				t.Errorf("help check failed: %s", strings.TrimSpace(line))
 			}
+		}
+	}
+	// named the way the menu shows a command: before what follows it, a
+	// comma or the end, as in "find <char/acct>", "hidden," and "help
+	// fstat)", not as in "<char/acct>"
+	shown := strings.Join(menu, "\n")
+	for _, c := range tellCommands() {
+		named := regexp.MustCompile(`(?m)[ :(]` + regexp.QuoteMeta(c.name) +
+			`( <|,|\)|$)`)
+		if !named.MatchString(shown) {
+			t.Errorf("? menu check failed: no %s in %q", c.name, shown)
 		}
 	}
 	fstat := strings.Join(ReplyTo("Yog", "help fstat"), "")

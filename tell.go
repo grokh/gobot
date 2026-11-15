@@ -335,9 +335,10 @@ func Help(oper string) []string {
 			"weapon <weapon type>, zone <zone>. A stat, resist, slot, "+
 			"effect or flag can be named alone: fstat maxagi, ear lists the "+
 			"ear items with any max agility, the most first. Stats go by "+
-			"their full names too (max strength). Type, weapon and zone "+
-			"take Kegor's names: type worn, weapon short sword, zone "+
-			"jotunheim.")
+			"their full names too (max strength). ac is the AC that stat "+
+			"shows, any Armor affect included, and armor means the same. "+
+			"Type, weapon and zone take Kegor's names: type worn, weapon "+
+			"short sword, zone jotunheim.")
 		var names []string
 		for _, s := range stats {
 			names = append(names, s.abbr)

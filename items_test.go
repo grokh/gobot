@@ -118,6 +118,13 @@ const (
 	suitShort = "a suit of lordly plate (WHOLE-BODY) * AC:30 Hp:20 MR:2 " +
 		"* !MAGE !EVIL * Wt:20 Val:50p * NO-ID * Waterdeep (S)"
 	emberShort = "a cursed ember (HOLD) * Fire:-5% * Wt:1 Val:0 * Ako Village"
+	// AC from an Armor affect alone, from both, and a bad one
+	beltShort = "a belt of many pouches (WAIST) * CONTAINER (110 lbs) * AC:6 " +
+		"* Wt:0 Val:1.7p * QUEST-ITEM * Ribcage"
+	shieldShort = "a magical diamond shield (SHIELD) * AC:14 Str:4 * !EVIL " +
+		"* Wt:15 Val:10p * Finn's Keep"
+	ironsShort = "some heavy leg irons (LEGS) * AC:-5 Dex:-13 * Wt:10 Val:6g " +
+		"* Ashstone (S)"
 )
 
 // testEq is the test TorilDB.db's eq table.
@@ -183,6 +190,24 @@ var testEq = []dbRow{
 	{"name": "a pet catalog", "zone": "Skullport", "load": "S",
 		"type": "PET_CATALOG", "worn": "NOBITS", "date": "2025-02-02",
 		"short_stats": "a pet catalog", "long_stats": "a pet catalog"},
+	// armor is the Armor affect, less being better: short stats show AC as
+	// ac - armor
+	{"name": "a belt of many pouches", "keywords": "belt many pouches",
+		"zone": "Ribcage", "load": "N", "quest": "X", "type": "CONTAINER",
+		"worn": "WAIST", "wt": 0, "value": 1675, "armor": -6, "holds": 110,
+		"affect_flags": "NOBITS", "item_flags": "MAGIC", "date": "2007-03-10",
+		"short_stats": beltShort, "long_stats": "a belt of many pouches"},
+	{"name": "a magical diamond shield", "keywords": "diamond shield",
+		"zone": "Finn's Keep", "load": "N", "type": "ARMOR", "worn": "SHIELD",
+		"wt": 15, "value": 10000, "ac": 12, "armor": -2, "str": 4,
+		"affect_flags": "NOBITS", "item_flags": "GLOW MAGIC ANTI-EVIL LIT",
+		"date": "2021-11-13", "short_stats": shieldShort,
+		"long_stats": "a magical diamond shield"},
+	{"name": "some heavy leg irons", "keywords": "leg irons",
+		"zone": "Ashstone", "load": "S", "type": "WORN", "worn": "LEGS",
+		"wt": 10, "value": 632, "armor": 5, "dex": -13,
+		"affect_flags": "NOBITS", "item_flags": "NOBITS", "date": "2006-05-18",
+		"short_stats": ironsShort, "long_stats": "some heavy leg irons"},
 }
 
 // testItems checks every item lookup against a test TorilDB.db.
@@ -274,7 +299,7 @@ func testFstat(t *testing.T) {
 		{"fstat resist fire, maxagi > 0, slot ear", tell(rubyShort)},
 		// MR is in capitals in the stats table
 		{"fstat mr > 0", tell(suitShort)},
-		// WHOLE-BODY counts as on_body; ac is TorilDB.db's AC column
+		// WHOLE-BODY counts as on_body
 		{"fstat ac > 10, slot on_body", tell(suitShort)},
 		{"fstat slot ear", append(tell(studShort), tell(rubyShort)...)},
 		{"fstat hit >= 5, slot wield",
@@ -361,8 +386,24 @@ func testFstat(t *testing.T) {
 		{"fstat flag haste", tell(stilettoShort)},
 		// a stat alone: the items with any of it, the most first
 		{"fstat maxagi", tell(rubyShort)},
-		{"fstat ac", append(tell(suitShort),
+		{"fstat ac", append(append(append(append(tell(suitShort),
+			tell(shieldShort)...), tell(beltShort)...), tell(ironsShort)...),
 			"t Yog a bracelet of mages 1 (WRIST)\n")},
+		// AC as stat shows it: the belt's is all Armor affect, and the
+		// shield's Armor of -2 adds 2 to its 12
+		{"fstat ac > 5", append(append(tell(suitShort), tell(shieldShort)...),
+			tell(beltShort)...)},
+		{"fstat armor > 5", append(append(tell(suitShort),
+			tell(shieldShort)...), tell(beltShort)...)},
+		{"fstat ac = 14", tell(shieldShort)},
+		{"fstat armor class >= 6, slot waist", tell(beltShort)},
+		// a bad Armor affect, and no item without AC
+		{"fstat ac < 0", tell(ironsShort)},
+		{"fstat ac < 3", append(tell(ironsShort),
+			"t Yog a bracelet of mages 1 (WRIST)\n")},
+		// armor is a name of ac's, so a typo of it is near ac
+		{"fstat armour > 5", cant("armour > 5",
+			"Did you mean 'tell katumi fstat ac > 5'?")},
 		// no field left out: ear limits these to the studs, as hp=20 does
 		// the plate
 		{"fstat dam > 0, ear", append(tell(rubyShort), tell(studShort)...)},
@@ -401,6 +442,7 @@ func testFstat(t *testing.T) {
 			"?fstat=maxagi+gt+0,+slot+ear,+resist+fire",
 		"hp=10, damroll, resist fire < 0": torileqURL +
 			"?fstat=hp+eq+10,+dam,+resist+fire+lt+0",
+		"armor > 5": torileqURL + "?fstat=ac+gt+5",
 		"dam > 50%": torileqURL + "?fstat=dam+gt+50",
 		// nothing that would need escaping, which tintin could take for an
 		// argument, or a client for the end of the address
@@ -444,15 +486,16 @@ func testWeb(t *testing.T, src string) {
 	for _, z := range p.Zones {
 		zones = append(zones, z.ZoneDisp)
 	}
-	chk(t, "fillStructs() zones", []string{"Ako Village",
-		"Calimport Palace Vault", "Jotunheim", "Silverymoon", "Skullport",
-		"Tiamat", "Waterdeep", "Westgate"}, zones)
+	chk(t, "fillStructs() zones", []string{"Ako Village", "Ashstone",
+		"Calimport Palace Vault", "Finn's Keep", "Jotunheim", "Ribcage",
+		"Silverymoon", "Skullport", "Tiamat", "Waterdeep", "Westgate"}, zones)
 	var types []string
 	for _, ty := range p.Types {
 		types = append(types, ty.TypeAbbr+"="+ty.TypeDisp)
 	}
-	chk(t, "fillStructs() types", []string{"ARMOR=Armor", "OTHER=Other",
-		"PET_CATALOG=Pet Catalog", "WEAPON=Weapon", "WORN=Worn"}, types)
+	chk(t, "fillStructs() types", []string{"ARMOR=Armor",
+		"CONTAINER=Container", "OTHER=Other", "PET_CATALOG=Pet Catalog",
+		"WEAPON=Weapon", "WORN=Worn"}, types)
 	if len(p.Attribs) != len(stats) || p.Attribs[0].AttAbbr != "ac" ||
 		len(p.Slots) != len(slots) || len(p.Effects) != len(effects) ||
 		len(p.Resists) != len(resists) || len(p.Flags) != len(flags) ||
@@ -514,7 +557,18 @@ func testWeb(t *testing.T, src string) {
 		{"two-handed", short("two_hand", "on"), []string{swordShort}},
 		{"whole body", short("whole_body", "on"), []string{suitShort}},
 		{"for quest", short("for_quest", "on"),
-			[]string{swordShort, markShort}},
+			[]string{beltShort, swordShort, markShort}},
+		// Armor Class as stat shows it, Armor affect included; armor, which
+		// links and cached copies of the old form can still send, is the same
+		{"armor class", short("attrib1", "ac", "compareAttrib1", "gt",
+			"valueAttrib1", "5"), []string{beltShort, shieldShort, suitShort}},
+		{"armor, as armor class", short("attrib1", "armor", "compareAttrib1",
+			"gt", "valueAttrib1", "5"),
+			[]string{beltShort, shieldShort, suitShort}},
+		{"by armor class, most first", short("attrib1", "ac",
+			"orderBy", "attrib1", "ascDesc", "down"), []string{suitShort,
+			shieldShort, beltShort, "a bracelet of mages 1 (WRIST)",
+			ironsShort}},
 		{"rare", short("is_rare", "on"),
 			[]string{"a bracelet of mages 1 (WRIST)", stilettoShort}},
 		{"no identify", short("no_identify", "on"), []string{suitShort}},
@@ -569,7 +623,8 @@ func testWeb(t *testing.T, src string) {
 	if w.Code != http.StatusOK ||
 		!strings.Contains(page, "Items Updated: 2026-11-01") ||
 		!strings.Contains(page, `<option value="Westgate">Westgate</option>`) ||
-		!strings.Contains(page, `<option value="ac">Armor Class</option>`) {
+		!strings.Contains(page, `<option value="ac">Armor Class</option>`) ||
+		strings.Contains(page, `value="armor"`) {
 		t.Errorf("eqHandler() check failed: GET %d:\n%s", w.Code, page)
 	}
 	form := url.Values{"itemName": {"stiletto"}, "format": {"long"},
@@ -669,8 +724,9 @@ func renameColumn(t *testing.T, path string, from string, to string) {
 
 func testCheckItemDB(t *testing.T) {
 	msg, err := CheckItemDB(itemDBFile)
-	if want := fmt.Sprintf("TorilDB.db ok: 10 items, %d mobs, "+
-		"newest 2026-11-01", len(testMobs)); err != nil || msg != want {
+	if want := fmt.Sprintf("TorilDB.db ok: %d items, %d mobs, "+
+		"newest 2026-11-01", len(testEq), len(testMobs)); err != nil ||
+		msg != want {
 		t.Errorf("CheckItemDB() check failed: %q, %v", msg, err)
 	}
 
@@ -686,6 +742,10 @@ func testCheckItemDB(t *testing.T) {
 		},
 		"w_type renamed": func(path string) {
 			renameColumn(t, path, "w_type", "weapon")
+		},
+		// not a stat's own column, but ac reads it
+		"armor renamed": func(path string) {
+			renameColumn(t, path, "armor", "armour")
 		},
 		"short_stats renamed": func(path string) {
 			renameColumn(t, path, "short_stats", "short")

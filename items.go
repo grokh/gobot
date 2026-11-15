@@ -116,9 +116,29 @@ func hasToken(column string, tokens ...string) (string, []interface{}) {
 // players type (fstat maxagi > 0) and the form posts; col is the eq column.
 type stat struct{ abbr, display, col string }
 
+// sql is the stat's value in an eq row, as SQL: its column's, but acSQL for
+// ac.
+func (s stat) sql() string {
+	if s.col == "ac" {
+		return acSQL
+	}
+	return col(s.col)
+}
+
+// acSQL is an item's AC as Kegor's short stats show it, which is what fstat
+// and the form search for ac. eq keeps an item's own armor value in ac and its
+// Armor affect in armor, which counts the game's way, less being better. Short
+// stats show one AC, ac - armor (AC:6 for a belt with only an Armor of -6),
+// and long stats show both, as AC:3 Armor:-1. It's NULL for an item with
+// neither, as a column is for an item without its stat, so ac < 5 doesn't
+// list every item without AC. The CAST gives it the INTEGER affinity the
+// columns have, without which the form's values, which come as text, would
+// compare as text: SQLite puts every number before any text, so ac > '5'
+// would find nothing.
+const acSQL = "CAST(coalesce([ac] - [armor], [ac], -[armor]) AS INTEGER)"
+
 var stats = []stat{
 	{"ac", "Armor Class", "ac"},
-	{"armor", "Armor", "armor"},
 	{"hit", "Hitroll", "hit"},
 	{"dam", "Damroll", "dam"},
 	{"hp", "Hitpoints", "hp"},
@@ -355,7 +375,13 @@ func typeName(t string) string {
 	return strings.Join(words, " ")
 }
 
+// findStat finds a stat by the name the form posts. armor finds ac: the form
+// listed the Armor affect apart until ac took it in, and links made then, or
+// a copy of the old form still in a browser's cache, can still send it.
 func findStat(abbr string) (stat, bool) {
+	if strings.EqualFold(abbr, "armor") {
+		abbr = "ac"
+	}
 	for _, s := range stats {
 		if strings.EqualFold(s.abbr, abbr) {
 			return s, true
@@ -399,9 +425,10 @@ func zoneNames(values []string) []string {
 // itemColumns are the eq columns gobot reads, which CheckItemDB makes sure a
 // new TorilDB.db still has.
 func itemColumns() []string {
+	// armor isn't a stat of its own, but acSQL reads it
 	cols := []string{"name", "short_stats", "long_stats", "date", "zone",
 		"type", "worn", "item_flags", "affect_flags", "load", "quest", "no_id",
-		"w_type"}
+		"w_type", "armor"}
 	for _, s := range stats {
 		cols = append(cols, s.col)
 	}

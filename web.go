@@ -218,9 +218,9 @@ func parseForm(r *http.Request) []string {
 		}
 		cmp, ok := compareSQL[formValue(r, "compareAttrib"+n)]
 		if v := formValue(r, "valueAttrib"+n); ok && v != "" {
-			add(col(s.col)+cmp, vals(v))
+			add(s.sql()+cmp, vals(v))
 		} else {
-			add(col(s.col)+" != 0", nil) // has the attribute at all
+			add(s.sql()+" != 0", nil) // has the attribute at all
 		}
 	}
 
@@ -349,7 +349,7 @@ func formOrder(r *http.Request) (string, []interface{}) {
 	case "attrib1", "attrib2":
 		order, ok = "name", true
 		if s, found := findStat(formValue(r, by)); found {
-			order = col(s.col)
+			order = s.sql()
 		}
 	case "worn":
 		order, args = wornOrder()

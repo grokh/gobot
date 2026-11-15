@@ -69,12 +69,12 @@
 #act {^Total players online: %d} {#system gobot -online %1 &}
 
 #event {PROGRAM START} {login}
-#nop Log back in 30 seconds after a disconnect or a failed connect. The #delay
+#nop Log back in 5 seconds after a disconnect or a failed connect. The #delay
 #nop has to live in the startup session (#gts): calling login straight from
 #nop these events nests every retry inside the last failed one until tintin
 #nop runs out of stack.
-#event {SESSION DISCONNECTED} {#gts {#delay {relogin} {login} {30}}}
-#event {SESSION TIMED OUT} {#gts {#delay {relogin} {login} {30}}}
+#event {SESSION DISCONNECTED} {#gts {#delay {relogin} {login} {5}}}
+#event {SESSION TIMED OUT} {#gts {#delay {relogin} {login} {5}}}
 #event {DAY} {#system gobot -bak}
 #act {That account does not exist. Please enter an account or} {#delay 3 #zap}
 #act {That character doesn't exist! Please try again.} {#delay 3 #zap}

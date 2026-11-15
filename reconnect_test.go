@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// reloginDelay stands in for the 30 seconds the scripts wait before they
+// reloginDelay stands in for the 5 seconds the scripts wait before they
 // log back in, so the reconnect check takes seconds.
 const reloginDelay = 500 * time.Millisecond
 

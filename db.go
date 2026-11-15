@@ -17,13 +17,28 @@ import (
 	"time"
 )
 
+// recordsDown is the reply to a tell that needs toril.db when it can't be
+// read or written: locked by a long read, say, or broken. Nothing the tell
+// would have changed is saved.
+const recordsDown = "Katumi's records are unavailable right now. " +
+	"Please try again later."
+
+// dbWait is how long gobot waits on toril.db while another process holds
+// it, as a long read does, before giving up with "database is locked". It's
+// go-sqlite3's own default.
+var dbWait = 5 * time.Second
+
 func OpenDB() *sql.DB {
-	db, err := sql.Open("sqlite3", "toril.db")
+	db, err := sql.Open("sqlite3",
+		fmt.Sprintf("toril.db?_busy_timeout=%d", dbWait.Milliseconds()))
 	if err != nil {
 		fatal("Fatal Error: Cannot open DB: ", err)
 	}
 	_, err = db.Exec("PRAGMA foreign_keys = ON;")
 	if err != nil {
+		// closed, since a tell carries on past fatal to answer (and
+		// Windows won't delete a test's toril.db while it's open)
+		db.Close()
 		fatal("Fatal Error: Cannot enforce foreign keys: ", err)
 	}
 	return db

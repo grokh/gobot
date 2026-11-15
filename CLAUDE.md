@@ -11,7 +11,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - `Test_Tintin` runs `katumi.tin` in tt++ 2.02.20 or later, and skips without one. `go test -short` leaves it out.
 - CI (`.github/workflows/ci.yml`) runs the same checks on every pull request, and fails if `Test_Tintin` skips.
 - `staticcheck ./...` and `shellcheck *.sh` print nothing either. CI doesn't run them, so run them where they are installed and keep it that way.
-- `ChkErr` ends the program with `log.Fatal`. In `Test_All` the log goes to `logs/test.log`, so a database call that fails there stops the whole test binary with nothing on the console but `FAIL`. Look in that file.
+- `ChkErr` and `fatal` panic with a `fatalError`. `main` ends the run on one as `log.Fatal` would, `ReplyTo` answers the tell with `recordsDown` instead, and the site answers 500. The `log.Fatal` calls left in `who.go` and `db.go` end the program at once: in `Test_All`, whose log goes to `logs/test.log`, one of those that fails stops the whole test binary with nothing on the console but `FAIL`. Look in that file.
 
 ## Where things are
 
@@ -36,6 +36,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 
 - **Nothing here may connect to torilmud.com.** `katumi.tin` logs in as soon as tintin starts, so never run `tt++ katumi.tin` by hand. The tests read copies with the `#session` lines and login events taken out, and refuse to run if one is left. Keep that guard.
 - **Replies are run by tintin as commands.** Every reply line goes through `tellSafe`, and text from `TorilDB.db` through `tintinSafe` as well. A reply sends the MUD at most `maxReplyBytes`.
+- **A tell command is one entry in `tellCommands`**, which `ReplyTo` answers from and the typo guesses pick from. Give a new one a `help` entry and a place in the `?` menu (`menu`): `testHelp` fails until both are there.
 - **MUD text reaches gobot through a shell.** `shellsafe` in `katumi.tin` cleans it, and the text always sits inside double quotes. Keep both when changing how gobot is called.
 - **Two tintin setups call gobot.** Katumi runs it from `/srv/bot`. `torilmud.tin`, in the private mud repo, runs `-tell "stat ..."`, `-item` and `-glist` from `~/mud/torilmud`. A change to those flags, to what they print, or to where gobot looks for `TorilDB.db` and `logs/` has to work for both. `TORILMUD_TIN=<path to torilmud.tin> go test -run Tintin ./...` checks the second.
 - **NyyLIB reads Katumi's `clist` and `char` replies, the NHC welcome, and the published `toril.db`.** `Test_NyyLIB` and `Test_DBCopyItems` pin them. Don't reword those lines or reshape those tables to get a test passing. Say what would change in the pull request, because Nyyrazzilyss has to be told first.

@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -365,6 +366,7 @@ func Test_All(t *testing.T) {
 	testTellCap(t, db)
 	testTimes(t, db, filepath.Join(src, "fix_times_and_stats.sql"))
 	testBackup(t)
+	testRecordsDown(t, db) // last: it breaks toril.db's writes for a while
 }
 
 // chkPrefix checks that a one-line reply starts with want, for replies that
@@ -767,16 +769,30 @@ func testTellCap(t *testing.T, db *sql.DB) {
 	}
 }
 
-// testHelp checks that each command the ? menu names has a help entry, and
-// that help fstat lists the stats, resists and slots fstat accepts.
+// testHelp checks that each command Katumi takes has a help entry and is
+// named in the ? menu, and that help fstat lists the stats, resists and
+// slots fstat accepts.
 func testHelp(t *testing.T) {
-	for _, cmd := range []string{"?", "help", "hidden", "hidden?", "stat",
-		"astat", "fstat", "mstat", "who", "clist", "char", "find", "class",
-		"name", "addname", "delalt", "addalt", "lr", "lrdel"} {
+	topics := []string{"?", "hidden?"}
+	for _, c := range tellCommands() {
+		topics = append(topics, c.name)
+	}
+	for _, cmd := range topics {
 		for _, line := range ReplyTo("Yog", "help "+cmd) {
 			if strings.Contains(line, "not found") {
 				t.Errorf("help check failed: %s", strings.TrimSpace(line))
 			}
+		}
+	}
+	// named the way the menu shows a command: before what follows it, a
+	// comma or the end, as in "find <char/acct>", "hidden," and "help
+	// fstat)", not as in "<char/acct>"
+	shown := strings.Join(menu, "\n")
+	for _, c := range tellCommands() {
+		named := regexp.MustCompile(`(?m)[ :(]` + regexp.QuoteMeta(c.name) +
+			`( <|,|\)|$)`)
+		if !named.MatchString(shown) {
+			t.Errorf("? menu check failed: no %s in %q", c.name, shown)
 		}
 	}
 	fstat := strings.Join(ReplyTo("Yog", "help fstat"), "")
@@ -1007,4 +1023,80 @@ func testBackup(t *testing.T) {
 	dumpWait = wait
 	_, err = conn.ExecContext(ctx, "ROLLBACK")
 	chkErr(t, err)
+}
+
+// testRecordsDown checks that a tell needing toril.db gets a reply when the
+// file can't be read or written, saying so, rather than no reply or one
+// that claims a change that wasn't saved.
+func testRecordsDown(t *testing.T, db *sql.DB) {
+	down := []string{"t Yog " + recordsDown + "\n"}
+
+	// A long read elsewhere, as a backup's, holds toril.db past dbWait: each
+	// write is made, but can't commit. That's what said it was done before.
+	var acct, realName sql.NullString
+	chkErr(t, db.QueryRow("SELECT a.account_name, a.player_name "+
+		"FROM accounts a JOIN chars c ON c.account_name = a.account_name "+
+		"WHERE c.char_name = 'Yog'").Scan(&acct, &realName))
+	_, err := db.Exec("UPDATE chars SET vis = 't' WHERE char_name = 'Yog'")
+	chkErr(t, err)
+	_, err = db.Exec("INSERT INTO loads VALUES("+
+		"(SELECT MAX(boot_id) FROM boots), ?, 'a test report', 'Yog', 'f')",
+		time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC))
+	chkErr(t, err)
+	var reports int
+	chkErr(t, db.QueryRow("SELECT count(*) FROM loads WHERE deleted = 'f' "+
+		"AND boot_id = (SELECT MAX(boot_id) FROM boots)").Scan(&reports))
+	ctx := context.Background()
+	reader, err := db.Conn(ctx)
+	chkErr(t, err)
+	defer reader.Close()
+	_, err = reader.ExecContext(ctx, "BEGIN")
+	chkErr(t, err)
+	var chars int
+	chkErr(t, reader.QueryRowContext(ctx, "SELECT count(*) FROM chars").
+		Scan(&chars))
+	wait := dbWait
+	dbWait = 100 * time.Millisecond
+	for _, tell := range []string{"delalt Yog", "addalt Yog", "addname Pat",
+		"lr a rare at the gate", "lrdel " + strconv.Itoa(reports)} {
+		chk(t, "ReplyTo(Yog, "+tell+") while a read holds toril.db", down,
+			ReplyTo("Yog", tell))
+	}
+	dbWait = wait
+	_, err = reader.ExecContext(ctx, "ROLLBACK")
+	chkErr(t, err)
+	// and nothing changed
+	var vis, testReport string
+	var nowName sql.NullString
+	var nowReports int
+	chkErr(t, db.QueryRow("SELECT vis FROM chars WHERE char_name = 'Yog'").
+		Scan(&vis))
+	chkErr(t, db.QueryRow("SELECT player_name FROM accounts "+
+		"WHERE account_name = ?", acct).Scan(&nowName))
+	chkErr(t, db.QueryRow("SELECT count(*) FROM loads WHERE deleted = 'f' "+
+		"AND boot_id = (SELECT MAX(boot_id) FROM boots)").Scan(&nowReports))
+	chkErr(t, db.QueryRow("SELECT deleted FROM loads "+
+		"WHERE report_text = 'a test report'").Scan(&testReport))
+	if vis != "t" || nowName != realName || nowReports != reports ||
+		testReport != "f" {
+		t.Errorf("failed writes check failed: vis %s, name %v (was %v), "+
+			"%d reports (was %d), test report deleted %s", vis, nowName,
+			realName, nowReports, reports, testReport)
+	}
+
+	// a toril.db that isn't a database: every command that reads it
+	here, err := os.Getwd()
+	chkErr(t, err)
+	chkErr(t, os.Chdir(t.TempDir()))
+	defer os.Chdir(here)
+	chkErr(t, os.WriteFile("toril.db", []byte("half a download\n"), 0644))
+	for _, tell := range []string{"who yog", "clist yog", "char yog",
+		"find yog", "name yog", "class cleric", "delalt yog", "addalt yog",
+		"addname Pat", "lr", "lr a rare at the gate", "lrdel 1"} {
+		chk(t, "ReplyTo(Yog, "+tell+") with toril.db broken", down,
+			ReplyTo("Yog", tell))
+	}
+	// one that doesn't need toril.db still answers as ever
+	chkPrefix(t, "ReplyTo(Yog, help lrdel) with toril.db broken",
+		"t Yog Syntax: tell katumi lrdel <num>", ReplyTo("Yog", "help lrdel"))
 }

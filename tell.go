@@ -812,7 +812,7 @@ func CharInfo(oper string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", oper)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
 		txt = fmt.Sprintf(
 			"[%d %s] %s (%s) (@%s) seen %s UTC",
@@ -845,7 +845,7 @@ func Find(oper string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
 		online := false
 		secs := time.Duration(seconds) * time.Second
@@ -917,12 +917,12 @@ func Name(oper string) string {
 		if err == sql.ErrNoRows {
 			txt = NotFound("character or account", oper)
 		} else if err != nil {
-			log.Fatal(err)
+			fatal(err)
 		} else {
 			txt = fmt.Sprintf("@%s did not disclose their real name", c.acct)
 		}
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
 		txt = fmt.Sprintf("@%s's real name is %s", c.acct, c.name)
 	}
@@ -958,7 +958,7 @@ func FindClass(oper string, asker string) []string {
 		"WHERE LOWER(c.char_name) = LOWER(?)", asker).Scan(
 		&askerAcct, &askerSide)
 	if err != nil && err != sql.ErrNoRows {
-		log.Fatal(err)
+		fatal(err)
 	}
 
 	// Stored times carry different offsets (or none), so they're compared
@@ -1110,20 +1110,13 @@ func DelAlt(oper string, char string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
-		query = "UPDATE chars SET vis = 'f' " +
-			"WHERE LOWER(char_name) = LOWER(?)"
-
-		tx, err := db.Begin()
+		// One statement commits as it runs, so if it fails, nothing was
+		// saved, and the reply says the records are unavailable instead.
+		_, err = db.Exec("UPDATE chars SET vis = 'f' "+
+			"WHERE LOWER(char_name) = LOWER(?)", oper)
 		ChkErr(err)
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		_, err = stmt.Exec(oper)
-		ChkErr(err)
-		tx.Commit()
 		log.Printf("Delalt: %s\n", oper)
 		txt = fmt.Sprintf("Removed character from your alt list:: %s", oper)
 	}
@@ -1149,20 +1142,11 @@ func AddAlt(oper string, char string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
-		query = "UPDATE chars SET vis = 't' " +
-			"WHERE LOWER(char_name) = LOWER(?)"
-
-		tx, err := db.Begin()
+		_, err = db.Exec("UPDATE chars SET vis = 't' "+
+			"WHERE LOWER(char_name) = LOWER(?)", oper)
 		ChkErr(err)
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		_, err = stmt.Exec(oper)
-		ChkErr(err)
-		tx.Commit()
 		txt = fmt.Sprintf("Re-added character to your alt list:: %s", oper)
 	}
 	return txt
@@ -1212,22 +1196,11 @@ func AddName(oper string, char string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", char)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
-		query = "UPDATE accounts " +
-			"SET player_name = ? " +
-			"WHERE account_name = ?"
-
-		tx, err := db.Begin()
+		_, err = db.Exec("UPDATE accounts SET player_name = ? "+
+			"WHERE account_name = ?", titleCase(oper), c.acct)
 		ChkErr(err)
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		name := titleCase(oper)
-		_, err = stmt.Exec(name, c.acct)
-		ChkErr(err)
-		tx.Commit()
 		txt = fmt.Sprintf("Your real name recorded as: %s", oper)
 	}
 	return txt
@@ -1270,20 +1243,10 @@ func LoadReport(oper string, char string) []string {
 			txts = append(txts, "No loads reported for current boot.")
 		}
 	} else if strings.Contains(oper, " ") {
-		tx, err := db.Begin()
+		_, err := db.Exec("INSERT INTO loads "+
+			"VALUES((SELECT MAX(boot_id) FROM boots), ?, ?, ?, 'f')",
+			now().UTC(), oper, char)
 		ChkErr(err)
-
-		date := now().UTC()
-		query := "INSERT INTO loads " +
-			"VALUES((SELECT MAX(boot_id) FROM boots), ?, ?, ?, 'f')"
-
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		_, err = stmt.Exec(date, oper, char)
-		ChkErr(err)
-		tx.Commit()
 		txts = append(txts, fmt.Sprintf("Load reported: %s", oper))
 	} else {
 		txts = append(txts, BadSyntax)
@@ -1344,28 +1307,144 @@ func LRDel(oper string) string {
 var BadSyntax string = "Invalid syntax. For valid syntax: tell katumi ?, " +
 	"tell katumi help <cmd>"
 
-func ReplyTo(char string, tell string) []string {
-	info := []string{"I am a Helper Bot (Beta). Each command I accept " +
-		"has further help files available at: tell katumi help <cmd>",
-		"Find items: Acronymed stats: stat <item name>, " +
-			"Stats fully spelled out: astat <item name>, " +
-			"Find items by attributes, slots, etc.: (for proper usage, " +
-			"tell katumi help fstat)",
-		"Find mobs: Stats and the eq they carry: mstat <mob name>",
-		"Find people: Acct and char info: who <char/acct>, " +
-			"clist <char/acct> [class] [level], char <char>, " +
-			"Show last online alt: " +
-			"find <char/acct>, Find level 50 alts of a class among people " +
-			"online: class <class>, RL names: name <char/acct>, " +
-			"addname <name>, Control your listing: delalt <char>, " +
-			"addalt <char>",
-		"Misc: This message: ?, More info on each command: help <cmd>, " +
-			"Find out if you're hidden: hidden, Load reports for rares or " +
-			"global mobs: lr, lr <report>, lrdel <num>",
+// menu is the reply to ? and to help alone: a line for each kind of command
+// Katumi takes. testHelp checks that it names each one in tellCommands.
+var menu = []string{"I am a Helper Bot (Beta). Each command I accept " +
+	"has further help files available at: tell katumi help <cmd>",
+	"Find items: Acronymed stats: stat <item name>, " +
+		"Stats fully spelled out: astat <item name>, " +
+		"Find items by attributes, slots, etc.: (for proper usage, " +
+		"tell katumi help fstat)",
+	"Find mobs: Stats and the eq they carry: mstat <mob name>",
+	"Find people: Acct and char info: who <char/acct>, " +
+		"clist <char/acct> [class] [level], char <char>, " +
+		"Show last online alt: " +
+		"find <char/acct>, Find level 50 alts of a class among people " +
+		"online: class <class>, RL names: name <char/acct>, " +
+		"addname <name>, Control your listing: delalt <char>, " +
+		"addalt <char>",
+	"Misc: This message: ?, More info on each command: help <cmd>, " +
+		"Find out if you're hidden: hidden, Load reports for rares or " +
+		"global mobs: lr, lr <report>, lrdel <num>",
+}
+
+// tellCommand is a command Katumi takes in a tell.
+type tellCommand struct {
+	name string
+	// bare: it answers with nothing after it, as lr and help do. Sent
+	// alone, any other command gets its help pointed out (see badCommand).
+	bare bool
+	// prefix: any word that starts with name is this command, as hidden?
+	// is hidden
+	prefix bool
+	// reply is the answer to char's tell, oper being what followed the
+	// command
+	reply func(char, oper string) []string
+	// hint, if the command has one, is what a reply cut short says after
+	// its count of the tells left out
+	hint func(oper string) string
+}
+
+// tellCommands are the commands ReplyTo takes, and guessCommand picks from,
+// in this order: of two commands as close to a typo, the first wins. help
+// explains each one, as testHelp checks. ? is help with nothing after it.
+func tellCommands() []tellCommand {
+	return []tellCommand{
+		{name: "stat", reply: func(_, oper string) []string {
+			return withGuess(FindItem(oper, "short_stats"), "eq", oper)
+		}},
+		{name: "astat", reply: func(_, oper string) []string {
+			return withGuess(Astat(oper), "eq", oper)
+		}},
+		{name: "fstat", reply: func(_, oper string) []string {
+			return Fstat(oper)
+		}},
+		{name: "mstat", reply: func(_, oper string) []string {
+			return withGuess(FindMob(oper), "mobs", oper)
+		}},
+		{name: "who", reply: func(_, oper string) []string {
+			return []string{Who(oper)}
+		}},
+		{name: "clist", reply: func(_, oper string) []string {
+			return Clist(oper)
+		}, hint: func(oper string) string {
+			if len(strings.Fields(oper)) > 1 {
+				return ""
+			}
+			return "To list fewer, add a class or level: clist " + oper +
+				" cleric 50"
+		}},
+		{name: "char", reply: func(_, oper string) []string {
+			return []string{CharInfo(oper)}
+		}},
+		{name: "find", reply: func(_, oper string) []string {
+			return []string{Find(oper)}
+		}},
+		{name: "class", reply: func(char, oper string) []string {
+			return FindClass(oper, char)
+		}},
+		{name: "name", reply: func(_, oper string) []string {
+			return []string{Name(oper)}
+		}},
+		{name: "addname", reply: func(char, oper string) []string {
+			return []string{AddName(oper, char)}
+		}},
+		{name: "delalt", reply: func(char, oper string) []string {
+			return []string{DelAlt(oper, char)}
+		}},
+		{name: "addalt", reply: func(char, oper string) []string {
+			return []string{AddAlt(oper, char)}
+		}},
+		{name: "hidden", bare: true, prefix: true,
+			reply: func(char, _ string) []string {
+				// a char Katumi can't see tells her as Someone, and no
+				// reply is how they know they're hidden
+				if char == "Someone" {
+					return nil
+				}
+				return []string{char + " is NOT hidden!"}
+			}},
+		{name: "help", bare: true, reply: func(_, oper string) []string {
+			if oper == "" {
+				return menu
+			}
+			return Help(oper)
+		}},
+		{name: "lr", bare: true, reply: func(char, oper string) []string {
+			return LoadReport(oper, char)
+		}},
+		{name: "lrdel", reply: func(_, oper string) []string {
+			return []string{LRDel(oper)}
+		}},
 	}
-	var txt []string
-	// what a reply cut short says after the count of tells left out
-	hint := ""
+}
+
+// findCommand is the command cmd names, if it names one.
+func findCommand(cmd string) (tellCommand, bool) {
+	for _, c := range tellCommands() {
+		if cmd == c.name || c.prefix && strings.HasPrefix(cmd, c.name) {
+			return c, true
+		}
+	}
+	return tellCommand{}, false
+}
+
+// ReplyTo is Katumi's reply to char's tell: a line for each tell she sends
+// back, which katumi.tin runs.
+func ReplyTo(char string, tell string) (tells []string) {
+	// A lookup in toril.db that fails, as when the file is locked, ends
+	// with fatal. The tell gets an answer all the same, so the player isn't
+	// left waiting on nothing. Any other panic is a bug, and goes on up.
+	defer func() {
+		if r := recover(); r != nil {
+			msg, ok := r.(fatalError)
+			if !ok {
+				panic(r)
+			}
+			log.Printf("Tell from %s failed: %s: %s\n", char, tell, msg)
+			tells = []string{tellSafe("t "+char+" "+recordsDown) + "\n"}
+		}
+	}()
 
 	oper := ""
 	split := strings.SplitN(tell, " ", 2)
@@ -1373,63 +1452,21 @@ func ReplyTo(char string, tell string) []string {
 	if len(split) > 1 {
 		oper = strings.TrimSpace(split[1])
 	}
-
-	// debugging
-	//log.Printf("Cmd : %s\n", cmd)
-	//log.Printf("Oper: %s\n", oper)
-
-	switch {
-	case cmd == "?":
-		txt = info
-	case cmd == "help" && oper == "":
-		txt = info
-	case cmd == "help" && oper != "":
-		txt = Help(oper)
-	case strings.HasPrefix(cmd, "hidden"):
-		if char != "Someone" {
-			txt = append(txt, char+" is NOT hidden!")
-		}
-	case cmd == "stat" && oper != "":
-		txt = withGuess(FindItem(oper, "short_stats"), "eq", oper)
-	case cmd == "astat" && oper != "":
-		txt = withGuess(Astat(oper), "eq", oper)
-	case cmd == "mstat" && oper != "":
-		txt = withGuess(FindMob(oper), "mobs", oper)
-	case cmd == "fstat" && oper != "":
-		txt = Fstat(oper)
-	case cmd == "who" && oper != "":
-		txt = append(txt, Who(oper))
-	case cmd == "clist" && oper != "":
-		txt = Clist(oper)
-		if len(strings.Fields(oper)) == 1 {
-			hint = "To list fewer, add a class or level: clist " + oper +
-				" cleric 50"
-		}
-	case cmd == "char" && oper != "":
-		txt = append(txt, CharInfo(oper))
-	case cmd == "find" && oper != "":
-		txt = append(txt, Find(oper))
-	case cmd == "name" && oper != "":
-		txt = append(txt, Name(oper))
-	case cmd == "class" && oper != "":
-		txt = FindClass(oper, char)
-	case cmd == "delalt" && oper != "":
-		txt = append(txt, DelAlt(oper, char))
-	case cmd == "addalt" && oper != "":
-		txt = append(txt, AddAlt(oper, char))
-	case cmd == "addname" && oper != "":
-		txt = append(txt, AddName(oper, char))
-	case cmd == "lr":
-		txt = LoadReport(oper, char)
-	case cmd == "lrdel" && oper != "":
-		txt = append(txt, LRDel(oper))
-	default:
-		txt = append(txt, BadSyntax)
-		if guess := badCommand(cmd, oper); guess != "" {
-			txt = append(txt, guess)
-		}
+	if cmd == "?" { // help with nothing after it, whatever follows
+		cmd, oper = "help", ""
 	}
-	var tells []string
+
+	txt := []string{BadSyntax}
+	// what a reply cut short says after the count of tells left out
+	hint := ""
+	if c, ok := findCommand(cmd); ok && (oper != "" || c.bare) {
+		txt = c.reply(char, oper)
+		if c.hint != nil {
+			hint = c.hint(oper)
+		}
+	} else if guess := badCommand(cmd, oper); guess != "" {
+		txt = append(txt, guess)
+	}
 	for _, t := range txt {
 		for _, part := range splitTell(t) {
 			// katumi.tin runs the line as a tintin command, and a reply can

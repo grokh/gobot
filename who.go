@@ -77,7 +77,7 @@ func WhoBatch(batch string) []string {
 		}
 	}
 
-	tx.Commit()
+	ChkErr(tx.Commit())
 	return cmds
 }
 
@@ -227,7 +227,7 @@ func (c *Char) who() []string {
 		)
 		_, err = stmt.Exec(c.acct, c.name, c.class, c.race, c.lvl, c.tseen)
 		ChkErr(err)
-		tx.Commit()
+		ChkErr(tx.Commit())
 	} else if err != nil {
 		log.Fatal(err)
 	}

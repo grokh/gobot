@@ -214,6 +214,7 @@ var testEq = []dbRow{
 func testItems(t *testing.T, src string) {
 	writeItemDB(t, itemDBFile, testEq)
 	testStat(t)
+	testNamesakes(t)
 	testMstat(t)
 	testGuesses(t)
 	testFstat(t)
@@ -282,6 +283,99 @@ func testStat(t *testing.T) {
 	// -item
 	chk(t, "FindItem(bane stiletto)", []string{stilettoShort},
 		FindItem("bane stiletto", "short_stats"))
+}
+
+// Stats text for items that share a name with one in testEq.
+const (
+	stiletto2Short = "the infernal stiletto of bane 2 (WIELD) * 3D4 4/3 " +
+		"* THIEF-ONLY * Wt:5 Val:0 * Tiamat"
+	stiletto2Long = "the infernal stiletto of bane 2 (infernal stiletto bane) " +
+		"* WEAPON (WIELD) * Wt:5 Val:0 * Type:Dagger * Tiamat (N) * 2024-04-04"
+)
+
+// namesakes are items whose names Kegor has numbered because they're shared:
+// a dozen plain daggers, a second stiletto and a second evil ring beside
+// testEq's, and two fishing poles and two skeletons whose names differ in
+// case.
+func namesakes() []dbRow {
+	items := plainDaggers()
+	for _, it := range [][3]string{
+		{"the infernal stiletto of bane 2", stiletto2Short, stiletto2Long},
+		{"an evil ring 2", "an evil ring 2 ;#showme pwned2 $cpw",
+			"an evil ring 2"},
+		{"A fishing pole 1", "A fishing pole 1 (HOLD) * Waterdeep",
+			"A fishing pole 1"},
+		{"a fishing pole 2", "a fishing pole 2 (HOLD) * Nhavan Island",
+			"a fishing pole 2"},
+		{"A skeleton", "A skeleton (HOLD) * Ako Village", "A skeleton"},
+		{"a skeleton", "a skeleton (HOLD) * Waterdeep", "a skeleton"},
+	} {
+		items = append(items, dbRow{"name": it[0], "zone": "Waterdeep",
+			"type": "OTHER", "worn": "HOLD", "date": "2024-04-04",
+			"short_stats": it[1], "long_stats": it[2]})
+	}
+	return items
+}
+
+// testNamesakes checks that stat and astat send every item that shares the
+// name found, unless a number at the end names one of them, and that -item
+// sends only the closest match.
+func testNamesakes(t *testing.T) {
+	writeItemDB(t, itemDBFile,
+		append(append([]dbRow{}, testEq...), namesakes()...))
+	defer writeItemDB(t, itemDBFile, testEq)
+
+	var daggers []string
+	for _, n := range []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10} {
+		daggers = append(daggers,
+			tell(fmt.Sprintf("a plain dagger %d (WIELD) * 1D4 1/0", n))...)
+	}
+	daggers = append(daggers, tell("...and 2 more items by that name.")...)
+	stilettos := append(tell(stilettoShort), tell(stiletto2Short)...)
+	checks := []struct {
+		tell string
+		good []string
+	}{
+		// 2 before 10, and no more than itemLimit, with a count of the rest
+		{"stat plain dagger", daggers},
+		{"stat A Plain Dagger", daggers},
+		// a number at the end names just that one, whole name or not
+		{"stat a plain dagger 10", tell("a plain dagger 10 (WIELD) * 1D4 1/0")},
+		{"stat plain dagger 2", tell("a plain dagger 2 (WIELD) * 1D4 1/0")},
+		{"stat bane stiletto 2", tell(stiletto2Short)},
+		// a name without a number brings the numbered ones that share it,
+		// whether it's the whole name or a looser match
+		{"stat the infernal stiletto of bane", stilettos},
+		{"stat bane stiletto", stilettos},
+		// each item's own mobs follow it; the second stiletto has none
+		{"astat infernal stiletto", append(append(tell(stilettoLong),
+			tell("Loads on: a drow assassin 1 (Menzoberranzan), "+
+				"a drow assassin 2 (Menzoberranzan), "+
+				"a drow assassin 3 (Menzoberranzan), "+
+				"a drow assassin 4 (Menzoberranzan), "+
+				"a drow assassin 5 (Menzoberranzan), and 7 more mobs")...),
+			tell(stiletto2Long)...)},
+		// names that differ only in case, the closest first: the whole name
+		// as typed, or else the shortest, capitals before small letters
+		{"stat fishing pole", append(tell("A fishing pole 1 (HOLD) * "+
+			"Waterdeep"), tell("a fishing pole 2 (HOLD) * Nhavan Island")...)},
+		{"stat a skeleton", append(tell("a skeleton (HOLD) * Waterdeep"),
+			tell("A skeleton (HOLD) * Ako Village")...)},
+		{"stat skeleton", append(tell("A skeleton (HOLD) * Ako Village"),
+			tell("a skeleton (HOLD) * Waterdeep")...)},
+		// the namesakes' stats are made tintin-safe too
+		{"stat an evil ring", append(tell("an evil ring #showme pwned, say "+
+			"cpw x (y) z"), tell("an evil ring 2 ,#showme pwned2 cpw")...)},
+	}
+	for _, c := range checks {
+		chk(t, "ReplyTo(Yog, "+c.tell+")", c.good, ReplyTo("Yog", c.tell))
+	}
+	// -item, which Ynnd's ASSOC stat runs, keeps to the closest match
+	chk(t, "FindItem(plain dagger)",
+		[]string{"a plain dagger 1 (WIELD) * 1D4 1/0"},
+		FindItem("plain dagger", "short_stats"))
+	chk(t, "FindItem(the infernal stiletto of bane)", []string{stilettoShort},
+		FindItem("the infernal stiletto of bane", "short_stats"))
 }
 
 func testFstat(t *testing.T) {

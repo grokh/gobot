@@ -257,6 +257,21 @@ func (s tinScript) tells(t *testing.T, tt, bin, work string) {
 				w, replies, screen)
 		}
 	}
+	// The tells quoting another trigger's words went to the tell trigger:
+	// Katumi answers both as tells, and only the ASSOC line itself gets an
+	// answer on ASSOC.
+	if n := strings.Count(replies, "t Yog "+BadSyntax+"\n"); s.everyTell &&
+		n != 2 {
+		t.Errorf("%d tells got %q, want 2: a tell quoting another "+
+			"trigger's words went to that trigger\nreplies:\n%s",
+			n, BadSyntax, replies)
+	}
+	if n := strings.Count(replies, "acc "+stilettoShort+"\n"); s.assoc &&
+		n != 1 {
+		t.Errorf("%d answers on ASSOC for the stiletto, want 1: a tell "+
+			"quoting an ASSOC line went to the ASSOC trigger\nreplies:\n%s",
+			n, replies)
+	}
 	if s.online {
 		checkOnline(t, filepath.Join(run, "toril.db"), screen)
 	}
@@ -313,6 +328,12 @@ func (s tinScript) driver() string {
 			lines = append(lines, "#showme {Yog ASSOC: '"+text+"'}")
 		}
 	}
+	// Tells quoting another trigger's words. tintin fires only the first
+	// action a line matches, so these have to reach the tell trigger first.
+	lines = append(lines,
+		"#showme {Yog tells you 'That character doesn't exist! "+
+			"Please try again.'}",
+		"#showme {Yog tells you 'x ASSOC: 'stat infernal stiletto'}")
 	// the answer to a time check, then the last line of a who
 	lines = append(lines,
 		"#showme {Time elapsed since boot-up: "+driverUptime+"}",

@@ -65,6 +65,7 @@
 	#var {acctsent} {0};
 	#var {pwsent} {0};
 	#var {ingame} {0};
+	#var {inworld} {0};
 	#act {^Account name:} {
 		#if {$pwsent >= 2} {loginstop} {
 			#if {$acctsent >= 3} {#zap} {
@@ -107,8 +108,9 @@
 #tick {Timer} {#if {$ingame} {time;who}} {30}
 #nop Capture digits only, so nothing but H:M:S can reach the shell. seen is
 #nop when the line came in, in Unix seconds: gobot times the boot by it,
-#nop however long the check then waits to run.
-#act {^Time elapsed since boot-up: %d:%d:%d} {#format {seen} {%T};#system gobot -time %1:%2:%3 -seen $seen &}
+#nop however long the check then waits to run. The first answer after a
+#nop login also shows the character is in the game (inworld).
+#act {^Time elapsed since boot-up: %d:%d:%d} {#var {inworld} {1};#format {seen} {%T};#system gobot -time %1:%2:%3 -seen $seen &}
 #nop Add who's count of players online to the hour, digits only as well
 #act {^Total players online: %d} {#system gobot -online %1 &}
 
@@ -120,9 +122,17 @@
 #event {SESSION DISCONNECTED} {#gts {#delay {relogin} {login} {5}}}
 #event {SESSION TIMED OUT} {#gts {#delay {relogin} {login} {5}}}
 #event {DAY} {#system gobot -bak}
-#act {That character doesn't exist! Please try again.} {#delay 3 #zap}
+#nop The MUD says this when the character sent at the menu doesn't exist.
+#nop It zaps only until the character is in the game (inworld), since
+#nop after that the same words said on a channel would knock Katumi
+#nop offline. ingame, set at the menu, comes too early for this.
+#var {inworld} {0}
+#act {That character doesn't exist! Please try again.} {#if {$inworld == 0} {#delay 3 #zap}}
 
 
+#nop Tells run at priority 4, ahead of every other trigger at the default 5.
+#nop tintin fires only the first action that matches a line, so a tell
+#nop quoting another trigger's words would go to that trigger instead.
 #act {^%w tells you '%2'$} {
 	#format {time} {%t} {%F %T};
 	#line log {logs/tells.log} {$time - %0};
@@ -136,8 +146,8 @@
 	#foreach {$answer} {cmd} {
 		#if {"$cmd" != "%d"} {$cmd};
 	};
-}
-#act {You tell %w '%2'$} {
+} {4}
+#act {^You tell %w '%2'$} {
 	#format {time} {%t} {%F %T};
 	#line log {logs/tells.log} {$time - %0};
 }

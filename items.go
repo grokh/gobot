@@ -364,15 +364,6 @@ func findStat(abbr string) (stat, bool) {
 	return stat{}, false
 }
 
-func findResist(abbr string) (resist, bool) {
-	for _, r := range resists {
-		if strings.EqualFold(r.abbr, abbr) {
-			return r, true
-		}
-	}
-	return resist{}, false
-}
-
 func findSlot(abbr string) (slot, bool) {
 	for _, s := range slots {
 		if strings.EqualFold(s.abbr, abbr) {

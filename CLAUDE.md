@@ -18,7 +18,8 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 | File | Holds |
 |---|---|
 | `gobot.go` | the flags, `main`, and the log's clean-up of what players send |
-| `tell.go` | every tell command and its help, `tellSafe`, `tintinSafe`, `maxReplyBytes` |
+| `tell.go` | every tell command but `fstat`, the help for all of them, `tellSafe`, `tintinSafe`, `maxReplyBytes` |
+| `fstat.go` | `fstat`: how it reads a search, for tells and the site's `?fstat=` links, and its guesses at a field it can't read |
 | `items.go`, `mobs.go` | lookups in Kegor's `TorilDB.db` (its `eq` and `mobs` tables) |
 | `guess.go` | what Katumi suggests for a mistyped tell |
 | `who.go`, `time.go`, `online.go` | who lists, boots, hourly player counts |

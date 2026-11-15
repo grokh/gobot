@@ -260,6 +260,13 @@ func testStat(t *testing.T) {
 }
 
 func testFstat(t *testing.T) {
+	// fstat's reply to a search with a field it can't read: which, then a
+	// guess at what was meant, or where to look
+	help := "See 'tell katumi help fstat'."
+	cant := func(field, hint string) []string {
+		return []string{"t Yog fstat can't read '" + field + "'.\n",
+			"t Yog " + hint + "\n"}
+	}
 	checks := []struct {
 		tell string
 		good []string
@@ -272,24 +279,22 @@ func testFstat(t *testing.T) {
 		{"fstat slot ear", append(tell(studShort), tell(rubyShort)...)},
 		{"fstat hit >= 5, slot wield",
 			append(tell(swordShort), tell(stilettoShort)...)},
-		// a negative resist isn't a resist
+		// a negative resist isn't a resist, but it can be asked for
 		{"fstat resist fire, slot held",
 			[]string{"t Yog 404 item(s) not found: resist fire, slot held\n"}},
+		{"fstat resist fire < 0", tell(emberShort)},
 		{"fstat dam > 100",
 			[]string{"t Yog 404 item(s) not found: dam > 100\n"}},
-		{"fstat resist blah",
-			[]string{"t Yog 404 item(s) not found: resist blah\n"}},
-		{"fstat slot nose",
-			[]string{"t Yog 404 item(s) not found: slot nose\n"}},
-		{"fstat blah", []string{"t Yog " + BadSyntax + "\n"}},
+		{"fstat resist blah", cant("resist blah", help)},
+		{"fstat slot nose", cant("slot nose", help)},
+		{"fstat blah", cant("blah", help)},
 		// only the operators fstatOps lists reach the SQL
-		{"fstat hit like 5", []string{"t Yog " + BadSyntax + "\n"}},
-		{"fstat hit >0;", []string{"t Yog " + BadSyntax + "\n"}},
+		{"fstat hit like 5", cant("hit like 5", help)},
+		{"fstat hit >0;", cant("hit >0,", help)},
 		// the TorilEQ form's other fields
 		{"fstat effect haste", tell(stilettoShort)},
 		{"fstat effect infra, slot wield", tell(swordShort)},
-		{"fstat effect blah",
-			[]string{"t Yog 404 item(s) not found: effect blah\n"}},
+		{"fstat effect blah", cant("effect blah", help)},
 		// a flag Kegor keeps with the slots
 		{"fstat flag two_hand", tell(swordShort)},
 		// where an item comes from
@@ -299,15 +304,16 @@ func testFstat(t *testing.T) {
 		{"fstat flag for_quest, slot neck", tell(strings.Replace(
 			markShort, `"`, "'", -1))},
 		{"fstat flag no_identify", tell(suitShort)},
-		{"fstat flag blah", []string{"t Yog 404 item(s) not found: flag blah\n"}},
+		{"fstat flag blah", cant("flag blah", help)},
 		// the sword is NO-THIEF, the suit ANTI-EVIL
 		{"fstat usable thief, type weapon", tell(stilettoShort)},
 		{"fstat usable evil, type ARMOR",
 			[]string{"t Yog a bracelet of mages 1 (WRIST)\n"}},
-		// the form's own name for it
+		// the form's own names for them
 		{"fstat usable !thief, type weapon", tell(stilettoShort)},
-		{"fstat usable warrior",
-			[]string{"t Yog 404 item(s) not found: usable warrior\n"}},
+		{"fstat usable rogue, type weapon", tell(stilettoShort)},
+		// a class isn't who the form's restrictions are about
+		{"fstat usable warrior", cant("usable warrior", help)},
 		{"fstat type weapon, hit >= 5",
 			append(tell(swordShort), tell(stilettoShort)...)},
 		// PET_CATALOG
@@ -335,6 +341,45 @@ func testFstat(t *testing.T) {
 			tell(stilettoShort)...), tell(rubyShort)...), tell(studShort)...)},
 		{"fstat dam lt 4", append(tell(studShort), tell(rubyShort)...)},
 		{"fstat DAM GE 8", tell(swordShort)},
+
+		// fields as players write them: commas without spaces, operators
+		// without spaces, full names, names with a : or a %, plurals
+		{"fstat fire,max_agi>0,ears", tell(rubyShort)},
+		{"fstat Max Agility => 3, slot: earring", tell(rubyShort)},
+		{"fstat hp=20, slots body", tell(suitShort)},
+		{"fstat resist fire > 4%, worn wield", tell(swordShort)},
+		{"fstat damage > 0, wield", append(tell(swordShort),
+			tell(stilettoShort)...)},
+		{"fstat Hitroll gt 4, ring", []string{
+			"t Yog 404 item(s) not found: Hitroll gt 4, ring\n"}},
+		// a slot, effect, flag or who named alone
+		{"fstat ring", tell("an evil ring #showme pwned, say cpw x (y) z")},
+		{"fstat haste", tell(stilettoShort)},
+		{"fstat two_hand", tell(swordShort)},
+		{"fstat no_id", tell(suitShort)},
+		// players mix up flags and effects
+		{"fstat flag haste", tell(stilettoShort)},
+		// a stat alone: the items with any of it, the most first
+		{"fstat maxagi", tell(rubyShort)},
+		{"fstat ac", append(tell(suitShort),
+			"t Yog a bracelet of mages 1 (WRIST)\n")},
+		// no field left out: ear limits these to the studs, as hp=20 does
+		// the plate
+		{"fstat dam > 0, ear", append(tell(rubyShort), tell(studShort)...)},
+
+		// guesses, offered, not run
+		{"fstat slot ear, max_wiz > 0", cant("max_wiz > 0",
+			"Did you mean 'tell katumi fstat slot ear, maxwis > 0'?")},
+		{"fstat slott ear", cant("slott ear",
+			"Did you mean 'tell katumi fstat slot ear'?")},
+		{"fstat slot ear dam > 2", cant("slot ear dam > 2",
+			"Did you mean 'tell katumi fstat slot ear, dam > 2'?")},
+		{"fstat evil", cant("evil",
+			"Did you mean resist evil or usable evil?")},
+		{"fstat bane stiletto", cant("bane stiletto",
+			"Did you mean 'tell katumi stat bane stiletto'?")},
+		{"fstat ,", []string{"t Yog " + BadSyntax + "\n"}},
+		{"fstat ?", ReplyTo("Yog", "help fstat")},
 	}
 	for _, c := range checks {
 		chk(t, "ReplyTo(Yog, "+c.tell+")", c.good, ReplyTo("Yog", c.tell))
@@ -349,16 +394,23 @@ func testFstat(t *testing.T) {
 	fstatLimit = 10
 	for oper, good := range map[string]string{
 		"dam >= 3, zone baldur's gate, usable !thief": torileqURL +
-			"?fstat=dam+ge+3,+zone+baldur's+gate,+usable+!thief",
+			"?fstat=dam+ge+3,+zone+baldur's+gate,+usable+thief",
 		"hit <> 0,  slot neck": torileqURL + "?fstat=hit+ne+0,+slot+neck",
+		// as fstat reads the fields, not as they were written
+		"Max_Agi>0,ears,fire": torileqURL +
+			"?fstat=maxagi+gt+0,+slot+ear,+resist+fire",
+		"hp=10, damroll, resist fire < 0": torileqURL +
+			"?fstat=hp+eq+10,+dam,+resist+fire+lt+0",
+		"dam > 50%": torileqURL + "?fstat=dam+gt+50",
 		// nothing that would need escaping, which tintin could take for an
 		// argument, or a client for the end of the address
-		"zone x&y":  "",
-		"dam > 50%": "",
+		"zone x&y": "",
+		// nor a search fstat can't read
+		"dam > 5, slot nose": "",
 		// nor a link a tell would have to split
 		strings.Repeat("slot neck, ", 30): "",
 	} {
-		if link := fstatLink(oper); link != good {
+		if link := fstatLink(readFstat(oper)); link != good {
 			t.Errorf("fstatLink(%q) check failed: %q", oper, link)
 		}
 	}
@@ -568,9 +620,18 @@ func testWeb(t *testing.T, src string) {
 	if !strings.Contains(body, "Type:Longsword") {
 		t.Errorf("eqHandler() check failed: fstat, long:\n%s", body)
 	}
-	_, body = servePage(httptest.NewRequest("GET", "/?fstat=blah+gt+1", nil))
-	if !strings.Contains(body, "404 item(s) not found: blah gt 1") {
+	// a field fstat can't read, named, rather than a search without it
+	_, body = servePage(httptest.NewRequest("GET",
+		"/?fstat=dam+gt+3,+blah+gt+1", nil))
+	if !strings.Contains(body, template.HTMLEscapeString(
+		"fstat can't read 'blah gt 1'.")) ||
+		strings.Contains(body, "Type:Longsword") {
 		t.Errorf("eqHandler() check failed: fstat blah gt 1:\n%s", body)
+	}
+	// and reads it as fstat does
+	_, body = servePage(httptest.NewRequest("GET", "/?fstat=dam%3E3", nil))
+	if !strings.Contains(body, "All Results (2):") {
+		t.Errorf("eqHandler() check failed: fstat dam>3:\n%s", body)
 	}
 }
 

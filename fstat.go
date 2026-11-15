@@ -85,8 +85,8 @@ var fstatKinds = func() map[string]string {
 // fstatAliases are names players use that the tables in items.go don't
 // have, and the things (by name) they mean.
 var fstatAliases = map[string]string{
-	// stats
-	"damage": "dam", "hps": "hp",
+	// stats; armor, the Armor affect, is part of ac (acSQL)
+	"damage": "dam", "hps": "hp", "armor": "ac",
 	// slots
 	"belt": "waist", "boots": "feet", "helm": "head", "helmet": "head",
 	"ring": "finger", "sleeves": "arms",
@@ -137,7 +137,7 @@ func (f fstatField) text(words bool) string {
 // form searches on too, list them all.
 type fstatThing struct {
 	kind, name string
-	col        string // a stat's or resist's eq column
+	sql        string // a stat's or resist's value, as SQL (see stat.sql)
 	// the test for anything else, with the ? values it takes
 	match func() (string, []interface{})
 }
@@ -149,10 +149,10 @@ func (t fstatThing) field() fstatField {
 	f := fstatField{kind: t.kind, name: t.name}
 	switch t.kind {
 	case "stat":
-		f.test = col(t.col) + " != 0"
-		f.order = "abs(" + col(t.col) + ") DESC"
+		f.test = t.sql + " != 0"
+		f.order = "abs(" + t.sql + ") DESC"
 	case "resist":
-		f.test = col(t.col) + " > 0"
+		f.test = t.sql + " > 0"
 	default:
 		f.test, f.args = t.match()
 	}
@@ -163,10 +163,10 @@ func (t fstatThing) field() fstatField {
 // by it, the most first, or the least for < and <=.
 func (t fstatThing) compare(op string, num int) fstatField {
 	f := fstatField{kind: t.kind, name: t.name, op: op, num: num,
-		test: col(t.col) + " " + op + " ?", args: vals(num),
-		order: col(t.col) + " DESC"}
+		test: t.sql + " " + op + " ?", args: vals(num),
+		order: t.sql + " DESC"}
 	if op == "<" || op == "<=" {
-		f.order = col(t.col) + " ASC"
+		f.order = t.sql + " ASC"
 	}
 	return f
 }
@@ -190,14 +190,14 @@ func newFstatThings() ([]fstatThing, map[string][]int) {
 	}
 	for _, s := range stats {
 		add(fstatThing{kind: "stat", name: strings.ToLower(s.abbr),
-			col: s.col}, s.col, s.display)
+			sql: s.sql()}, s.col, s.display)
 	}
 	for _, r := range resists {
 		var aliases []string
 		for _, n := range []string{r.abbr, r.display} {
 			aliases = append(aliases, n, "resist "+n, n+" resist")
 		}
-		add(fstatThing{kind: "resist", name: r.abbr, col: r.col},
+		add(fstatThing{kind: "resist", name: r.abbr, sql: col(r.col)},
 			append(aliases, r.col)...)
 	}
 	for _, s := range slots {

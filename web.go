@@ -387,16 +387,22 @@ func searchLink(r *http.Request, keys []string) string {
 
 // webFstat runs the fstat search in oper for the site, as the links fstat
 // replies with ask it to: every item found, in fstat's order, in short
-// stats unless format is long.
+// stats unless format is long. A search with a field fstat can't read gets
+// the line saying which.
 func webFstat(oper string, format string) []string {
 	length := "short_stats"
 	if format == "long" {
 		length = "long_stats"
 	}
-	where, args, order, ok := fstatSearch(oper)
-	if !ok || where == "" {
+	q := readFstat(oper)
+	if len(q.unread()) > 0 {
+		log.Printf("web: fstat can't read: %s\n", oper)
+		return []string{q.cantRead()}
+	}
+	if len(q) == 0 {
 		return []string{NotFound("item(s)", oper)}
 	}
+	where, args, order := q.sql()
 
 	db, err := OpenItemDB()
 	ChkErr(err)

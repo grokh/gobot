@@ -24,7 +24,7 @@ func GlistStats(list string) []string {
 	var txt []string
 	for _, name := range listNames(list) {
 		// the name exactly, or the first of its variants, as the site finds it
-		found, err := eqName(db, name)
+		found, err := pastedItem(db, name)
 		ChkErr(err)
 		date := ""
 		if found != "" {

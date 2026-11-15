@@ -411,10 +411,10 @@ func webFstat(oper string, format string) []string {
 }
 
 // exactItem returns long stats for the item with exactly the name given,
-// or, failing that, for the first of its variants, as in "a sunrod 1" (see
-// eqName).
+// or, failing that, for the first of its variants, as in "a sunrod 1", or
+// for the name as a shop shows it (see pastedItem).
 func exactItem(db *sql.DB, name string) string {
-	found, err := eqName(db, name)
+	found, err := pastedItem(db, name)
 	ChkErr(err)
 	if found == "" {
 		return NotFound("item", name)
@@ -425,53 +425,8 @@ func exactItem(db *sql.DB, name string) string {
 	return text.String
 }
 
-// listNames picks the item names out of output from 'glist', 'equip',
-// 'auction list', 'inventory', 'look in bag', or 'storage list'.
-func listNames(txt string) []string {
-	var names []string
-	list := strings.Split(strings.Replace(txt, "\r\n", "\n", -1), "\n")
-
-	for _, v := range list {
-		if v != "" && !strings.Contains(v, ":") && !strings.Contains(v, "h/") &&
-			!strings.Contains(v, ";") && !strings.Contains(v, "[RETURN") &&
-			!strings.Contains(v, "======") && !strings.Contains(v, "#") {
-			// to parse auction results
-			if n := strings.Index(v, ")     "); n > 0 {
-				x := strings.Count(v, "'")
-				if n+12 <= 48+x && 48+x <= len(v) { // short lines: leave as is
-					v = v[n+12 : 48+x]
-				}
-			}
-			// remove everything after the first " ("
-			// to remove (illuminating) or whatever from the end of items
-			if n := strings.Index(v, " ("); n > 0 {
-				v = v[0:n]
-			}
-			// remove everything before the first "] "
-			// to parse combined [5]-style items from inv or look in
-			if n := strings.Index(v, "] "); n > 0 {
-				v = v[n+1:]
-			}
-			// remove everything before the first "   "
-			// to parse items from a 'glist'
-			if n := strings.Index(v, "   "); n > 0 {
-				v = v[n+1:]
-			}
-			// remove everything before the first "> "
-			// to parse items from an 'eq' list
-			if n := strings.Index(v, "> "); n > 0 {
-				v = v[n+1:]
-			}
-			// remove leading and trailing whitespace
-			if v = strings.TrimSpace(v); v != "" {
-				names = append(names, v)
-			}
-		}
-	}
-	return names
-}
-
-// ParseList returns long stats for each item in a pasted list.
+// ParseList returns long stats for each item in a pasted list (see
+// listNames in paste.go).
 func ParseList(txt string) []string {
 	db, err := OpenItemDB()
 	ChkErr(err)

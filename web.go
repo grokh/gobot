@@ -200,10 +200,6 @@ func parseForm(r *http.Request) []string {
 		args = append(args, targs...)
 	}
 
-	if name := formValue(r, "itemName"); name != "" {
-		add("name LIKE ?", vals("%"+name+"%"))
-	}
-
 	if zone := formValue(r, "zoneName"); zone != "" {
 		// the zone, or one of the zones of an item that loads in several
 		add("instr(? || zone || ?, ?) > 0",
@@ -272,22 +268,58 @@ func parseForm(r *http.Request) []string {
 		}
 	}
 
-	if len(tests) == 0 {
+	names := formNames(formValue(r, "itemName"))
+	if len(tests) == 0 && len(names[0].args) == 0 {
 		return nil
 	}
-	query := "SELECT " + length + " FROM eq WHERE " +
-		strings.Join(tests, " AND ")
-	if order, oargs := formOrder(r); order != "" {
-		query += " ORDER BY " + order
-		args = append(args, oargs...)
-	}
+	order, oargs := formOrder(r)
 
 	db, err := OpenItemDB()
 	ChkErr(err)
 	defer db.Close()
-	results, _, err := queryStats(db, query, 0, args...)
-	ChkErr(err)
-	return results
+	for _, m := range names {
+		var all []string
+		var allArgs []interface{}
+		for _, arg := range m.args {
+			all = append(all, "name "+m.op+" ?")
+			allArgs = append(allArgs, arg)
+		}
+		all = append(all, tests...)
+		allArgs = append(allArgs, args...)
+		query := "SELECT " + length + " FROM eq WHERE " +
+			strings.Join(all, " AND ")
+		if order != "" {
+			query += " ORDER BY " + order
+			allArgs = append(allArgs, oargs...)
+		}
+		results, _, err := queryStats(db, query, 0, allArgs...)
+		ChkErr(err)
+		if len(results) > 0 {
+			return results
+		}
+	}
+	return nil
+}
+
+// formNames are the ways parseForm tries the item name typed on the form,
+// in turn, until one finds something: the ways stat tries a name (see
+// nameMatches), so "isha cloak" finds the cloak on the site as it does in a
+// tell. That's the name as typed, anywhere in an item's name, then its words
+// in that order with anything between them, then every word in any order. A
+// name that's found as typed gets just what it always got. stat's first
+// way, the exact name, is left out: anywhere in the name finds that too. With
+// no name typed, the one way is to test no name at all.
+func formNames(name string) []nameMatch {
+	if name == "" {
+		return []nameMatch{{}}
+	}
+	var ways []nameMatch
+	for _, m := range nameMatches(name) {
+		if m.op == "LIKE" && len(m.args) > 0 {
+			ways = append(ways, m)
+		}
+	}
+	return ways
 }
 
 // wornOrder is the ORDER BY term for the form's Worn Slot choice, with its ?

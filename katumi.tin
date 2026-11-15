@@ -61,8 +61,10 @@
 	#split {0} {0};
 }
 #tick {Timer} {time;who} {30}
-#nop Capture digits only, so nothing but H:M:S can reach the shell
-#act {^Time elapsed since boot-up: %d:%d:%d} {#system gobot -time %1:%2:%3 &}
+#nop Capture digits only, so nothing but H:M:S can reach the shell. seen is
+#nop when the line came in, in Unix seconds: gobot times the boot by it,
+#nop however long the check then waits to run.
+#act {^Time elapsed since boot-up: %d:%d:%d} {#format {seen} {%T};#system gobot -time %1:%2:%3 -seen $seen &}
 #nop Add who's count of players online to the hour, digits only as well
 #act {^Total players online: %d} {#system gobot -online %1 &}
 

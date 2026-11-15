@@ -61,7 +61,7 @@ func Test_Tintin(t *testing.T) {
 
 	scripts := []tinScript{
 		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
-			everyTell: true, online: true,
+			everyTell: true, online: true, uptime: true,
 			login: []string{fakeAcct, fakeSecret, fakeChar}},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
@@ -84,17 +84,51 @@ func Test_Tintin(t *testing.T) {
 
 // tinScript is a script Test_Tintin runs: the file, others it reads from
 // its own folder, whether it answers stat on ASSOC, whether it passes gobot
-// every tell, not just stat, and whether it records who's count of players
-// online. start is the command that logs in when tintin starts, for a
-// script that leaves that to another file. login is what the script sends
-// when the MUD asks for an account: the account ("" for any), password and
-// character.
+// every tell, not just stat, whether it records who's count of players
+// online, and whether it records the MUD's uptime. start is the command
+// that logs in when tintin starts, for a script that leaves that to another
+// file. login is what the script sends when the MUD asks for an account:
+// the account ("" for any), password and character.
 type tinScript struct {
-	name, path               string
-	deps                     []string
-	assoc, everyTell, online bool
-	start                    string
-	login                    []string
+	name, path                       string
+	deps                             []string
+	assoc, everyTell, online, uptime bool
+	start                            string
+	login                            []string
+}
+
+// driverUptime is the uptime the driver shows, as a time check's answer.
+const driverUptime = "58:10:26"
+
+// checkUptime waits for driverUptime to reach the toril.db at path as the
+// current boot's, and checks the boot's start: when tintin saw the line,
+// sometime from from to to, less the uptime. It has to be a whole second,
+// as only -seen gives it: by gobot's own clock it would have a fraction.
+// gobot runs in the background, so it can land after tt++ is done.
+func checkUptime(t *testing.T, path, screen string, from, to time.Time) {
+	var up, start string
+	for i := 0; i < 50; i++ {
+		db, err := sql.Open("sqlite3", path)
+		if err == nil {
+			err = db.QueryRow("SELECT uptime, CAST(boot_time AS TEXT) "+
+				"FROM boots ORDER BY boot_id DESC LIMIT 1").Scan(&up, &start)
+			db.Close()
+		}
+		if err == nil && up == driverUptime {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	d := parseUptime(driverUptime)
+	// Parse takes a fraction of a second the layout doesn't have
+	when, err := time.Parse("2006-01-02 15:04:05-07:00", start)
+	if up != driverUptime || err != nil || when.Nanosecond() != 0 ||
+		when.Before(from.Truncate(time.Second).Add(-d)) ||
+		when.After(to.Add(-d)) {
+		t.Errorf("the uptime didn't reach toril.db timed by -seen: uptime "+
+			"%q, start %q, seen from %v to %v\nscreen:\n%s", up, start,
+			from.UTC(), to.UTC(), screen)
+	}
 }
 
 // checkOnline waits for the count of players online the driver shows, 17,
@@ -178,10 +212,22 @@ func (s tinScript) tells(t *testing.T, tt, bin, work string) {
 	writeTokens(t, run)
 	chkErr(t, os.WriteFile(filepath.Join(run, "test.tin"),
 		[]byte(s.driver()), 0640))
+	if s.uptime {
+		// the bot's own tables, as the uptime goes in its current boot
+		schema, err := os.ReadFile("init_db.sql")
+		chkErr(t, err)
+		db, err := sql.Open("sqlite3", filepath.Join(run, "toril.db"))
+		chkErr(t, err)
+		_, err = db.Exec(string(schema))
+		chkErr(t, err)
+		chkErr(t, db.Close())
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+	from := time.Now()
 	out, err := tintinCmd(ctx, tt, bin, run).CombinedOutput()
+	to := time.Now()
 	screen := ansiCodes.ReplaceAllString(
 		strings.ReplaceAll(string(out), "\r", ""), "")
 	if err != nil {
@@ -207,6 +253,9 @@ func (s tinScript) tells(t *testing.T, tt, bin, work string) {
 	}
 	if s.online {
 		checkOnline(t, filepath.Join(run, "toril.db"), screen)
+	}
+	if s.uptime {
+		checkUptime(t, filepath.Join(run, "toril.db"), screen, from, to)
 	}
 	for _, line := range strings.Split(screen, "\n") {
 		switch line = strings.TrimSpace(line); {
@@ -258,8 +307,10 @@ func (s tinScript) driver() string {
 			lines = append(lines, "#showme {Yog ASSOC: '"+text+"'}")
 		}
 	}
-	// the last line of a who
-	lines = append(lines, "#showme {Total players online: 17.}")
+	// the answer to a time check, then the last line of a who
+	lines = append(lines,
+		"#showme {Time elapsed since boot-up: "+driverUptime+"}",
+		"#showme {Total players online: 17.}")
 	return strings.Join(append(lines, "#end"), "\n") + "\n"
 }
 

@@ -104,9 +104,12 @@ func main() {
 	var who = flag.String("who", "",
 		"Batched who output. "+
 			"Ex: \"[10 Ctr] Rarac  (Orc)|[ 2 War] Xatus  (Troll)\"")
-	// for time.go Uptime(curup string)
+	// for time.go Uptime(curup string, seen time.Time)
 	var time = flag.String("time", "",
 		"Parse uptime for boot tracking. Ex: 58:10:26")
+	var seen = flag.Int64("seen", 0,
+		"When tintin saw the -time line, in Unix seconds, "+
+			"or gobot's own clock if left out. Ex: 1794699709")
 	// for online.go RecordOnline(n int)
 	var online = flag.Int("online", -1,
 		"Players online, from who's total, to add to this hour's. Ex: 19")
@@ -140,7 +143,7 @@ func main() {
 	// only run one command at a time
 	switch {
 	case *time != "":
-		Uptime(*time)
+		Uptime(*time, seenAt(*seen))
 	case *online >= 0:
 		RecordOnline(*online)
 	case *who != "":

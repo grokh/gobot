@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,14 +36,20 @@ func WhoBatch(batch string) []string {
 	defer stmt.Close()
 
 	date := now().UTC()
-	var lvl string
 	var name string
 	for _, who := range ppl {
 		char := re.FindStringSubmatch(who)
 		//log.Println(char)
 		if len(char) == 5 {
-			lvl = char[1]
+			lvl, _ := strconv.Atoi(char[1]) // one or two digits
 			name = char[3]
+			// the level the DB had, to tell if it fell
+			var oldLvl int
+			err := tx.QueryRow("SELECT char_level FROM chars "+
+				"WHERE char_name = ?", name).Scan(&oldLvl)
+			if err != nil && err != sql.ErrNoRows {
+				log.Fatal(err)
+			}
 			res, err := stmt.Exec(lvl, date, name)
 			if err != nil {
 				log.Fatal(err)
@@ -54,11 +61,17 @@ func WhoBatch(batch string) []string {
 					// not in the DB yet: an individual who adds it
 					cmd := fmt.Sprintf("who %s\n", name)
 					cmds = append(cmds, cmd)
-				} else if newClass(tx, name, char[2]) {
-					// look it up again, so c.who() can catch a new race or
-					// account
-					cmd := fmt.Sprintf("who %s\n", name)
-					cmds = append(cmds, cmd)
+				} else {
+					// all three, as each records or logs what it finds
+					class := newClass(tx, name, char[2])
+					race := newBatchRace(tx, name, char[4])
+					fell := levelFell(name, oldLvl, lvl)
+					if class || race || fell {
+						// look it up again, so c.who() can catch a new
+						// account
+						cmd := fmt.Sprintf("who %s\n", name)
+						cmds = append(cmds, cmd)
+					}
 				}
 			}
 		}
@@ -66,6 +79,45 @@ func WhoBatch(batch string) []string {
 
 	tx.Commit()
 	return cmds
+}
+
+// newBatchRace catches a char the who list shows with a different race
+// than the DB has, as when a char is deleted and someone makes another of
+// the same name, and records the race shown, as the races table spells it.
+// As with newClass, the race comes from the who list itself, so the two then
+// agree and the char isn't flagged again. Text in the race's place that
+// isn't a race the table has, like a flag after it, is left alone: a who
+// line comes every 30 seconds, and it would send a lookup each time.
+func newBatchRace(tx *sql.Tx, name string, shown string) bool {
+	query := "SELECT c.char_race, r.race_name FROM chars c, races r " +
+		"WHERE c.char_name = ? AND LOWER(r.race_name) = LOWER(?)"
+	var stored, race string
+	err := tx.QueryRow(query, name, shown).Scan(&stored, &race)
+	if err == sql.ErrNoRows {
+		return false
+	}
+	ChkErr(err)
+	if strings.EqualFold(stored, race) {
+		return false
+	}
+	_, err = tx.Exec("UPDATE chars SET char_race = ? WHERE char_name = ?",
+		race, name)
+	ChkErr(err)
+	log.Printf("Race change: %s from %s to %s\n", name, stored, race)
+	return true
+}
+
+// levelFell reports whether a char's level is lower than the DB had it, and
+// logs it if so. Nearly always that's a char started over at level 1:
+// deleted and made again under its name, by its player or by someone else.
+// A char restored from a backup can come back a few levels down, and a lich
+// loses levels, though that comes with a new class anyway.
+func levelFell(name string, old int, lvl int) bool {
+	if lvl >= old {
+		return false
+	}
+	log.Printf("Level drop: %s from %d to %d\n", name, old, lvl)
+	return true
 }
 
 // newClass catches a char the who list shows with a different class than

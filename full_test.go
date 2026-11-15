@@ -376,8 +376,9 @@ func chkPrefix(t *testing.T, check string, want string, txt []string) {
 	}
 }
 
-// testCharChanges checks that class and race changes in the game reach the
-// DB, starting from Yog as a Barbarian Shaman.
+// testCharChanges checks that class, race and level changes in the game
+// reach the DB, and which of them ask for a lookup, starting from Yog as a
+// Barbarian Shaman.
 func testCharChanges(t *testing.T) {
 	who := "[50 War] Yog  (Barbarian)|" +
 		"[50 Bar] Bob - Soul Singer - The Warders (Human)|" +
@@ -408,6 +409,39 @@ func testCharChanges(t *testing.T) {
 	chkPrefix(t, "char after unknown race",
 		"t Yog [50 Warrior] Yog (Half-Elf) (@Yog) seen ",
 		ReplyTo("Yog", "char yog"))
+
+	// the who list showing another race, as when a char is deleted and made
+	// again under its name: it's recorded from the list, and an individual
+	// who asked for, which would catch a new account
+	chk(t, "WhoBatch() race change", []string{"who Yog\n"},
+		WhoBatch("[50 War] Yog  (Human)"))
+	chkPrefix(t, "char after WhoBatch() race change",
+		"t Yog [50 Warrior] Yog (Human) (@Yog) seen ",
+		ReplyTo("Yog", "char yog"))
+	chk(t, "WhoBatch() same race", []string{},
+		WhoBatch("[50 War] Yog  (Human)"))
+	// the race in another case is the same race, and what isn't a race,
+	// like a flag after it, is left alone rather than looked up every time
+	chk(t, "WhoBatch() race in lower case", []string{},
+		WhoBatch("[50 War] Yog  (human)"))
+	chk(t, "WhoBatch() flag after the race", []string{},
+		WhoBatch("[50 War] Yog  (Human) (Linkdead)"))
+	chkPrefix(t, "char after WhoBatch() flag after the race",
+		"t Yog [50 Warrior] Yog (Human) (@Yog) seen ",
+		ReplyTo("Yog", "char yog"))
+
+	// a level that fell is a char started over: looked up once, and the
+	// levels it gains after that are nothing new
+	chk(t, "WhoBatch() level drop", []string{"who Yog\n"},
+		WhoBatch("[ 1 War] Yog  (Human)"))
+	chk(t, "WhoBatch() same level", []string{},
+		WhoBatch("[ 1 War] Yog  (Human)"))
+	chk(t, "WhoBatch() level up", []string{},
+		WhoBatch("[50 War] Yog  (Human)"))
+
+	// back to a Half-Elf for the checks that follow
+	chk(t, "WhoBatch() race change back", []string{"who Yog\n"},
+		WhoBatch("[50 War] Yog  (Half-Elf)"))
 
 	testAcctChanges(t)
 }

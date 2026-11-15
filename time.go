@@ -14,17 +14,11 @@ var sendBootAlert = SendBootAlert
 // Test_All stops it, so the times it expects can't tick over mid-test.
 var now = time.Now
 
-// bootSlack is how much later than the old boot was last seen running the
-// MUD has to have come up before it counts as a new boot, so a second or
-// two of clock difference between the MUD and this server can't trip it.
-const bootSlack = time.Minute
-
-// maxLate is the longest a check is taken to have been held up between the
-// MUD answering it and gobot writing it down. katumi.tin runs each check in
-// the background, and twice in 2014 its checks stalled for four minutes,
-// came through together, and one was written after a newer one. Ten minutes
-// leaves room for a longer stall than that.
-const maxLate = 10 * time.Minute
+// startSlack is how far apart the starts that two checks of one boot give
+// can be: the uptime comes in whole seconds, and the line takes a moment to
+// reach tintin. It's more than that needs, and it matters only in a boot's
+// first seconds, when half its uptime is less.
+const startSlack = 10 * time.Second
 
 // parseUptime turns the MUD's H:M:S uptime into a duration.
 func parseUptime(up string) time.Duration {
@@ -38,15 +32,39 @@ func parseUptime(up string) time.Duration {
 	return d
 }
 
-// Uptime records the uptime the MUD gave katumi.tin's time check: as the
-// current boot's latest, or as a new boot's first, with an alert.
-func Uptime(curup string) {
+// seenAt is when tintin saw a time check: the Unix seconds katumi.tin
+// passes as -seen, or gobot's own clock if there are none.
+func seenAt(unix int64) time.Time {
+	if unix == 0 {
+		return now()
+	}
+	return time.Unix(unix, 0)
+}
+
+// Uptime records the uptime of a time check that tintin saw at seen: as the
+// current boot's, or as a new boot's first, with an alert.
+//
+// seen less the uptime is when the MUD came up, to within a second or two,
+// however long the check waits to be written. tintin runs each in the
+// background, and when the MUD lags it answers several at once, so they can
+// be written in any order. A check is the stored boot's if the start it
+// gives is nearer that boot's start than where the boot was last seen, half
+// its uptime later, and a new boot's if it's later than that: a reboot the
+// bot is around for, one while it was away, and each boot of a crash loop.
+// Half the uptime, not a fixed slack, as the MUD's uptime gains or loses up
+// to about 6 seconds a day on this server's clock, which moves the start a
+// long boot's checks give, while some reboots are back within seconds of
+// Katumi's last check.
+func Uptime(curup string, seen time.Time) {
 	curtime := parseUptime(curup)
+	start := seen.UTC().Add(-curtime)
 
 	db := OpenDB()
 	defer db.Close()
 
-	// the current boot, the same one lr reports on
+	// the current boot, the same one lr reports on, with its start in
+	// whole seconds (a start that can't be read is 1970, so the check is a
+	// new boot)
 	query := "SELECT boot_id, uptime, " +
 		"CAST(STRFTIME('%s', boot_time) AS INTEGER) " +
 		"FROM boots ORDER BY boot_id DESC LIMIT 1"
@@ -56,52 +74,34 @@ func Uptime(curup string) {
 	err := db.QueryRow(query).Scan(&oldid, &oldup, &started)
 	ChkErr(err)
 	oldtime := parseUptime(oldup)
+	oldstart := time.Unix(started.Int64, 0)
 
-	// when the MUD came up, going by this check, and when the stored boot
-	// was last seen running
-	boottime := now().UTC().Add(-curtime)
-	lastSeen := time.Unix(started.Int64, 0).Add(oldtime)
-
-	// A lower uptime isn't a reboot when the check was only held up and
-	// written after a newer one. A late check is at most maxLate behind
-	// that one, and the boot time it gives is the stored boot's own, later
-	// by the hold-up: long before the boot was last seen. A reboot's is
-	// after the boot was last seen, or, when the boot's own first check was
-	// held up and its start stored that much late, up to maxLate before. In
-	// a boot's first minutes there is no room between the two, so a lower
-	// uptime there is always a reboot, as it has to be in a crash loop.
-	late := started.Valid && curtime < oldtime &&
-		oldtime-curtime <= maxLate &&
-		boottime.Before(lastSeen.Add(-maxLate))
-	if late {
-		// the newer check's uptime stands, and so does its boot
-		log.Printf("Late check: uptime %s written after %s\n", curup, oldup)
-		return
-	}
-
-	// It's a new boot if the uptime went down, or if the MUD came up after
-	// the old boot was last seen running. The second case catches a reboot
-	// while the bot was offline for longer than the old boot had lasted,
-	// when the new uptime can already be past the old one.
-	newBoot := curtime < oldtime ||
-		(started.Valid && boottime.After(lastSeen.Add(bootSlack)))
-
-	tx, err := db.Begin()
-	ChkErr(err)
-	if newBoot {
-		// it's a new boot, so create a new boot ID and send an alert
-		_, err = tx.Exec(
-			"INSERT INTO boots (boot_time, uptime) VALUES(?, ?)",
-			boottime, curup)
+	switch {
+	case start.Sub(oldstart) > max(oldtime/2, startSlack):
+		// written before the alert goes, so an alert that fails can't lose
+		// the boot
+		_, err = db.Exec("INSERT INTO boots (boot_time, uptime) VALUES(?, ?)",
+			start, curup)
 		ChkErr(err)
-		ChkErr(tx.Commit())
-		// committed first, so an alert that fails can't lose the boot
 		sendBootAlert()
-	} else {
-		// it's still the current boot, so update current uptime
-		_, err = tx.Exec("UPDATE boots SET uptime = ? WHERE boot_id = ?",
+	case seen.Before(oldstart.Add(-startSlack)):
+		// an older boot's check, held up past the reboot: its uptime isn't
+		// this boot's
+		log.Printf("Old check: uptime %s seen before boot %d began\n",
+			curup, oldid)
+	case curtime < oldtime:
+		// this boot's, written after a newer one, whose uptime stands
+		log.Printf("Late check: uptime %s written after %s\n", curup, oldup)
+	case start.Before(oldstart):
+		// A newer check that gives an earlier start moves the boot's back to
+		// it, which puts it right when the boot's first check was seen late,
+		// and in a new toril.db, whose first boot is only a stand-in.
+		_, err = db.Exec("UPDATE boots SET boot_time = ?, uptime = ? "+
+			"WHERE boot_id = ?", start, curup, oldid)
+		ChkErr(err)
+	default:
+		_, err = db.Exec("UPDATE boots SET uptime = ? WHERE boot_id = ?",
 			curup, oldid)
 		ChkErr(err)
-		ChkErr(tx.Commit())
 	}
 }

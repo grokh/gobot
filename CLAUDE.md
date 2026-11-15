@@ -54,7 +54,7 @@ The checkout is `~/go/src/github.com/grokh/gobot`. A merged change goes live whe
 
 - the bot: `go install`, and the next event uses the new binary
 - the site: `./publish.sh`
-- `katumi.tin`: copied to `/srv/bot`, then Katumi's tintin restarted
+- `katumi.tin`: copied to `/srv/bot`, then Katumi's tintin restarted. If it passes gobot a flag gobot didn't take before, gobot is installed first: an older one rejects the flag and the event is lost.
 - `dbcopy.sh`, its two SQL files and `torildb.sh`: nothing more, since cron runs them from the checkout
 
 The owner does all of that. If you are asked to look at the server, read only, and mind the bot's database: a query on the live `/srv/bot/toril.db` holds a read lock for as long as it runs, and the bot's writes then fail with "database is locked". For anything slower than a count, copy it first (`sqlite3 /srv/bot/toril.db ".backup <tmp>/toril.db"`) and query the copy. Put `timeout 20` in front of every remote `sqlite3`.

@@ -812,7 +812,7 @@ func CharInfo(oper string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", oper)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
 		txt = fmt.Sprintf(
 			"[%d %s] %s (%s) (@%s) seen %s UTC",
@@ -845,7 +845,7 @@ func Find(oper string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
 		online := false
 		secs := time.Duration(seconds) * time.Second
@@ -917,12 +917,12 @@ func Name(oper string) string {
 		if err == sql.ErrNoRows {
 			txt = NotFound("character or account", oper)
 		} else if err != nil {
-			log.Fatal(err)
+			fatal(err)
 		} else {
 			txt = fmt.Sprintf("@%s did not disclose their real name", c.acct)
 		}
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
 		txt = fmt.Sprintf("@%s's real name is %s", c.acct, c.name)
 	}
@@ -958,7 +958,7 @@ func FindClass(oper string, asker string) []string {
 		"WHERE LOWER(c.char_name) = LOWER(?)", asker).Scan(
 		&askerAcct, &askerSide)
 	if err != nil && err != sql.ErrNoRows {
-		log.Fatal(err)
+		fatal(err)
 	}
 
 	// Stored times carry different offsets (or none), so they're compared
@@ -1110,20 +1110,13 @@ func DelAlt(oper string, char string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
-		query = "UPDATE chars SET vis = 'f' " +
-			"WHERE LOWER(char_name) = LOWER(?)"
-
-		tx, err := db.Begin()
+		// One statement commits as it runs, so if it fails, nothing was
+		// saved, and the reply says the records are unavailable instead.
+		_, err = db.Exec("UPDATE chars SET vis = 'f' "+
+			"WHERE LOWER(char_name) = LOWER(?)", oper)
 		ChkErr(err)
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		_, err = stmt.Exec(oper)
-		ChkErr(err)
-		tx.Commit()
 		log.Printf("Delalt: %s\n", oper)
 		txt = fmt.Sprintf("Removed character from your alt list:: %s", oper)
 	}
@@ -1149,20 +1142,11 @@ func AddAlt(oper string, char string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
-		query = "UPDATE chars SET vis = 't' " +
-			"WHERE LOWER(char_name) = LOWER(?)"
-
-		tx, err := db.Begin()
+		_, err = db.Exec("UPDATE chars SET vis = 't' "+
+			"WHERE LOWER(char_name) = LOWER(?)", oper)
 		ChkErr(err)
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		_, err = stmt.Exec(oper)
-		ChkErr(err)
-		tx.Commit()
 		txt = fmt.Sprintf("Re-added character to your alt list:: %s", oper)
 	}
 	return txt
@@ -1212,22 +1196,11 @@ func AddName(oper string, char string) string {
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", char)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	} else {
-		query = "UPDATE accounts " +
-			"SET player_name = ? " +
-			"WHERE account_name = ?"
-
-		tx, err := db.Begin()
+		_, err = db.Exec("UPDATE accounts SET player_name = ? "+
+			"WHERE account_name = ?", titleCase(oper), c.acct)
 		ChkErr(err)
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		name := titleCase(oper)
-		_, err = stmt.Exec(name, c.acct)
-		ChkErr(err)
-		tx.Commit()
 		txt = fmt.Sprintf("Your real name recorded as: %s", oper)
 	}
 	return txt
@@ -1270,20 +1243,10 @@ func LoadReport(oper string, char string) []string {
 			txts = append(txts, "No loads reported for current boot.")
 		}
 	} else if strings.Contains(oper, " ") {
-		tx, err := db.Begin()
+		_, err := db.Exec("INSERT INTO loads "+
+			"VALUES((SELECT MAX(boot_id) FROM boots), ?, ?, ?, 'f')",
+			now().UTC(), oper, char)
 		ChkErr(err)
-
-		date := now().UTC()
-		query := "INSERT INTO loads " +
-			"VALUES((SELECT MAX(boot_id) FROM boots), ?, ?, ?, 'f')"
-
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		_, err = stmt.Exec(date, oper, char)
-		ChkErr(err)
-		tx.Commit()
 		txts = append(txts, fmt.Sprintf("Load reported: %s", oper))
 	} else {
 		txts = append(txts, BadSyntax)
@@ -1344,7 +1307,23 @@ func LRDel(oper string) string {
 var BadSyntax string = "Invalid syntax. For valid syntax: tell katumi ?, " +
 	"tell katumi help <cmd>"
 
-func ReplyTo(char string, tell string) []string {
+// ReplyTo is Katumi's reply to char's tell: a line for each tell she sends
+// back, which katumi.tin runs.
+func ReplyTo(char string, tell string) (tells []string) {
+	// A lookup in toril.db that fails, as when the file is locked, ends
+	// with fatal. The tell gets an answer all the same, so the player isn't
+	// left waiting on nothing. Any other panic is a bug, and goes on up.
+	defer func() {
+		if r := recover(); r != nil {
+			msg, ok := r.(fatalError)
+			if !ok {
+				panic(r)
+			}
+			log.Printf("Tell from %s failed: %s: %s\n", char, tell, msg)
+			tells = []string{tellSafe("t "+char+" "+recordsDown) + "\n"}
+		}
+	}()
+
 	info := []string{"I am a Helper Bot (Beta). Each command I accept " +
 		"has further help files available at: tell katumi help <cmd>",
 		"Find items: Acronymed stats: stat <item name>, " +
@@ -1429,7 +1408,6 @@ func ReplyTo(char string, tell string) []string {
 			txt = append(txt, guess)
 		}
 	}
-	var tells []string
 	for _, t := range txt {
 		for _, part := range splitTell(t) {
 			// katumi.tin runs the line as a tintin command, and a reply can

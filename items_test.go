@@ -677,9 +677,7 @@ func testItemDBDown(t *testing.T) {
 	r := httptest.NewRequest("POST", "/", strings.NewReader(form.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
-	webServer = true // so fatal panics for eqHandler to catch
 	eqHandler(w, r)
-	webServer = false
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("eqHandler() check failed: worn renamed gave %d: %s",
 			w.Code, w.Body.String())

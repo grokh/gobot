@@ -12,18 +12,18 @@ import (
 	"unicode/utf8"
 )
 
-// webServer is true when gobot is running as the TorilEQ site (-port).
-var webServer bool
+// fatalError is what fatal panics with: an error gobot can't go on from,
+// like a toril.db that's locked or broken.
+type fatalError string
 
-// fatal stops on an unrecoverable error. The bot runs one command per
-// process, so exiting is fine there. In the web server, exiting would take
-// the whole site down, so it panics instead and eqHandler turns that into an
-// HTTP 500 for just the one request.
+// fatal stops on an unrecoverable error by panicking with a fatalError. The
+// bot runs one command per process, and main ends the run on it as
+// log.Fatal would. ReplyTo answers the tell instead, saying Katumi's records
+// are unavailable, so the player isn't left with no reply. In the web
+// server, exiting would take the whole site down, so eqHandler turns it
+// into an HTTP 500 for just the one request.
 func fatal(v ...interface{}) {
-	if webServer {
-		panic(fmt.Sprintln(v...))
-	}
-	log.Fatalln(v...)
+	panic(fatalError(strings.TrimSuffix(fmt.Sprintln(v...), "\n")))
 }
 
 // maxLogEntry is the most bytes of one entry cleanLog writes.
@@ -70,9 +70,23 @@ func main() {
 		os.O_RDWR|os.O_APPEND|os.O_CREATE,
 		0640,
 	)
-	ChkErr(err)
+	if err != nil {
+		log.Fatalln(err) // on stderr, with no log to write it in
+	}
 	defer f.Close()
 	log.SetOutput(cleanLog{f})
+	// A fatal error ends the run as log.Fatal would: logged, and exit
+	// status 1. Any other panic is a bug, so it goes on to say where it
+	// happened. Deferred after f.Close, so it runs first, while the log is
+	// still open.
+	defer func() {
+		if r := recover(); r != nil {
+			if msg, ok := r.(fatalError); ok {
+				log.Fatalln(string(msg))
+			}
+			panic(r)
+		}
+	}()
 
 	// for who.go WhoChar(char string, lvl int,
 	// class string, race string, acct string)
@@ -170,7 +184,6 @@ func main() {
 		cmds = []string{"Test alert sent to the ntfy topic in " +
 			ntfyFile + ".\n"}
 	case *port != "":
-		webServer = true
 		loadPage()
 		http.HandleFunc("/", eqHandler)
 		http.Handle("/style.css", http.FileServer(http.Dir("html")))

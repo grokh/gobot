@@ -11,7 +11,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - `Test_Tintin` runs `katumi.tin` in tt++ 2.02.20 or later, and skips without one. `go test -short` leaves it out.
 - CI (`.github/workflows/ci.yml`) runs the same checks on every pull request, and fails if `Test_Tintin` skips.
 - `staticcheck ./...` and `shellcheck *.sh` print nothing either. CI doesn't run them, so run them where they are installed and keep it that way.
-- `ChkErr` ends the program with `log.Fatal`. In `Test_All` the log goes to `logs/test.log`, so a database call that fails there stops the whole test binary with nothing on the console but `FAIL`. Look in that file.
+- `ChkErr` and `fatal` panic with a `fatalError`. `main` ends the run on one as `log.Fatal` would, `ReplyTo` answers the tell with `recordsDown` instead, and the site answers 500. The `log.Fatal` calls left in `who.go` and `db.go` end the program at once: in `Test_All`, whose log goes to `logs/test.log`, one of those that fails stops the whole test binary with nothing on the console but `FAIL`. Look in that file.
 
 ## Where things are
 

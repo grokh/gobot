@@ -46,6 +46,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - **`init_db.sql` has to match the live database**, lookup rows included. A class or race added by hand on the server goes into it too, and into `testNewClasses` in `full_test.go`.
 - **Never in the repo:** `toril.db`, `TorilDB.db`, `torildb.url` (Kegor's download link is his to share), `tokens.tin`, `ntfy.url`. `.gitignore` covers them.
 - **No inline script or style in `html/`.** grokh.com sends `Content-Security-Policy: default-src 'self'`.
+- **Begin every transaction on `toril.db` with `Begin()` on `OpenDB`'s handle**, which starts it with `BEGIN IMMEDIATE`. A transaction that reads before its first write, begun any other way, gets "database is locked" at once whenever another gobot is writing, without the 5-second wait. `testWhoWaits` checks `WhoBatch`.
 - The live `toril.db` stays in rollback-journal mode, by the owner's choice. `dbcopy.sh` works with either mode.
 
 ## Previewing the site

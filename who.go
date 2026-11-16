@@ -27,8 +27,12 @@ func WhoBatch(batch string) []string {
 	db := OpenDB()
 	defer db.Close()
 
+	// begun IMMEDIATE (see OpenDB), so it can read before it writes
 	tx, err := db.Begin()
 	ChkErr(err)
+	// a fatal error below saves nothing and frees the lock; after Commit,
+	// this does nothing
+	defer tx.Rollback()
 	query := "UPDATE chars SET char_level = ?, last_seen = ? " +
 		"WHERE char_name = ?"
 	stmt, err := tx.Prepare(query)
@@ -48,15 +52,15 @@ func WhoBatch(batch string) []string {
 			err := tx.QueryRow("SELECT char_level FROM chars "+
 				"WHERE char_name = ?", name).Scan(&oldLvl)
 			if err != nil && err != sql.ErrNoRows {
-				log.Fatal(err)
+				fatal(err)
 			}
 			res, err := stmt.Exec(lvl, date, name)
 			if err != nil {
-				log.Fatal(err)
+				fatal(err)
 			} else {
 				affected, err := res.RowsAffected()
 				if err != nil {
-					log.Fatal(err)
+					fatal(err)
 				} else if affected != 1 {
 					// not in the DB yet: an individual who adds it
 					cmd := fmt.Sprintf("who %s\n", name)

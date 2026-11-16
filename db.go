@@ -28,9 +28,16 @@ const recordsDown = "Katumi's records are unavailable right now. " +
 // go-sqlite3's own default.
 var dbWait = 5 * time.Second
 
+// OpenDB opens toril.db. Its transactions begin with BEGIN IMMEDIATE,
+// which takes the write lock before anything else, waiting up to dbWait
+// for it as a single write does. SQLite's default transaction takes the
+// lock at its first write, and one that has read by then gets "database is
+// locked" at once if another process is writing: SQLite doesn't wait there,
+// as that process may be waiting for the read to end. WhoBatch, which reads
+// each char's level before updating it, failed that way now and then.
 func OpenDB() *sql.DB {
-	db, err := sql.Open("sqlite3",
-		fmt.Sprintf("toril.db?_busy_timeout=%d", dbWait.Milliseconds()))
+	db, err := sql.Open("sqlite3", fmt.Sprintf(
+		"toril.db?_busy_timeout=%d&_txlock=immediate", dbWait.Milliseconds()))
 	if err != nil {
 		fatal("Fatal Error: Cannot open DB: ", err)
 	}

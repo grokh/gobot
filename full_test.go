@@ -358,6 +358,7 @@ func Test_All(t *testing.T) {
 
 	testHelp(t)
 	testCharChanges(t)
+	testWhoWaits(t, db)
 	testNewClasses(t, db)
 
 	testItems(t, src)
@@ -1169,4 +1170,93 @@ func testRecordsDown(t *testing.T, db *sql.DB) {
 	// one that doesn't need toril.db still answers as ever
 	chkPrefix(t, "ReplyTo(Yog, help lrdel) with toril.db broken",
 		"t Yog Syntax: tell katumi lrdel <num>", ReplyTo("Yog", "help lrdel"))
+}
+
+// testWhoWaits checks that a who check waits for another process that is
+// writing to toril.db, as the -time check katumi.tin starts on the same
+// tick may be, instead of failing at once, and that one held up past dbWait
+// saves nothing. WhoBatch reads each char's level before updating it, and
+// a transaction that has read won't wait for the write lock: it has to
+// take the lock first, with BEGIN IMMEDIATE.
+func testWhoWaits(t *testing.T, db *sql.DB) {
+	const bob = "[50 Bar] Bob - Soul Singer - The Warders (Human)"
+	lastSeen := func() string {
+		var seen string
+		chkErr(t, db.QueryRow("SELECT last_seen FROM chars "+
+			"WHERE char_name = 'Bob'").Scan(&seen))
+		return seen
+	}
+	// the other process's write, which commits after hold
+	ctx := context.Background()
+	writer, err := db.Conn(ctx)
+	chkErr(t, err)
+	defer writer.Close()
+	write := func(hold time.Duration) chan error {
+		_, err := writer.ExecContext(ctx, "BEGIN IMMEDIATE")
+		chkErr(t, err)
+		_, err = writer.ExecContext(ctx, "UPDATE boots SET uptime = uptime")
+		chkErr(t, err)
+		ended := make(chan error, 1)
+		go func() {
+			time.Sleep(hold)
+			_, err := writer.ExecContext(ctx, "COMMIT")
+			ended <- err
+		}()
+		return ended
+	}
+
+	const hold = 300 * time.Millisecond
+	before := lastSeen()
+	start := time.Now()
+	ended := write(hold)
+	var txt []string
+	failed := catchFatal(func() { txt = WhoBatch(bob) })
+	took := time.Since(start)
+	chkErr(t, <-ended)
+	if failed != "" {
+		t.Errorf("WhoBatch() while another process writes: failed after "+
+			"%v: %s", took, failed)
+	} else {
+		chk(t, "WhoBatch() while another process writes", []string{}, txt)
+		if took < hold {
+			t.Errorf("WhoBatch() while another process writes: done in %v, "+
+				"before the write it waits for", took)
+		}
+		if lastSeen() == before {
+			t.Errorf("WhoBatch() while another process writes: " +
+				"Bob's last_seen not saved")
+		}
+	}
+
+	// a write that runs on past dbWait: the check gives up, saving nothing
+	before = lastSeen()
+	wait := dbWait
+	dbWait = 50 * time.Millisecond
+	ended = write(hold)
+	failed = catchFatal(func() { WhoBatch(bob) })
+	dbWait = wait
+	chkErr(t, <-ended)
+	if failed != "database is locked" {
+		t.Errorf("WhoBatch() past dbWait: fatal error %q, "+
+			"want \"database is locked\"", failed)
+	}
+	if lastSeen() != before {
+		t.Errorf("WhoBatch() past dbWait: Bob's last_seen saved")
+	}
+}
+
+// catchFatal runs f, and returns the message of the fatal error it stops
+// on, or "" if it doesn't stop on one.
+func catchFatal(f func()) (msg string) {
+	defer func() {
+		if r := recover(); r != nil {
+			e, ok := r.(fatalError)
+			if !ok {
+				panic(r)
+			}
+			msg = string(e)
+		}
+	}()
+	f()
+	return ""
 }

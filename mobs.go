@@ -158,27 +158,65 @@ func mobItems(list string) string {
 // loadsOn is astat's line for the item called name: the mobs Kegor lists as
 // carrying it, with their zones. It's "" if he lists none, or if the mobs
 // table can't be read, which costs astat the line but not the item's stats.
-// His eq lists don't always match the item's name in case.
 func loadsOn(db *sql.DB, name string) string {
-	rows, err := db.Query("SELECT name, coalesce(zone, '') FROM mobs "+
-		"WHERE instr('|' || lower(coalesce(equipment, '')) || '|', "+
-		"'|' || lower(?) || '|') > 0 "+
-		"ORDER BY "+baseName+", length(name), name", name)
+	mobs, err := carriers(db, name)
 	if err != nil {
 		log.Printf("%s: loads on %s: %v\n", itemDBFile, name, err)
 		return ""
 	}
+	if len(mobs) == 0 {
+		return ""
+	}
+	line := "Loads on: " +
+		strings.Join(mobs[:min(len(mobs), loadsOnLimit)], ", ")
+	if more := len(mobs) - loadsOnLimit; more > 0 {
+		line += ", and " + countMore(more, "mob")
+	}
+	return tintinSafe(line)
+}
+
+// namedIn is the SQL test for a mob whose eq list, split by |, names the
+// item given. His lists don't always match an item's name in case.
+const namedIn = "instr('|' || lower(coalesce(equipment, '')) || '|', " +
+	"'|' || lower(?) || '|') > 0"
+
+// carriers are the mobs that carry the item called name, as "mob (zone)":
+// first those whose eq lists name it, then, for an item Kegor numbers, those
+// whose lists give it the name the game shows, without his number, if their
+// zones say which item of that name they carry (itemZones.picks). His lists
+// mostly do that: a short sword, not a short sword 2. Each kind comes in
+// order of name, the bartender 2 before the bartender 10.
+func carriers(db *sql.DB, name string) ([]string, error) {
+	query := "SELECT name, coalesce(zone, ''), " + namedIn + " AS exact " +
+		"FROM mobs WHERE " + namedIn
+	args := []interface{}{name, name}
+	var zones itemZones
+	base := strings.TrimRight(strings.TrimRight(name, "0123456789"), " ")
+	if endsInNumber(name) && base != "" {
+		var err error
+		if zones, err = namesakeZones(db, name, base); err != nil {
+			return nil, err
+		}
+		if zones.own != "" {
+			query += " OR " + namedIn
+			args = append(args, base)
+		}
+	}
+	rows, err := db.Query(query+" ORDER BY exact DESC, "+baseName+
+		", length(name), name", args...)
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 
 	var mobs []string
-	count := 0
 	for rows.Next() {
 		var mob, zone string
-		if err := rows.Scan(&mob, &zone); err != nil {
-			log.Printf("%s: loads on %s: %v\n", itemDBFile, name, err)
-			return ""
+		var exact bool
+		if err := rows.Scan(&mob, &zone, &exact); err != nil {
+			return nil, err
 		}
-		if count++; count > loadsOnLimit {
+		if !exact && !zones.picks(zone) {
 			continue
 		}
 		if zone != "" {
@@ -186,16 +224,69 @@ func loadsOn(db *sql.DB, name string) string {
 		}
 		mobs = append(mobs, mob)
 	}
-	if err := rows.Err(); err != nil {
-		log.Printf("%s: loads on %s: %v\n", itemDBFile, name, err)
-		return ""
+	return mobs, rows.Err()
+}
+
+// itemZones are the zones an item Kegor numbers loads in, as eq's zone
+// column gives them, and those of the other items of its name, numbered or
+// not.
+type itemZones struct {
+	own    string
+	others []string
+}
+
+// namesakeZones finds the itemZones of the item called name, which is base
+// and a number. Its namesakes are the items sameName lists with it.
+func namesakeZones(db *sql.DB, name, base string) (itemZones, error) {
+	var zones itemZones
+	rows, err := db.Query("SELECT name, coalesce(zone, '') FROM eq WHERE "+
+		baseName+" = ? COLLATE NOCASE", base)
+	if err != nil {
+		return zones, err
 	}
-	if count == 0 {
-		return ""
+	defer rows.Close()
+	for rows.Next() {
+		var item, zone string
+		if err := rows.Scan(&item, &zone); err != nil {
+			return zones, err
+		}
+		if item == name {
+			zones.own = zone
+		} else {
+			zones.others = append(zones.others, zone)
+		}
 	}
-	line := "Loads on: " + strings.Join(mobs, ", ")
-	if more := count - loadsOnLimit; more > 0 {
-		line += ", and " + countMore(more, "mob")
+	return zones, rows.Err()
+}
+
+// picks reports whether a mob in zone whose eq list gives the item's name
+// without the number carries this item: its zone shares a zone with this
+// item's, and with no other item's of that name. A mob where two of them
+// load could carry either, so it counts for neither.
+func (z itemZones) picks(zone string) bool {
+	if !sharesZone(z.own, zone) {
+		return false
 	}
-	return tintinSafe(line)
+	for _, other := range z.others {
+		if sharesZone(other, zone) {
+			return false
+		}
+	}
+	return true
+}
+
+// sharesZone reports whether two zone values name a zone in common, in any
+// case. Either can name several, as Silverymoon - Westgate does.
+func sharesZone(a, b string) bool {
+	for _, x := range strings.Split(a, zoneSep) {
+		if x = strings.TrimSpace(x); x == "" {
+			continue
+		}
+		for _, y := range strings.Split(b, zoneSep) {
+			if strings.EqualFold(x, strings.TrimSpace(y)) {
+				return true
+			}
+		}
+	}
+	return false
 }

@@ -215,6 +215,7 @@ func testItems(t *testing.T, src string) {
 	writeItemDB(t, itemDBFile, testEq)
 	testStat(t)
 	testNamesakes(t)
+	testLoadsOnZones(t)
 	testMstat(t)
 	testGuesses(t)
 	testFstat(t)

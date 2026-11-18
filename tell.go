@@ -659,13 +659,10 @@ func CharInfo(oper string) string {
 		"account_name, DATETIME(last_seen) " +
 		"FROM chars WHERE vis = 't' " +
 		"AND LOWER(char_name) = LOWER(?)"
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
 
 	var txt string
 	var c Char
-	err = stmt.QueryRow(oper).Scan(
+	err := db.QueryRow(query, oper).Scan(
 		&c.lvl, &c.class, &c.name, &c.race, &c.acct, &c.seen)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", oper)
@@ -692,14 +689,11 @@ func Find(oper string) string {
 		"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
 		"OR LOWER(account_name) = LOWER(?)) " +
 		"ORDER BY JULIANDAY(last_seen) DESC LIMIT 1"
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
 
 	var txt string
 	var seconds int
 	var c Char
-	err = stmt.QueryRow(oper, oper).Scan(&c.acct, &c.name, &seconds)
+	err := db.QueryRow(query, oper, oper).Scan(&c.acct, &c.name, &seconds)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
@@ -1043,13 +1037,9 @@ func AddName(oper string, char string) string {
 		"FROM chars " +
 		"WHERE char_name = ?"
 
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
 	var txt string
 	var c Char
-	err = stmt.QueryRow(char).Scan(&c.acct)
+	err := db.QueryRow(query, char).Scan(&c.acct)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", char)
 	} else if err != nil {

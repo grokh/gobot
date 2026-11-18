@@ -197,11 +197,8 @@ func (c *Char) who() []string {
 	// check if character exists in DB
 	query := "SELECT account_name, char_name, char_race FROM chars " +
 		"WHERE LOWER(char_name) = LOWER(?)"
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
 	var acct, race string
-	err = stmt.QueryRow(c.name).Scan(&acct, &c.name, &race)
+	err := db.QueryRow(query, c.name).Scan(&acct, &c.name, &race)
 	if err == nil {
 		// the account first, as newRace finds the char by it
 		if strings.EqualFold(c.acct, acct) {
@@ -215,23 +212,15 @@ func (c *Char) who() []string {
 	} else if err == sql.ErrNoRows {
 		// if no char, check if account exists in DB, create char
 		txt = c.account(db)
-		// create character
-		tx, err := db.Begin()
-		ChkErr(err)
-
 		c.class = strings.TrimSpace(c.class)
-		query = "INSERT INTO chars VALUES(?, ?, ?, ?, ?, ?, 't')"
-		stmt, err := tx.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
 		log.Printf(
 			"New char: [%d %s] %s (%s) (@%s) seen %s",
 			c.lvl, c.class, c.name, c.race, c.acct, c.tseen,
 		)
-		_, err = stmt.Exec(c.acct, c.name, c.class, c.race, c.lvl, c.tseen)
+		// one statement, which commits as it runs
+		_, err = db.Exec("INSERT INTO chars VALUES(?, ?, ?, ?, ?, ?, 't')",
+			c.acct, c.name, c.class, c.race, c.lvl, c.tseen)
 		ChkErr(err)
-		ChkErr(tx.Commit())
 	} else if err != nil {
 		fatal(err)
 	}

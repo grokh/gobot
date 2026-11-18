@@ -7,6 +7,8 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -187,6 +189,31 @@ func (s tinScript) reconnect(t *testing.T, tt, bin, work string) {
 	if !logged {
 		t.Errorf("the logins weren't logged in logs/: %q", logs)
 	}
+	if s.stamped {
+		checkStamped(t, run, s.login[2])
+	}
+	if s.botLog {
+		// what tintin noted: each connect, the first of the failed ones,
+		// each login, each drop, and why it gave up on two logins
+		host, port, err := net.SplitHostPort(addr)
+		chkErr(t, err)
+		to := regexp.QuoteMeta(host + " port " + port)
+		in := "logged in as " + regexp.QuoteMeta(s.login[2])
+		from := "disconnected from " + regexp.QuoteMeta(host)
+		checkBotLog(t, run, []string{
+			"started",
+			"couldn't connect to " + to,
+			"connected to " + to + ` after \d+ failed tries`,
+			in, from,
+			"connected to " + to, in, from,
+			"connected to " + to,
+			"the MUD kept asking for the account, logging in again", from,
+			"connected to " + to,
+			"the login stalled, logging in again", from,
+			"connected to " + to, in,
+			from, "quit",
+		})
+	}
 	if s.daily {
 		ran := make(map[string]bool)
 		for _, when := range dailyRuns(t, run) {
@@ -204,11 +231,26 @@ func (s tinScript) reconnect(t *testing.T, tt, bin, work string) {
 // password twice. The script may try it a second time, in case a stray
 // line was taken for it, but then has to close the connection and stay
 // out: trying a wrong password over and over can only lock the account.
+// A script with botLog notes why in logs/bot.log, and sends an alert to a
+// stand-in for ntfy, as nothing else will bring it back.
 func (s tinScript) password(t *testing.T, tt, bin, work string) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	chkErr(t, err)
 	defer ln.Close()
-	tin, _ := s.startLoopback(t, tt, bin, work, "password",
+	alerts := make(chan string, 4)
+	if s.botLog {
+		ntfy := httptest.NewServer(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				alerts <- r.Method + " " + r.URL.Path + " " +
+					r.Header.Get("Title")
+			}))
+		defer ntfy.Close()
+		run := s.loopbackDir(work, "password")
+		chkErr(t, os.MkdirAll(run, 0750))
+		chkErr(t, os.WriteFile(filepath.Join(run, ntfyFile),
+			[]byte(ntfy.URL+"/katumi\n"), 0600))
+	}
+	tin, run := s.startLoopback(t, tt, bin, work, "password",
 		ln.Addr().String())
 	defer tin.stop()
 	go func() { // stop waiting on a tt++ that has died
@@ -242,7 +284,92 @@ func (s tinScript) password(t *testing.T, tt, bin, work string) {
 		t.Errorf("tintin didn't say why it stopped logging in%s",
 			tin.report())
 	}
+	if s.botLog {
+		select {
+		case got := <-alerts:
+			if want := "POST /katumi Katumi stopped logging in"; got != want {
+				t.Errorf("the alert that it stopped logging in was %q, "+
+					"not %q", got, want)
+			}
+		case <-time.After(10 * time.Second):
+			t.Errorf("no alert that it stopped logging in\nbot.log:\n%s%s",
+				readIfThere(t, filepath.Join(run, "logs", "bot.log")),
+				tin.report())
+		}
+		host, port, err := net.SplitHostPort(ln.Addr().String())
+		chkErr(t, err)
+		checkBotLog(t, run, []string{
+			"started",
+			"connected to " + regexp.QuoteMeta(host+" port "+port),
+			"the MUD turned the password down twice, not logging back in",
+		})
+		// gobot notes the alert before it sends it
+		botLog := readIfThere(t, filepath.Join(run, "logs", "bot.log"))
+		if !strings.Contains(botLog,
+			"Alert: The MUD turned Katumi's password down twice") {
+			t.Errorf("gobot didn't log the alert\nbot.log:\n%s", botLog)
+		}
+	}
 	tin.checkScreen(t)
+}
+
+// tintinLine is a line katumi.tin's botlog writes in logs/bot.log, dated the
+// way gobot dates its own.
+var tintinLine = regexp.MustCompile(
+	`^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d tintin: (.*)$`)
+
+// checkBotLog checks that the lines tintin wrote in run's logs/bot.log are
+// want, in order: each a regular expression for all that follows "tintin: ".
+func checkBotLog(t *testing.T, run string, want []string) {
+	t.Helper()
+	botLog := readIfThere(t, filepath.Join(run, "logs", "bot.log"))
+	var got []string
+	for _, line := range strings.Split(botLog, "\n") {
+		if m := tintinLine.FindStringSubmatch(line); m != nil {
+			got = append(got, m[1])
+		} else if strings.Contains(line, "tintin:") {
+			t.Errorf("a line of tintin's in bot.log isn't dated the way "+
+				"gobot dates its own: %q", line)
+		}
+	}
+	same := len(got) == len(want)
+	for i := 0; same && i < len(want); i++ {
+		same = regexp.MustCompile("^" + want[i] + "$").MatchString(got[i])
+	}
+	if !same {
+		t.Errorf("tintin's lines in bot.log:\n%s\nwant:\n%s\nbot.log:\n%s",
+			strings.Join(got, "\n"), strings.Join(want, "\n"), botLog)
+	}
+}
+
+// stamp is the time #log timestamp puts before a line of a session log.
+var stamp = regexp.MustCompile(`^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d `)
+
+// checkStamped checks that char's session logs in run give the time of
+// their lines: the first, and each with a login prompt. A line tintin had
+// to join to a pending prompt shares that line's stamp, so not every line
+// gets its own.
+func checkStamped(t *testing.T, run, char string) {
+	t.Helper()
+	logs, err := filepath.Glob(filepath.Join(run, "logs", char+".*.log"))
+	chkErr(t, err)
+	if len(logs) == 0 {
+		t.Errorf("no session log of %s in %s", char, run)
+	}
+	for _, f := range logs {
+		lines := strings.Split(readIfThere(t, f), "\n")
+		for i, line := range lines {
+			if (i == 0 || strings.Contains(line, "Account name:")) &&
+				!stamp.MatchString(line) {
+				t.Errorf("line %d of %s has no time: %q", i+1, f, line)
+			}
+		}
+	}
+}
+
+// loopbackDir is the run folder startLoopback uses for what.
+func (s tinScript) loopbackDir(work, what string) string {
+	return filepath.Join(work, strings.TrimSuffix(s.name, ".tin")+"-"+what)
 }
 
 // startLoopback starts tt++ in a run folder of its own, named for what,
@@ -250,8 +377,7 @@ func (s tinScript) password(t *testing.T, tt, bin, work string) {
 // returns the folder too.
 func (s tinScript) startLoopback(t *testing.T, tt, bin, work, what,
 	addr string) (*tinRun, string) {
-	run := filepath.Join(work,
-		strings.TrimSuffix(s.name, ".tin")+"-"+what)
+	run := s.loopbackDir(work, what)
 	chkErr(t, os.MkdirAll(filepath.Join(run, "logs"), 0750))
 	copyLoopback(t, s.path, filepath.Join(run, s.name), addr)
 	for _, dep := range s.deps {

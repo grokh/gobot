@@ -23,6 +23,16 @@ func SendBootAlert() {
 	ChkErr(alert("TorilMUD reboot/crash", msg))
 }
 
+// SendLoginAlert tells everyone subscribed to the ntfy topic that Katumi has
+// stopped logging in: the MUD has turned her password down twice, and trying
+// it again could only lock the account. katumi.tin's loginstop runs it.
+func SendLoginAlert() error {
+	msg := "The MUD turned Katumi's password down twice, so she won't log " +
+		"back in. Put the right one in tokens.tin and restart tintin."
+	log.Printf("Alert: %s\n", msg)
+	return alert("Katumi stopped logging in", msg)
+}
+
 // SendTestAlert sends a test alert to the ntfy topic the way a reboot alert
 // goes, so gobot -testalert can show that the alerts get through without
 // waiting for a reboot.

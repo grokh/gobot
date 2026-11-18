@@ -64,6 +64,7 @@ func Test_Tintin(t *testing.T) {
 	scripts := []tinScript{
 		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
 			everyTell: true, online: true, uptime: true, daily: true,
+			botLog: true, stamped: true,
 			login: []string{fakeAcct, fakeSecret, fakeChar}, tick: "who"},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
@@ -91,15 +92,19 @@ func Test_Tintin(t *testing.T) {
 // its own folder, whether it answers stat on ASSOC, whether it passes gobot
 // every tell, not just stat, whether it records who's count of players
 // online, whether it records the MUD's uptime, and whether it backs up
-// toril.db at midnight (an #event {DAY}). start is the command that logs in
-// when tintin starts, for a script that leaves that to another file. login
-// is what the script answers the MUD's login prompts with: the account (""
-// for any), the password and the character. tick is a line its ticker sends
-// once the character is in.
+// toril.db at midnight (an #event {DAY}). botLog is whether it notes in
+// logs/bot.log when it starts, connects, logs in, drops and quits, and the
+// logins that go wrong, and sends an alert when it stops logging in, and
+// stamped whether its session log has the time each line came. start is the
+// command that logs in when tintin starts, for a script that leaves that to
+// another file. login is what the script answers the MUD's login prompts
+// with: the account ("" for any), the password and the character. tick is a
+// line its ticker sends once the character is in.
 type tinScript struct {
 	name, path                              string
 	deps                                    []string
 	assoc, everyTell, online, uptime, daily bool
+	botLog, stamped                         bool
 	start, tick                             string
 	login                                   []string
 }

@@ -7,6 +7,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -64,6 +66,61 @@ func ChkErr(err error) {
 	}
 }
 
+// runName names this run by the flags it was given, as "gobot -online", for
+// the log entries that end a run: which check a locked toril.db cost, say.
+// The values are left out, as one can be a whole who list. flag.Visit gives
+// the names in alphabetical order.
+func runName() string {
+	name := "gobot"
+	flag.Visit(func(f *flag.Flag) { name += " -" + f.Name })
+	return name
+}
+
+// panicSite says where the panic being handled began: gobot's functions from
+// there back to main, each with its file and line, as "Stat (items.go:120) <
+// ReplyTo (tell.go:1330) < main (gobot.go:160)". Frames above the deepest
+// runtime.gopanic are the deferred functions handling the panic, like
+// ReplyTo's, which panics again, so they're left out, as is everything
+// outside gobot.
+func panicSite() string {
+	pc := make([]uintptr, 64)
+	frames := runtime.CallersFrames(pc[:runtime.Callers(1, pc)])
+	// The first frame is this function's, and its name begins the way all
+	// of gobot's do: "main." when built, the import path in a test binary.
+	f, more := frames.Next()
+	pkg := strings.TrimSuffix(f.Function, "panicSite")
+	var calls []string
+	for more {
+		f, more = frames.Next()
+		switch {
+		case f.Function == "runtime.gopanic":
+			calls = nil
+		case strings.HasPrefix(f.Function, pkg):
+			calls = append(calls, fmt.Sprintf("%s (%s:%d)",
+				strings.TrimPrefix(f.Function, pkg),
+				filepath.Base(f.File), f.Line))
+		}
+	}
+	return strings.Join(calls, " < ")
+}
+
+// endRun is main's last deferred call. A run that panicked with a
+// fatalError ends as log.Fatal would end it, logged, under the run's name,
+// with exit status 1. Any other panic is a bug: it's logged with where it
+// happened, then goes on, to print its stack trace and exit. The trace goes
+// to stderr, which tintin leaves on its screen, where nothing keeps it.
+func endRun() {
+	r := recover()
+	if r == nil {
+		return
+	}
+	if msg, ok := r.(fatalError); ok {
+		log.Fatalln(runName() + ": " + string(msg))
+	}
+	log.Printf("Bug in %s: %v, at %s\n", runName(), r, panicSite())
+	panic(r)
+}
+
 func main() {
 	f, err := os.OpenFile(
 		"logs/bot.log",
@@ -75,18 +132,8 @@ func main() {
 	}
 	defer f.Close()
 	log.SetOutput(cleanLog{f})
-	// A fatal error ends the run as log.Fatal would: logged, and exit
-	// status 1. Any other panic is a bug, so it goes on to say where it
-	// happened. Deferred after f.Close, so it runs first, while the log is
-	// still open.
-	defer func() {
-		if r := recover(); r != nil {
-			if msg, ok := r.(fatalError); ok {
-				log.Fatalln(string(msg))
-			}
-			panic(r)
-		}
-	}()
+	// deferred after f.Close, so it runs first, while the log is still open
+	defer endRun()
 
 	// for who.go WhoChar(char string, lvl int,
 	// class string, race string, acct string)
@@ -135,10 +182,25 @@ func main() {
 	// for ntfy.go SendTestAlert(), to check reboot alerts by hand
 	var testAlert = flag.Bool("testalert", false,
 		"Send a test alert to the ntfy topic in "+ntfyFile+".")
+	// for ntfy.go SendLoginAlert(), which katumi.tin's loginstop runs
+	var loginAlert = flag.Bool("loginalert", false,
+		"Alert the ntfy topic in "+ntfyFile+" that Katumi has stopped "+
+			"logging in, as katumi.tin does once the MUD turns her "+
+			"password down twice.")
 	// port number for API / web server
 	var port = flag.String("port", "", "API / web server port, on 127.0.0.1.")
 
-	flag.Parse()
+	// Parse says what's wrong on stderr, which tintin leaves on its screen,
+	// so it goes in the log too: a flag this gobot doesn't take loses the
+	// event, as when katumi.tin is newer than the gobot installed.
+	flag.CommandLine.Init(os.Args[0], flag.ContinueOnError)
+	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
+		if err == flag.ErrHelp {
+			os.Exit(0)
+		}
+		log.Printf("Bad flags for %s: %v\n", runName(), err)
+		os.Exit(2)
+	}
 
 	var cmds []string
 	// only run one command at a time
@@ -198,6 +260,12 @@ func main() {
 		log.Println("Test alert sent")
 		cmds = []string{"Test alert sent to the ntfy topic in " +
 			ntfyFile + ".\n"}
+	case *loginAlert:
+		if err := SendLoginAlert(); err != nil {
+			log.Printf("Login alert failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Login alert failed: %v\n", err)
+			os.Exit(1)
+		}
 	case *port != "":
 		loadPage()
 		http.HandleFunc("/", eqHandler)

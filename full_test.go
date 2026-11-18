@@ -1048,10 +1048,21 @@ func testBackup(t *testing.T) string {
 	chkErr(t, os.WriteFile(filepath.Join("bak", "notes.txt"),
 		[]byte("keep"), 0640))
 
+	var logged bytes.Buffer
+	out := log.Writer()
+	log.SetOutput(&logged)
 	chkErr(t, BackupDB())
+	log.SetOutput(out)
 
 	// today's backup is a whole dump, and nothing temporary is left over
 	today := filepath.Join("bak", "toril.db."+now.Format("2006-01-02")+".gz")
+	// the log says it was written, and its size
+	if fi, err := os.Stat(today); err != nil || !strings.Contains(
+		logged.String(), fmt.Sprintf("Backup: wrote %s, %d bytes\n", today,
+			fi.Size())) {
+		t.Errorf("backup check failed: the log has %q (%v)", logged.String(),
+			err)
+	}
 	f, err := os.Open(today)
 	chkErr(t, err)
 	zr, err := gzip.NewReader(f)

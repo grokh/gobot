@@ -156,12 +156,13 @@ var acctName = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
 // the ) before it: (Daylight) or (In Dark), for a char the light bothers.
 var lightFlag = regexp.MustCompile(`(?i)\)\s*\((daylight|in dark)$`)
 
-// whoAcct picks the account out of what katumi.tin's who triggers take for
-// it: everything from the line's first "(@" to its last ")". That's the
-// account alone on nearly every line, but a light flag can follow it, and a
-// title comes before it, where a player could write a "(@name)" of their
-// own. The MUD's account is the last one on the line, so that's the one
-// read. ok is false if what's left isn't an account's name.
+// whoAcct picks the account out of what katumi.tin's who trigger takes for
+// it. The trigger's pattern ends with the line, so that's everything from
+// the first "(@" after the race to the line's last ")": the account alone on
+// nearly every line, but a light flag can follow it, and a "(@name)" a
+// player got into the line ahead of it would bring along everything from
+// there on. The MUD's account is the last one on the line, so that's the
+// one read. ok is false if what's left isn't an account's name.
 func whoAcct(s string) (acct string, ok bool) {
 	s = strings.TrimSpace(s)
 	for {

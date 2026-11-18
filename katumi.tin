@@ -48,9 +48,32 @@
 	#replace {%1} {\\} {};
 }
 
+#nop logon opens the session's log, named for the day the login began, and
+#nop stamps each line in it with the time it came, in the server's time.
 #alias {logon} {
 	#format {logdate} {%t} {%Y.%m.%d};
+	#log timestamp {%F %T };
 	#log append logs/$char$dot$logdate${dot}log;
+}
+#nop botlog puts a line in gobot's log, logs/bot.log, dated the way gobot
+#nop dates its own: what only tintin sees, like the connection dropping or
+#nop a login going wrong. Usage: botlog <text>
+#alias {botlog %1} {
+	#format {logtime} {%t} {%Y/%m/%d %H:%M:%S};
+	#line log {logs/bot.log} {$logtime tintin: %1}
+}
+#nop Each connect is a session of its own, so the startup session counts
+#nop the ones that fail in a row: the first goes in the log, and the
+#nop connect that ends the run says how many there were.
+#var {connfails} {0}
+#alias {connected %1} {
+	#if {$connfails} {botlog connected to %1 after $connfails failed tries} {botlog connected to %1};
+	#var {connfails} {0}
+}
+#alias {connfailed %1} {
+	#if {$connfails == 0} {botlog couldn't connect to %1};
+	#math {connfails} {$connfails + 1};
+	#delay {relogin} {login} {5}
 }
 #nop Answer the login prompts one at a time: the account when the MUD asks
 #nop for it, the password only at its own prompt and the character at the
@@ -68,10 +91,10 @@
 	#var {inworld} {0};
 	#act {^Account name:} {
 		#if {$pwsent >= 2} {loginstop} {
-			#if {$acctsent >= 3} {#zap} {
+			#if {$acctsent >= 3} {botlog the MUD kept asking for the account, logging in again;#zap} {
 				#if {$acctsent == 0} {
 					logon;
-					#delay {loginwatch} {#zap} {60}
+					#delay {loginwatch} {botlog the login stalled, logging in again;#zap} {60}
 				};
 				#math {acctsent} {$acctsent + 1};
 				#delay {sendacct} {$acct} {1}
@@ -90,6 +113,7 @@
 		#unact {^Password:};
 		#unact {^Your choice:};
 		#var {ingame} {1};
+		botlog logged in as $char;
 		$char;
 		time
 	};
@@ -97,9 +121,12 @@
 	#split {0} {0};
 }
 #nop Trying a password the MUD has turned down twice can only lock the
-#nop account, so close the session without logging back in.
+#nop account, so close the session without logging back in, and send an
+#nop alert, since nothing else will bring Katumi back.
 #alias {loginstop} {
 	#unevent {SESSION DISCONNECTED};
+	botlog the MUD turned the password down twice, not logging back in;
+	#system gobot -loginalert &;
 	#showme {The MUD turned down the password twice, so Katumi won't log back in. Put the right one in tokens.tin and restart tintin.};
 	#zap
 }
@@ -114,13 +141,16 @@
 #nop Add who's count of players online to the hour, digits only as well
 #act {^Total players online: %d} {#system gobot -online %1 &}
 
-#event {PROGRAM START} {login}
+#event {PROGRAM START} {botlog started;login}
+#event {PROGRAM TERMINATION} {botlog quit}
 #nop Log back in 5 seconds after a disconnect or a failed connect. The #delay
 #nop has to live in the startup session (#gts): calling login straight from
 #nop these events nests every retry inside the last failed one until tintin
-#nop runs out of stack.
-#event {SESSION DISCONNECTED} {#gts {#delay {relogin} {login} {5}}}
-#event {SESSION TIMED OUT} {#gts {#delay {relogin} {login} {5}}}
+#nop runs out of stack. #gts fills in variables before the startup session
+#nop gets the command, so its counts are kept in aliases it runs.
+#event {SESSION CONNECTED} {#gts {connected %1 port %3}}
+#event {SESSION DISCONNECTED} {botlog disconnected from %1;#gts {#delay {relogin} {login} {5}}}
+#event {SESSION TIMED OUT} {#gts {connfailed %1 port %3}}
 #nop Back up toril.db at midnight, once, in the game or not. tintin fires a
 #nop time event in every session that has it, and the MUD's session starts
 #nop with a copy of the startup session's events, so it drops its copy of
@@ -132,7 +162,7 @@
 #nop after that the same words said on a channel would knock Katumi
 #nop offline. ingame, set at the menu, comes too early for this.
 #var {inworld} {0}
-#act {That character doesn't exist! Please try again.} {#if {$inworld == 0} {#delay 3 #zap}}
+#act {That character doesn't exist! Please try again.} {#if {$inworld == 0} {botlog the MUD says $char doesn't exist, logging in again;#delay 3 #zap}}
 
 
 #nop Tells run at priority 4, ahead of every other trigger at the default 5.

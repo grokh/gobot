@@ -12,8 +12,9 @@ import (
 )
 
 // Test_Ntfy checks the reboot alert gobot posts to the topic in ntfy.url, the
-// test alert gobot -testalert sends there, and that an error from ntfy, or a
-// missing or empty ntfy.url, comes back as one.
+// test alert gobot -testalert sends there, the alert gobot -loginalert sends
+// when Katumi stops logging in, and that an error from ntfy, or a missing or
+// empty ntfy.url, comes back as one.
 func Test_Ntfy(t *testing.T) {
 	type post struct{ to, title, msg string }
 	posts := make(chan post, 4)
@@ -63,6 +64,12 @@ func Test_Ntfy(t *testing.T) {
 	chkErr(t, SendTestAlert())
 	posted("SendTestAlert()", &post{"POST /katumi", "TorilMUD alert test",
 		"A test from gobot -testalert. Reboot alerts will arrive here too."})
+
+	chkErr(t, SendLoginAlert())
+	posted("SendLoginAlert()", &post{"POST /katumi",
+		"Katumi stopped logging in", "The MUD turned Katumi's password down " +
+			"twice, so she won't log back in. Put the right one in " +
+			"tokens.tin and restart tintin."})
 
 	err = ntfy(srv.URL+"/busy", "TorilMUD reboot/crash", "test")
 	if err == nil || !strings.Contains(err.Error(), "429 Too Many Requests") ||

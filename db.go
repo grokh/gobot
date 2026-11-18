@@ -155,6 +155,12 @@ func BackupDB() error {
 	if err := os.Rename(tmp, name); err != nil {
 		return err
 	}
+	fi, err := os.Stat(name)
+	if err != nil {
+		return err
+	}
+	// a line each time, so the log shows that the backup ran, and how often
+	log.Printf("Backup: wrote %s, %d bytes\n", name, fi.Size())
 	pruneBackups(time.Now())
 	return nil
 }

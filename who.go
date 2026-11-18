@@ -233,7 +233,7 @@ func (c *Char) who() []string {
 		ChkErr(err)
 		ChkErr(tx.Commit())
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 	return txt
 }
@@ -260,7 +260,7 @@ func (c *Char) account(db *sql.DB) []string {
 			c.acct)
 		ChkErr(err)
 	} else if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 	return txt
 }

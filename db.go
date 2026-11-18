@@ -66,26 +66,103 @@ var dumpWait = 10 * time.Second
 // deleted, except the first backup of each month, which is kept for good.
 const keepDays = 60
 
+// botTables are the tables init_db.sql makes. The bot's toril.db has all of
+// them, and more (the old item tables), so -bak and -res refuse a database
+// that lacks one, as it isn't the bot's: an empty one, which is what the
+// sqlite3 CLI makes of a toril.db that isn't there, or the copy dbcopy.sh
+// publishes (in the gobot checkout, among other places), which has no
+// online. Test_BotTables keeps the list in step with init_db.sql.
+var botTables = []string{"accounts", "boots", "chars", "class_types",
+	"classes", "loads", "online", "race_types", "races"}
+
+// openReadOnly opens the SQLite database at path read-only, so it's never
+// made or changed: one that's missing fails at the first query. A write by
+// the bot is waited for, up to dumpWait.
+func openReadOnly(path string) (*sql.DB, error) {
+	return sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=ro&_busy_timeout=%d",
+		filepath.ToSlash(path), dumpWait.Milliseconds()))
+}
+
+// tables lists the tables in the database at path, opened read-only.
+func tables(path string) (map[string]bool, error) {
+	db, err := openReadOnly(path)
+	if err != nil {
+		return nil, err
+	}
+	defer db.Close()
+	rows, err := db.Query("SELECT name FROM sqlite_schema WHERE type = 'table'")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	have := make(map[string]bool)
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		have[name] = true
+	}
+	return have, rows.Err()
+}
+
+// checkTables checks that the database at path has every table in
+// botTables. name is what its errors call the database.
+func checkTables(path, name string) error {
+	have, err := tables(path)
+	if err != nil {
+		return fmt.Errorf("%s: %v", name, err)
+	}
+	var missing []string
+	for _, table := range botTables {
+		if !have[table] {
+			missing = append(missing, table)
+		}
+	}
+	switch {
+	case len(have) == 0:
+		return fmt.Errorf("%s has no tables", name)
+	case len(missing) == 1:
+		return fmt.Errorf("%s has no %s table, so it isn't the bot's database",
+			name, missing[0])
+	case len(missing) > 1:
+		return fmt.Errorf("%s has no %s tables, so it isn't the bot's database",
+			name, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 // BackupDB saves a gzipped .dump of toril.db in bak/, the form RestoreDB
-// reads back, then prunes old dailies. The dump goes to a temp file first
-// and is only renamed into place once it's known to be complete.
-func BackupDB() {
-	ChkErr(os.MkdirAll("bak", 0750))
+// reads back, then prunes old dailies. toril.db has to be there, with every
+// table in botTables, and is only read, so a missing one fails instead of
+// being made empty and saved as the day's backup. The dump goes to a temp
+// file first and is only renamed into place once it's known to be
+// complete, so a failed backup leaves the day's earlier one as it was.
+func BackupDB() error {
+	if err := checkTables("toril.db", "toril.db"); err != nil {
+		return err
+	}
+	if err := os.MkdirAll("bak", 0750); err != nil {
+		return err
+	}
 	name := filepath.Join("bak",
 		"toril.db."+time.Now().Format("2006-01-02")+".gz")
 	tmp := name + ".tmp"
 	if err := writeDump(tmp); err != nil {
 		os.Remove(tmp)
-		log.Fatalln("Fatal Error: Cannot backup DB: ", err)
+		return err
 	}
-	ChkErr(os.Rename(tmp, name))
+	if err := os.Rename(tmp, name); err != nil {
+		return err
+	}
 	pruneBackups(time.Now())
-	// restore: zcat bak/toril.db.<date>.gz | sqlite3 toril.db
+	return nil
 }
 
-// writeDump gzips a .dump of toril.db into path. sqlite3 exits 0 even when
-// a dump stops partway, as it does on a locked database, so this also
-// checks that it printed no errors and that the dump reached its COMMIT.
+// writeDump gzips a .dump of toril.db, opened read-only, into path. sqlite3
+// exits 0 even when a dump stops partway, as it does on a locked database,
+// so this also checks that it printed no errors and that the dump reached
+// its COMMIT.
 func writeDump(path string) error {
 	f, err := os.Create(path)
 	if err != nil {
@@ -95,7 +172,7 @@ func writeDump(path string) error {
 	zw := gzip.NewWriter(f)
 	var end lastBytes
 	var stderr bytes.Buffer
-	cmd := exec.Command("sqlite3", "-cmd",
+	cmd := exec.Command("sqlite3", "-readonly", "-cmd",
 		fmt.Sprintf(".timeout %d", dumpWait.Milliseconds()),
 		"toril.db", ".dump")
 	cmd.Stdout = io.MultiWriter(zw, &end)
@@ -157,10 +234,136 @@ func pruneBackups(now time.Time) {
 	}
 }
 
-func RestoreDB(file string) { // this doesn't work on Mac OS X
-	cmd := exec.Command("sh", "-c", "zcat "+file+" | sqlite3 toril.db")
-	err := cmd.Run()
-	if err != nil {
-		log.Fatalln("Fatal Error: Cannot restore DB: ", err)
+// RestoreDB makes toril.db from file, a backup -bak wrote, and says what it
+// holds. The dump is loaded into a new database beside toril.db, which takes
+// its place only once the file has decompressed whole, the dump has ended in
+// COMMIT and loaded without an error, and the result passes SQLite's
+// integrity check and has every table in botTables. A toril.db with tables
+// is never replaced: move it aside first. A missing or empty one is, since
+// gobot leaves an empty one when it runs while toril.db is away.
+func RestoreDB(file string) (string, error) {
+	if err := canReplace(); err != nil {
+		return "", err
 	}
+	dump, err := gunzip(file)
+	if err != nil {
+		return "", err
+	}
+	if !bytes.HasSuffix(bytes.TrimSpace(dump), []byte("COMMIT;")) {
+		return "", errors.New("the dump doesn't end in COMMIT: it stopped partway")
+	}
+
+	// made 0644 less the umask, as SQLite makes a database, rather than
+	// os.CreateTemp's 0600
+	tmp := fmt.Sprintf("toril.db.restore-%d", os.Getpid())
+	f, err := os.OpenFile(tmp, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+	installed := false
+	defer func() {
+		if !installed {
+			os.Remove(tmp)
+		}
+		os.Remove(tmp + "-journal")
+	}()
+	// -bail, so a dump that won't load stops at its first error, rather
+	// than going on to commit what was left
+	var stderr bytes.Buffer
+	cmd := exec.Command("sqlite3", "-bail", tmp)
+	cmd.Stdin = bytes.NewReader(dump)
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("loading the dump: %v: %s",
+			err, strings.TrimSpace(stderr.String()))
+	}
+	if stderr.Len() > 0 {
+		return "", fmt.Errorf("loading the dump: %s",
+			strings.TrimSpace(stderr.String()))
+	}
+
+	if err := checkTables(tmp, "the backup"); err != nil {
+		return "", err
+	}
+	db, err := openReadOnly(tmp)
+	if err != nil {
+		return "", err
+	}
+	var check string
+	var chars, accounts, boots int
+	err = db.QueryRow("PRAGMA integrity_check").Scan(&check)
+	if err == nil {
+		err = db.QueryRow("SELECT (SELECT count(*) FROM chars), "+
+			"(SELECT count(*) FROM accounts), (SELECT count(*) FROM boots)").
+			Scan(&chars, &accounts, &boots)
+	}
+	db.Close() // before the rename: Windows won't rename an open file
+	if err != nil {
+		return "", err
+	}
+	if check != "ok" {
+		return "", fmt.Errorf("the backup fails SQLite's integrity check: %s",
+			check)
+	}
+
+	// again, in case a toril.db came back while the dump loaded
+	if err := canReplace(); err != nil {
+		return "", err
+	}
+	if err := os.Rename(tmp, "toril.db"); err != nil {
+		return "", err
+	}
+	installed = true
+	return fmt.Sprintf("Restored toril.db from %s: %d chars, %d accounts, "+
+		"%d boots.", file, chars, accounts, boots), nil
+}
+
+// canReplace checks that a restore may put a new toril.db in place: there's
+// no toril.db, or only one with no tables, and no journal beside it. SQLite
+// would play a journal the old toril.db left back into the new one the
+// first time it's opened, corrupting it.
+func canReplace() error {
+	fi, err := os.Stat("toril.db")
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+	case err != nil:
+		return err
+	case fi.Size() > 0:
+		have, err := tables("toril.db")
+		if err != nil {
+			return fmt.Errorf("toril.db can't be read (%v): move it aside first",
+				err)
+		}
+		if len(have) > 0 {
+			return errors.New("toril.db has tables: move it aside first")
+		}
+	}
+	for _, journal := range []string{"toril.db-journal", "toril.db-wal"} {
+		if _, err := os.Stat(journal); err == nil {
+			return fmt.Errorf("%s is left from the old toril.db: "+
+				"move it aside too", journal)
+		}
+	}
+	return nil
+}
+
+// gunzip reads all of the gzip file at path, and fails if it isn't gzip, is
+// cut short, or fails its checksum. zcat piped into sqlite3 would hide all
+// three, since a pipe's exit status is its last command's.
+func gunzip(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	zr, err := gzip.NewReader(f)
+	if err != nil {
+		return nil, fmt.Errorf("can't decompress it: %v", err)
+	}
+	dump, err := io.ReadAll(zr)
+	if err != nil {
+		return nil, fmt.Errorf("can't decompress it: %v", err)
+	}
+	return dump, nil
 }

@@ -11,7 +11,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - `Test_Tintin` runs `katumi.tin` in tt++ 2.02.20 or later, and skips without one. `go test -short` leaves it out.
 - CI (`.github/workflows/ci.yml`) runs the same checks on every pull request, and fails if `Test_Tintin` skips.
 - `staticcheck ./...` and `shellcheck *.sh` print nothing either. CI doesn't run them, so run them where they are installed and keep it that way.
-- `ChkErr` and `fatal` panic with a `fatalError`. `main` ends the run on one as `log.Fatal` would, `ReplyTo` answers the tell with `recordsDown` instead, and the site answers 500. The `log.Fatal` calls left in `who.go` and `db.go` end the program at once: in `Test_All`, whose log goes to `logs/test.log`, one of those that fails stops the whole test binary with nothing on the console but `FAIL`. Look in that file.
+- `ChkErr` and `fatal` panic with a `fatalError`. `main` ends the run on one as `log.Fatal` would, `ReplyTo` answers the tell with `recordsDown` instead, and the site answers 500. The `log.Fatal` calls left in `who.go` end the program at once: in `Test_All`, whose log goes to `logs/test.log`, one of those that fails stops the whole test binary with nothing on the console but `FAIL`. Look in that file.
 
 ## Where things are
 
@@ -43,7 +43,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - **Two tintin setups call gobot.** Katumi runs it from `/srv/bot`. `torilmud.tin`, in the private mud repo, runs `-tell "stat ..."`, `-item` and `-glist` from `~/mud/torilmud`. A change to those flags, to what they print, or to where gobot looks for `TorilDB.db` and `logs/` has to work for both. `TORILMUD_TIN=<path to torilmud.tin> go test -run Tintin ./...` checks the second.
 - **NyyLIB reads Katumi's `clist` and `char` replies, the NHC welcome, and the published `toril.db`.** `Test_NyyLIB` and `Test_DBCopyItems` pin them. Don't reword those lines or reshape those tables to get a test passing. Say what would change in the pull request, because Nyyrazzilyss has to be told first.
 - **The published `toril.db` is an allowlist.** Only what `dbcopy_public.sql` lists is copied. Real names (`accounts.player_name`), hidden alts (`vis = 'f'`), load reports and the `online` table stay out, and nothing may add them. A new table or column stays private until it is listed there.
-- **`init_db.sql` has to match the live database**, lookup rows included. A class or race added by hand on the server goes into it too, and into `testNewClasses` in `full_test.go`.
+- **`init_db.sql` has to match the live database**, lookup rows included. A class or race added by hand on the server goes into it too, and into `testNewClasses` in `full_test.go`. A new table also goes into `botTables` in `db.go` (`Test_BotTables` checks), and into the live database before that gobot is installed: `-bak` and `-res` refuse a database that lacks one of those tables.
 - **Never in the repo:** `toril.db`, `TorilDB.db`, `torildb.url` (Kegor's download link is his to share), `tokens.tin`, `ntfy.url`. `.gitignore` covers them.
 - **No inline script or style in `html/`.** grokh.com sends `Content-Security-Policy: default-src 'self'`.
 - **Begin every transaction on `toril.db` with `Begin()` on `OpenDB`'s handle**, which starts it with `BEGIN IMMEDIATE`. A transaction that reads before its first write, begun any other way, gets "database is locked" at once whenever another gobot is writing, without the 5-second wait. `testWhoWaits` checks `WhoBatch`.

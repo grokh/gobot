@@ -126,7 +126,8 @@ func main() {
 	var backup = flag.Bool("bak", false,
 		"Backup the toril.db database.")
 	var restore = flag.String("res", "",
-		"Restore the toril.db database from backup file. Ex: toril.db.gz")
+		"Restore toril.db from a backup -bak wrote, once the old toril.db "+
+			"is moved aside. Ex: bak/toril.db.2026-11-17.gz")
 	// for items.go CheckItemDB(path string), run by torildb.sh
 	var checkItems = flag.String("checkitems", "",
 		"Check a downloaded TorilDB.db before it replaces the one in use. "+
@@ -163,9 +164,20 @@ func main() {
 	case *glist != "":
 		cmds = GlistStats(*glist)
 	case *backup:
-		BackupDB()
+		if err := BackupDB(); err != nil {
+			log.Printf("Backup failed: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Backup failed: %v\n", err)
+			os.Exit(1)
+		}
 	case *restore != "":
-		RestoreDB(*restore)
+		msg, err := RestoreDB(*restore)
+		if err != nil {
+			log.Printf("Restore failed: %s: %v\n", *restore, err)
+			fmt.Fprintf(os.Stderr, "Restore failed: %s: %v\n", *restore, err)
+			os.Exit(1)
+		}
+		log.Println(msg)
+		cmds = []string{msg + "\n"}
 	case *checkItems != "":
 		msg, err := CheckItemDB(*checkItems)
 		if err != nil {

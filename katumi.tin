@@ -121,7 +121,12 @@
 #nop runs out of stack.
 #event {SESSION DISCONNECTED} {#gts {#delay {relogin} {login} {5}}}
 #event {SESSION TIMED OUT} {#gts {#delay {relogin} {login} {5}}}
+#nop Back up toril.db at midnight, once, in the game or not. tintin fires a
+#nop time event in every session that has it, and the MUD's session starts
+#nop with a copy of the startup session's events, so it drops its copy of
+#nop this one as soon as it's made.
 #event {DAY} {#system gobot -bak}
+#event {SESSION CREATED} {#unevent {DAY}}
 #nop The MUD says this when the character sent at the menu doesn't exist.
 #nop It zaps only until the character is in the game (inworld), since
 #nop after that the same words said on a channel would knock Katumi

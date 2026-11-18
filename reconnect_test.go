@@ -63,6 +63,11 @@ const (
 // inside the last until tt++ runs out of stack, so the script has to log
 // back in through a #delay, and logging in again right after the drop
 // fails the test.
+//
+// Through it all, the midnight backup, made to go off every second, has to
+// run once each time, in the game or not. tintin fires a time event in
+// every session that has it, and each session it opens for the MUD starts
+// with a copy of the startup session's events.
 func (s tinScript) reconnect(t *testing.T, tt, bin, work string) {
 	// the MUD's port, which nothing listens on until the MUD comes up
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -146,6 +151,20 @@ func (s tinScript) reconnect(t *testing.T, tt, bin, work string) {
 	m.login(s.login)
 	m.waitLine(s.tick, "from the ticker once the character was in")
 
+	// The backup goes on with the character in.
+	if s.daily {
+		ran := len(dailyRuns(t, run))
+		timeout := time.After(5 * time.Second)
+		for len(dailyRuns(t, run)) < ran+2 {
+			select {
+			case <-timeout:
+				t.Fatalf("the backup didn't go on every second with the "+
+					"character in: %q%s", dailyRuns(t, run), tin.report())
+			case <-time.After(50 * time.Millisecond):
+			}
+		}
+	}
+
 	// The driver quits when the MUD says so.
 	m.send("TEST OVER\r\n", "the end of the test")
 	select {
@@ -167,6 +186,17 @@ func (s tinScript) reconnect(t *testing.T, tt, bin, work string) {
 	}
 	if !logged {
 		t.Errorf("the logins weren't logged in logs/: %q", logs)
+	}
+	if s.daily {
+		ran := make(map[string]bool)
+		for _, when := range dailyRuns(t, run) {
+			if ran[when] {
+				t.Errorf("the backup ran twice at %s: the MUD's session kept "+
+					"its copy of the event", when)
+				break
+			}
+			ran[when] = true
+		}
 	}
 }
 
@@ -272,13 +302,42 @@ var (
 	tickEnd   = regexp.MustCompile(`(\}\s*\{)[0-9.]+(\}\s*)$`)
 )
 
+// dailyEvent is the #event that goes off at midnight, up to its name, and
+// dayName is that name wherever the script gives it, as an #unevent does.
+// In a copy, the event goes off every second instead and writes the date
+// and time in dailyLog (dailyRecord: an event's %0 to %6 are the year,
+// month, weekday, day, hour, minute and second) in place of its command.
+// dailyRun finds them there.
+var (
+	dailyEvent = regexp.MustCompile(`(?i)^(\s*#event\s*)\{DAY\}\s*\{.*\}\s*$`)
+	dayName    = regexp.MustCompile(`(?i)\{DAY\}`)
+	dailyRun   = regexp.MustCompile(`daily (\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)`)
+)
+
+const (
+	dailyLog    = "daily.log"
+	dailyRecord = "#line log {" + dailyLog + "} {daily %0-%1-%3 %4:%5:%6}"
+)
+
+// dailyRuns are the times the midnight event of the copy in run went off,
+// each as often as it ran.
+func dailyRuns(t *testing.T, run string) []string {
+	var runs []string
+	for _, m := range dailyRun.FindAllStringSubmatch(
+		readIfThere(t, filepath.Join(run, dailyLog)), -1) {
+		runs = append(runs, m[1])
+	}
+	return runs
+}
+
 // copyLoopback copies a tintin script so that it logs in to addr instead
 // of TorilMUD, logs back in reloginDelay after a disconnect or a failed
 // connect, sends the account acctDelay after its prompt, gives up on a
-// login after loginWatch, and runs its tickers every tickSecs. Other
-// #session lines, like a commented-out one for torilmud.org, are left
-// out, and the test stops if anything is left that could connect anywhere
-// else.
+// login after loginWatch, and runs its tickers every tickSecs. Its
+// midnight event goes off every second and only notes the time, in
+// dailyLog. Other #session lines, like a commented-out one for
+// torilmud.org, are left out, and the test stops if anything is left that
+// could connect anywhere else.
 func copyLoopback(t *testing.T, from, to, addr string) {
 	b, err := os.ReadFile(from)
 	chkErr(t, err)
@@ -319,6 +378,9 @@ func copyLoopback(t *testing.T, from, to, addr string) {
 			line = tickEnd.ReplaceAllString(line, "${1}"+tickSecs+"${2}")
 			inTick = false
 		}
+		line = dailyEvent.ReplaceAllString(line,
+			"${1}{SECOND} {"+dailyRecord+"}")
+		line = dayName.ReplaceAllLiteralString(line, "{SECOND}")
 		keep = append(keep, line)
 	}
 	if sessions == 0 {

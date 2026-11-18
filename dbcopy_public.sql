@@ -108,8 +108,7 @@ CREATE TABLE main.loads(
 );
 
 -- NyyLIB's item tables, empty: dbcopy.sh fills them, from TorilDB.db with
--- dbcopy_items.sql, which has the same two definitions and says what NyyLIB
--- needs of them
+-- dbcopy_items.sql, which says what NyyLIB needs of them
 CREATE TABLE main.items(
 	item_id INTEGER PRIMARY KEY
 	,item_name TEXT NOT NULL

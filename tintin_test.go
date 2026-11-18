@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
@@ -64,7 +65,7 @@ func Test_Tintin(t *testing.T) {
 	scripts := []tinScript{
 		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
 			everyTell: true, online: true, uptime: true, daily: true,
-			botLog: true, stamped: true,
+			chars: true, botLog: true, stamped: true,
 			login: []string{fakeAcct, fakeSecret, fakeChar}, tick: "who"},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
@@ -91,8 +92,9 @@ func Test_Tintin(t *testing.T) {
 // tinScript is a script Test_Tintin runs: the file, others it reads from
 // its own folder, whether it answers stat on ASSOC, whether it passes gobot
 // every tell, not just stat, whether it records who's count of players
-// online, whether it records the MUD's uptime, and whether it backs up
-// toril.db at midnight (an #event {DAY}). botLog is whether it notes in
+// online, whether it records the MUD's uptime, whether it backs up
+// toril.db at midnight (an #event {DAY}), and whether it adds the chars
+// that who <name> lines show. botLog is whether it notes in
 // logs/bot.log when it starts, connects, logs in, drops and quits, and the
 // logins that go wrong, and sends an alert when it stops logging in, and
 // stamped whether its session log has the time each line came. start is the
@@ -104,7 +106,7 @@ type tinScript struct {
 	name, path                              string
 	deps                                    []string
 	assoc, everyTell, online, uptime, daily bool
-	botLog, stamped                         bool
+	chars, botLog, stamped                  bool
 	start, tick                             string
 	login                                   []string
 }
@@ -163,6 +165,54 @@ func checkOnline(t *testing.T, path string, screen string) {
 	if checks != 1 || total != 17 {
 		t.Errorf("who's count didn't reach toril.db: %d checks, %d in all"+
 			"\nscreen:\n%s", checks, total, screen)
+	}
+}
+
+// whoLines are lines the driver shows as who <name>'s answers, which the
+// who trigger passes to gobot, and what toril.db should then hold of each
+// char: its level, class, name, race and account.
+var whoLines = []struct{ line, char string }{
+	// a level of one digit, on an account new to the DB
+	{"[ 1 Wizard    ] Newbie  (Yuan-Ti) (@Newacct)",
+		"1 Wizard Newbie Yuan-Ti Newacct"},
+	// something between the race and the account
+	{"[50 Enchanter ] Oldhand  (Moon Elf) (RP) (@Oldacct)",
+		"50 Enchanter Oldhand Moon Elf Oldacct"},
+	// a light flag after the account
+	{"[50 Anti-Paladin] Shade  (Drow Elf) (@Shadeacct) (Daylight)",
+		"50 Anti-Paladin Shade Drow Elf Shadeacct"},
+	// an account written into the line ahead of the MUD's own: the last
+	// one on the line is the one that counts
+	{"[50 Warrior   ] Sneak (Human) (@Victim)  (Human) (@Realacct)",
+		"50 Warrior Sneak Human Realacct"},
+}
+
+// checkChars checks that the who trigger gave gobot each of whoLines whole:
+// the toril.db at path has their chars, each under the account the MUD
+// showed, and no account but those, and the newcomer was welcomed. The
+// trigger waits for gobot, so they're all in by the time tt++ is done.
+func checkChars(t *testing.T, path, replies, screen string) {
+	db, err := sql.Open("sqlite3", path)
+	chkErr(t, err)
+	defer db.Close()
+	var chars, accts []string
+	for _, w := range whoLines {
+		chars = append(chars, w.char)
+		accts = append(accts, w.char[strings.LastIndex(w.char, " ")+1:])
+	}
+	if got := queryStrings(t, db, "SELECT char_level || ' ' || class_name "+
+		"|| ' ' || char_name || ' ' || char_race || ' ' || account_name "+
+		"FROM chars ORDER BY rowid"); !reflect.DeepEqual(got, chars) {
+		t.Errorf("who lines gave toril.db the chars %q, want %q\nscreen:\n%s",
+			got, chars, screen)
+	}
+	if got := queryStrings(t, db, "SELECT account_name FROM accounts "+
+		"ORDER BY rowid"); !reflect.DeepEqual(got, accts) {
+		t.Errorf("who lines gave toril.db the accounts %q, want %q", got, accts)
+	}
+	if welcome := "nhc Welcome, Newbie. If you have any questions, feel " +
+		"free to ask on this channel.\n"; !strings.Contains(replies, welcome) {
+		t.Errorf("no welcome for the newcomer\nreplies:\n%s", replies)
 	}
 }
 
@@ -300,6 +350,9 @@ func (s tinScript) tells(t *testing.T, tt, bin, work string) {
 	if s.uptime {
 		checkUptime(t, filepath.Join(run, "toril.db"), screen, from, to)
 	}
+	if s.chars {
+		checkChars(t, filepath.Join(run, "toril.db"), replies, screen)
+	}
 	for _, line := range strings.Split(screen, "\n") {
 		switch line = strings.TrimSpace(line); {
 		case strings.Contains(line, "#READ"):
@@ -335,6 +388,7 @@ func (s tinScript) driver() string {
 		"#var {cpw} {" + fakeSecret + "}",
 		"#alias {t} {#line log {replies.log} {t %0}}",
 		"#alias {acc} {#line log {replies.log} {acc %0}}",
+		"#alias {nhc} {#line log {replies.log} {nhc %0}}",
 	}
 	for _, text := range []string{
 		"stat infernal stiletto",
@@ -357,6 +411,12 @@ func (s tinScript) driver() string {
 		"#showme {Yog tells you 'That character doesn't exist! "+
 			"Please try again.'}",
 		"#showme {Yog tells you 'x ASSOC: 'stat infernal stiletto'}")
+	// who <name>'s answers, for a script that adds chars from them
+	if s.chars {
+		for _, w := range whoLines {
+			lines = append(lines, "#showme {"+w.line+"}")
+		}
+	}
 	// the answer to a time check, then the last line of a who
 	lines = append(lines,
 		"#showme {Time elapsed since boot-up: "+driverUptime+"}",

@@ -481,8 +481,6 @@ func eqHandler(w http.ResponseWriter, r *http.Request) {
 		if p.Results != nil {
 			p.Link = searchLink(r, formKeys())
 		}
-		// TODO make item names javascript link
-		// TODO make first / single result full_stats
 	}
 	err := tmpl.Execute(w, p)
 	if err != nil {

@@ -17,47 +17,9 @@
 --   * A script of its own inserts all 13 items columns by position.
 --
 -- dbcopy.sh's copy has both tables already, empty, as dbcopy_public.sql
--- makes them. This also works on a toril.db itself: one init_db.sql made,
--- which has neither, or an old one that still has its item tables.
+-- makes them, and this only fills them. If it fails, they stay empty.
 
 BEGIN;
-
--- the same two definitions as in dbcopy_public.sql
-CREATE TABLE IF NOT EXISTS items(
-	item_id INTEGER PRIMARY KEY
-	,item_name TEXT NOT NULL
-	,keywords TEXT NOT NULL
-	,weight INTEGER
-	,c_value INTEGER
-	,item_type TEXT NOT NULL
-	,from_zone TEXT NOT NULL
-	,from_mob TEXT
-	,short_stats TEXT
-	,long_stats TEXT
-	,full_stats TEXT
-	,comments TEXT
-	,last_id DATE
-);
-CREATE TABLE IF NOT EXISTS item_flags(
-	item_id INTEGER REFERENCES items(item_id)
-	,flag_abbr TEXT
-	,PRIMARY KEY (item_id, flag_abbr)
-);
-
--- the old items' details: nothing fills these now, and NyyLIB doesn't read
--- them. main. keeps a table of the same name in TorilDB.db, which SQLite
--- would look in next, from being taken for one of them.
-DROP TABLE IF EXISTS main.item_attribs;
-DROP TABLE IF EXISTS main.item_effects;
-DROP TABLE IF EXISTS main.item_enchants;
-DROP TABLE IF EXISTS main.item_procs;
-DROP TABLE IF EXISTS main.item_resists;
-DROP TABLE IF EXISTS main.item_restricts;
-DROP TABLE IF EXISTS main.item_slots;
-DROP TABLE IF EXISTS main.item_specials;
-DROP TABLE IF EXISTS main.item_supps;
-DELETE FROM item_flags;
-DELETE FROM items;
 
 -- Kegor's types are the old item_types.item_type, and NyyLIB reads the
 -- type_abbr. Types the old table didn't have are 'other'.
@@ -154,7 +116,7 @@ JOIN items i ON i.item_name = e.name
 JOIN flag_abbrs f ON ' ' || coalesce(e.item_flags, '') || ' ' ||
 	coalesce(e.worn, '') || ' ' LIKE '% ' || f.word || ' %';
 
--- NyyLIB has to start: fail, and leave the old tables, if a row would
+-- NyyLIB has to start: fail, and leave the tables empty, if a row would
 -- stop it
 CREATE TEMP TABLE nyylib_check(stoppers INTEGER
 	CONSTRAINT nyylib_would_not_start CHECK (stoppers = 0));

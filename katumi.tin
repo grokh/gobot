@@ -216,21 +216,13 @@
 	}{3};
 }{5}
 
-#nop Individual Checks
-#act {^[ %d %+] %w %*(%*) (@%*)} {
-	#var {wclass} {%2};
-	#var {race} {%5};
-	#replace {race} {)%*} {};
-	#var {wacct} {%6};
-	shellsafe wclass;
-	shellsafe race;
-	shellsafe wacct;
-	#script {answer} {gobot -char "%3" -class "$wclass" -lvl "%1" -race "$race" -acct "$wacct"};
-	#foreach {$answer} {cmd} {
-		#if {"$cmd" != "%d"} {$cmd};
-	};
-}
-#act {^[%.%. %+] %w %*(%*) (@%*)} {
+#nop Individual Checks: the line that who <name> answers with, which shows
+#nop the account. The level is two characters, a space first for one digit.
+#nop The pattern ends with the line, so what it takes for the account runs to
+#nop the line's last ")" and gobot sees all of it. gobot reads the last
+#nop account in that (whoAcct in who.go), which is the MUD's, not one written
+#nop earlier in the line. Without the $ tintin would stop at the first ")".
+#act {^[%.%. %+] %w %*(%*) (@%*)$} {
 	#var {wlvl} {%1%2};
 	#replace {wlvl} { } {};
 	#var {wclass} {%3};

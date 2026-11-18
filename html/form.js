@@ -1,8 +1,3 @@
-function selectItem (selectedItem) {
-	document.searchForm.exactItem.value = selectedItem;
-	document.searchForm.submit.click();
-};
-
 function toggleLayer (whichLayer) {
 	var elem, vis;
 	

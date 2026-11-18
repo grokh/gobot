@@ -201,14 +201,12 @@ func newFstatThings() ([]fstatThing, map[string][]int) {
 			append(aliases, r.col)...)
 	}
 	for _, s := range slots {
-		s := s // go.mod's Go 1.21 shares a loop's variable between its turns
 		add(fstatThing{kind: "slot", name: s.abbr,
 			match: func() (string, []interface{}) {
 				return hasToken("worn", s.worn...)
 			}}, append([]string{s.display}, s.worn...)...)
 	}
 	for _, e := range effects {
-		e := e
 		add(fstatThing{kind: "effect", name: e.abbr,
 			match: func() (string, []interface{}) {
 				return hasToken("affect_flags", e.token)
@@ -219,13 +217,11 @@ func newFstatThings() ([]fstatThing, map[string][]int) {
 			append(append([]string{f.display}, f.flags...), f.worn...)...)
 	}
 	for _, s := range supps {
-		s := s
 		add(fstatThing{kind: "flag", name: s.abbr,
 			match: func() (string, []interface{}) { return s.test, nil }},
 			s.display)
 	}
 	for _, u := range usableBy {
-		u := u
 		add(fstatThing{kind: "usable", name: strings.TrimPrefix(u.abbr, "!"),
 			match: func() (string, []interface{}) {
 				test, args := hasToken("item_flags", u.restrict)
@@ -702,11 +698,11 @@ func namesItem(name string) bool {
 	}
 	defer db.Close()
 	for _, m := range nameMatches(name) {
-		items, err := findStats(db, m, "short_stats")
-		if err != nil || len(items) == 0 {
+		item, ok, err := findStats(db, m, "short_stats")
+		if err != nil || !ok {
 			continue
 		}
-		words := strings.FieldsFunc(strings.ToLower(items[0].name),
+		words := strings.FieldsFunc(strings.ToLower(item.name),
 			func(r rune) bool {
 				return !unicode.IsLetter(r) && !unicode.IsDigit(r) &&
 					r != '\'' && r != '-'

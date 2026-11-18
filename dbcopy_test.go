@@ -303,8 +303,25 @@ func makeTorilDB(t *testing.T, path, more string) {
 	}
 }
 
-// refillItems runs dbcopy_items.sql on the toril.db at path as dbcopy.sh
-// does, with the TorilDB.db at kegor attached read-only.
+// startCopy starts a published copy at path as dbcopy.sh does: a new
+// database that gets what dbcopy_public.sql lists from the toril.db at bot,
+// with NyyLIB's two item tables in it, empty.
+func startCopy(t *testing.T, path, bot string) {
+	t.Helper()
+	src, err := os.Getwd()
+	chkErr(t, err)
+	os.Remove(path)
+	out, err := exec.Command("sqlite3", "-bail", path,
+		"ATTACH 'file:"+filepath.ToSlash(bot)+"?mode=ro' AS bot",
+		".read "+strconv.Quote(filepath.Join(src, "dbcopy_public.sql")),
+	).CombinedOutput()
+	if err != nil || len(out) > 0 {
+		t.Fatalf("starting a copy at %s: %v\n%s", path, err, out)
+	}
+}
+
+// refillItems runs dbcopy_items.sql on the copy at path as dbcopy.sh does,
+// with the TorilDB.db at kegor attached read-only.
 func refillItems(t *testing.T, path, kegor string) (string, error) {
 	t.Helper()
 	src, err := os.Getwd()
@@ -519,10 +536,6 @@ func checkNyyLIB(t *testing.T, what, path string) {
 	if kw != "" || zone != "" {
 		t.Errorf("%s: a tiny kitten: keywords %q, zone %q", what, kw, zone)
 	}
-	if n := queryInt(t, db, "SELECT count(*) FROM sqlite_master WHERE "+
-		"name IN ('item_slots', 'item_attribs')"); n != 0 {
-		t.Errorf("%s: %d tables of old item details left", what, n)
-	}
 }
 
 // chkMap checks that got has what want has, and no more.
@@ -540,18 +553,15 @@ func chkMap(t *testing.T, what string, want, got map[string]string) {
 	}
 }
 
-// chkOldItems checks that the toril.db at path still has oldItems.
-func chkOldItems(t *testing.T, what, path string) {
+// chkNoItems checks that the copy at path still has NyyLIB's two item
+// tables, with nothing in them.
+func chkNoItems(t *testing.T, what, path string) {
 	t.Helper()
 	db := openRO(t, path)
 	defer db.Close()
-	var name string
-	chkErr(t, db.QueryRow("SELECT group_concat(item_name) FROM items").Scan(
-		&name))
-	if name != "an old sword" ||
-		queryInt(t, db, "SELECT count(*) FROM item_flags") != 1 ||
-		queryInt(t, db, "SELECT count(*) FROM item_slots") != 1 {
-		t.Errorf("%s: the old item tables changed: items %q", what, name)
+	if n := queryInt(t, db, "SELECT (SELECT count(*) FROM items) + "+
+		"(SELECT count(*) FROM item_flags)"); n != 0 {
+		t.Errorf("%s: %d rows left in the item tables", what, n)
 	}
 }
 
@@ -585,27 +595,24 @@ func writeEq(t *testing.T, path, schema string) {
 	chkErr(t, err)
 }
 
-// Test_DBCopyItems runs dbcopy_items.sql on a toril.db itself: one made by
-// init_db.sql, which has no item tables, and one with the old ones. When it
-// fails, nothing changes. Test_DBCopy runs it the way dbcopy.sh does, on the
-// copy it's making.
+// Test_DBCopyItems runs dbcopy_items.sql the way dbcopy.sh does, on a copy
+// dbcopy_public.sql has started, whose two item tables are empty. When it
+// fails, they stay empty. Test_DBCopy runs dbcopy.sh itself.
 func Test_DBCopyItems(t *testing.T) {
 	dir := t.TempDir()
 	kegor := filepath.Join(dir, "TorilDB.db")
 	writeItemDB(t, kegor, nyyEq)
+	// the bot's toril.db, with the item tables it used to keep, which a
+	// copy gets nothing from
+	bot := filepath.Join(dir, "bot.db")
+	makeTorilDB(t, bot, oldItems)
+	path := filepath.Join(dir, "toril.db")
 
-	for _, c := range []struct{ what, more string }{
-		{"made by init_db.sql", ""},
-		{"with the old item tables", oldItems},
-	} {
-		path := filepath.Join(dir, "toril.db")
-		os.Remove(path)
-		makeTorilDB(t, path, c.more)
-		if out, err := refillItems(t, path, kegor); err != nil || out != "" {
-			t.Fatalf("%s: %v %s", c.what, err, out)
-		}
-		checkNyyLIB(t, c.what, path)
+	startCopy(t, path, bot)
+	if out, err := refillItems(t, path, kegor); err != nil || out != "" {
+		t.Fatalf("filled: %v %s", err, out)
 	}
+	checkNyyLIB(t, "filled", path)
 
 	none := filepath.Join(dir, "none.db")
 	cols := filepath.Join(dir, "cols.db")
@@ -623,14 +630,12 @@ func Test_DBCopyItems(t *testing.T) {
 		{"a row that would stop NyyLIB", stopper,
 			"CHECK constraint failed: nyylib_would_not_start"},
 	} {
-		path := filepath.Join(dir, "toril.db")
-		os.Remove(path)
-		makeTorilDB(t, path, oldItems)
+		startCopy(t, path, bot)
 		if out, err := refillItems(t, path, c.kegor); err == nil ||
 			!strings.Contains(out, c.err) {
 			t.Errorf("%s: %v %s", c.what, err, out)
 		}
-		chkOldItems(t, c.what, path)
+		chkNoItems(t, c.what, path)
 	}
 	if _, err := os.Stat(none); !os.IsNotExist(err) {
 		t.Errorf("no TorilDB.db: one was made: %v", err)

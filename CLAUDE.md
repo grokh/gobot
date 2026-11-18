@@ -61,7 +61,7 @@ The page links `/torileq/style.css` and `/torileq/form.js`, and nginx strips tha
 The checkout is `~/go/src/github.com/grokh/gobot`. A merged change goes live when the owner pulls there, and then:
 
 - the bot: `go install`, and the next event uses the new binary
-- the site: `./publish.sh`
+- the site: `./publish.sh`, after `go install`. It copies the gobot that `go install` built and the checkout's `html/`, and the two have to come from the same commit: `index.html` reads fields of `Page` in `web.go` by name, and a page that names one the binary doesn't have fails on every request.
 - `katumi.tin`: copied to `/srv/bot`, then Katumi's tintin restarted. If it passes gobot a flag gobot didn't take before, gobot is installed first: an older one rejects the flag, logs `Bad flags for ...`, and the event is lost.
 - `dbcopy.sh`, its two SQL files and `torildb.sh`: nothing more, since cron runs them from the checkout
 

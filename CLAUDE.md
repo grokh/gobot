@@ -11,7 +11,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - `Test_Tintin` runs `katumi.tin` in tt++ 2.02.20 or later, and skips without one. `go test -short` leaves it out.
 - CI (`.github/workflows/ci.yml`) runs the same checks on every pull request, and fails if `Test_Tintin` skips.
 - `staticcheck ./...` and `shellcheck *.sh` print nothing either. CI doesn't run them, so run them where they are installed and keep it that way.
-- `ChkErr` and `fatal` panic with a `fatalError`. `main` ends the run on one as `log.Fatal` would, logging it under the run's flags (`endRun`), `ReplyTo` answers the tell with `recordsDown` instead, and the site answers 500. Call `fatal`, not `log.Fatal`, which ends the program at once, without the run's name: in `Test_All`, whose log goes to `logs/test.log`, one that fails would stop the whole test binary with nothing on the console but `FAIL`.
+- `ChkErr` and `fatal` panic with a `fatalError`. `main` ends the run on one as `log.Fatal` would, logging it under the run's flags (`endRun`), `ReplyTo` answers the tell with `recordsDown` instead, and the site answers 500. Call `fatal`, not `log.Fatal`, which ends the program at once, without the run's name: in `Test_All`, whose log goes to `logs/test.log`, one that fails would stop the whole test binary with nothing on the console but `FAIL`. `fail`, in `gobot.go`, is only for `main`'s runs that are started by hand or from cron (`-bak`, `-res`, `-checkitems`, the alerts): it says why in the log and on stderr, and exits 1.
 
 ## Where things are
 
@@ -61,7 +61,7 @@ The page links `/torileq/style.css` and `/torileq/form.js`, and nginx strips tha
 The checkout is `~/go/src/github.com/grokh/gobot`. A merged change goes live when the owner pulls there, and then:
 
 - the bot: `go install`, and the next event uses the new binary
-- the site: `./publish.sh`
+- the site: `./publish.sh`, after `go install`. It copies the gobot that `go install` built and the checkout's `html/`, and the two have to come from the same commit: `index.html` reads fields of `Page` in `web.go` by name, and a page that names one the binary doesn't have fails on every request.
 - `katumi.tin`: copied to `/srv/bot`, then Katumi's tintin restarted. If it passes gobot a flag gobot didn't take before, gobot is installed first: an older one rejects the flag, logs `Bad flags for ...`, and the event is lost.
 - `dbcopy.sh`, its two SQL files and `torildb.sh`: nothing more, since cron runs them from the checkout
 

@@ -16,13 +16,13 @@
 		<p><label for="itemName">Item name: </label><input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
 		<p><label for="zoneName">Zone name: </label>
 			<select name="zoneName" id="zoneName"><option value=""></option>
-				{{range .Zones}}<option value="{{.ZoneAbbr}}">{{.ZoneDisp}}</option>
+				{{range .Zones}}<option value="{{.Abbr}}">{{.Disp}}</option>
 				{{end}}
 			</select>
 		</p>
 		<p><label for="attrib1">Attribute 1: </label>
             <select name="attrib1" id="attrib1"><option value=""></option>
-                {{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
+                {{range .Attribs}}<option value="{{.Abbr}}">{{.Disp}}</option>
 				{{end}}
             </select>
             <select name="compareAttrib1" id="compareAttrib1"><option value=""></option>
@@ -34,7 +34,7 @@
         </p>
 		<p><label for="attrib2">Attribute 2: </label>
             <select name="attrib2" id="attrib2"><option value=""></option>
-				{{range .Attribs}}<option value="{{.AttAbbr}}">{{.AttDisp}}</option>
+				{{range .Attribs}}<option value="{{.Abbr}}">{{.Disp}}</option>
 				{{end}}
             </select>
             <select name="compareAttrib2" id="compareAttrib2"><option value=""></option>
@@ -46,12 +46,12 @@
         </p>
 		<p><label for="worn">Worn Slot: </label>
             <select name="worn" id="worn"><option value=""></option>
-                {{range .Slots}}<option value="{{.SlotAbbr}}">{{.SlotDisp}}</option>
+                {{range .Slots}}<option value="{{.Abbr}}">{{.Disp}}</option>
 				{{end}}
             </select>
 			<label for="type">Item Type: </label>
             <select name="type" id="type"><option value=""></option>
-                {{range .Types}}<option value="{{.TypeAbbr}}">{{.TypeDisp}}</option>
+                {{range .Types}}<option value="{{.Abbr}}">{{.Disp}}</option>
 				{{end}}
             </select>
         </p>
@@ -98,18 +98,18 @@
         </div>
         <div id="effects" class="hide">
             <p>Item Effect:</p>
-            <p>{{range .Effects}}<label for="{{.EffAbbr}}">{{.EffDisp}} </label><input type="checkbox" name="{{.EffAbbr}}" id="{{.EffAbbr}}" /> | 
+            <p>{{range .Effects}}<label for="{{.Abbr}}">{{.Disp}} </label><input type="checkbox" name="{{.Abbr}}" id="{{.Abbr}}" /> | 
 			{{end}}</p>
         </div>
         <div id="resists" class="hide">
             <p>Resistances:</p>
-            <p>{{range .Resists}}<label for="{{.ResAbbr}}">{{.ResDisp}} </label><input type="checkbox" name="{{.ResAbbr}}" id="{{.ResAbbr}}" /> | 
+            <p>{{range .Resists}}<label for="{{.Abbr}}">{{.Disp}} </label><input type="checkbox" name="{{.Abbr}}" id="{{.Abbr}}" /> | 
 			{{end}}</p>
         </div>
         <div id="other" class="hide">
             <p>Other Flags:</p>
-            <p>{{range .Flags}}<label for="{{.FlagAbbr}}">{{.FlagDisp}} </label><input type="checkbox" name="{{.FlagAbbr}}" id="{{.FlagAbbr}}" /> | 
-			{{end}}{{range .Supps}}<label for="{{.SuppAbbr}}">{{.SuppDisp}} </label><input type="checkbox" name="{{.SuppAbbr}}" id="{{.SuppAbbr}}" /> | 
+            <p>{{range .Flags}}<label for="{{.Abbr}}">{{.Disp}} </label><input type="checkbox" name="{{.Abbr}}" id="{{.Abbr}}" /> | 
+			{{end}}{{range .Supps}}<label for="{{.Abbr}}">{{.Disp}} </label><input type="checkbox" name="{{.Abbr}}" id="{{.Abbr}}" /> | 
 			{{end}}</p>
         </div>
 		<div id="paste" class="hide">

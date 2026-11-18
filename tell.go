@@ -475,18 +475,23 @@ func fstatList(names []string) string {
 	return strings.Join(list, ", ")
 }
 
+// ofAccount is the SQL test for a row of the account a name means: the
+// account of the visible char of that name, or the account of that name
+// itself. It takes the name twice. who, clist, find and name all look an
+// account up this way.
+const ofAccount = "(account_name = " +
+	"(SELECT account_name FROM chars " +
+	"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
+	"OR LOWER(account_name) = LOWER(?))"
+
 func Who(oper string) string {
 	db := OpenDB()
 	defer db.Close()
 
 	var txt string
 	query := "SELECT account_name, char_name " +
-		"FROM chars WHERE vis = 't' " +
-		"AND (account_name = " +
-		"(SELECT account_name FROM chars " +
-		"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
-		"OR LOWER(account_name) = LOWER(?)) " +
-		"ORDER BY char_level DESC, char_name ASC"
+		"FROM chars WHERE vis = 't' AND " + ofAccount +
+		" ORDER BY char_level DESC, char_name ASC"
 
 	rows, err := db.Query(query, oper, oper)
 	ChkErr(err)
@@ -522,12 +527,8 @@ func Clist(oper string) []string {
 	name, f, noClass := parseClist(db, oper)
 	query := "SELECT char_level, class_name, char_name, char_race, " +
 		"account_name, DATETIME(last_seen) " +
-		"FROM chars WHERE vis = 't' " +
-		"AND (account_name = " +
-		"(SELECT account_name FROM chars " +
-		"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
-		"OR LOWER(account_name) = LOWER(?)) " +
-		"ORDER BY char_level DESC, char_name ASC"
+		"FROM chars WHERE vis = 't' AND " + ofAccount +
+		" ORDER BY char_level DESC, char_name ASC"
 
 	rows, err := db.Query(query, name, name)
 	ChkErr(err)
@@ -545,11 +546,7 @@ func Clist(oper string) []string {
 		if !f.fits(c) {
 			continue
 		}
-		char := fmt.Sprintf(
-			"[%d %s] %s (%s) (@%s) seen %s UTC",
-			c.lvl, c.class, c.name, c.race, c.acct, c.seen,
-		)
-		txts = append(txts, char)
+		txts = append(txts, c.line())
 	}
 	ChkRows(rows)
 	switch {
@@ -659,23 +656,17 @@ func CharInfo(oper string) string {
 		"account_name, DATETIME(last_seen) " +
 		"FROM chars WHERE vis = 't' " +
 		"AND LOWER(char_name) = LOWER(?)"
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
 
 	var txt string
 	var c Char
-	err = stmt.QueryRow(oper).Scan(
+	err := db.QueryRow(query, oper).Scan(
 		&c.lvl, &c.class, &c.name, &c.race, &c.acct, &c.seen)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", oper)
 	} else if err != nil {
 		fatal(err)
 	} else {
-		txt = fmt.Sprintf(
-			"[%d %s] %s (%s) (@%s) seen %s UTC",
-			c.lvl, c.class, c.name, c.race, c.acct, c.seen,
-		)
+		txt = c.line()
 	}
 	return txt
 }
@@ -686,20 +677,13 @@ func Find(oper string) string {
 
 	query := "SELECT account_name, char_name, " +
 		"(STRFTIME('%s','now') - STRFTIME('%s',last_seen)) seconds " +
-		"FROM chars WHERE vis = 't' " +
-		"AND (account_name = " +
-		"(SELECT account_name FROM chars " +
-		"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
-		"OR LOWER(account_name) = LOWER(?)) " +
-		"ORDER BY JULIANDAY(last_seen) DESC LIMIT 1"
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
+		"FROM chars WHERE vis = 't' AND " + ofAccount +
+		" ORDER BY JULIANDAY(last_seen) DESC LIMIT 1"
 
 	var txt string
 	var seconds int
 	var c Char
-	err = stmt.QueryRow(oper, oper).Scan(&c.acct, &c.name, &seconds)
+	err := db.QueryRow(query, oper, oper).Scan(&c.acct, &c.name, &seconds)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character or account", oper)
 	} else if err != nil {
@@ -739,51 +723,31 @@ func Find(oper string) string {
 	return txt
 }
 
+// Name is name's reply: the real name the player of the account oper means
+// gave with addname, or that they gave none. If oper means two accounts,
+// one by its own name and one by a char's, it answers for the one with a
+// name on record. Of two with one, that's the account the DB has had longer,
+// and of two with none, the first by name: the order the two queries this
+// one replaced happened to answer in.
 func Name(oper string) string {
 	db := OpenDB()
 	defer db.Close()
 
-	query := "SELECT account_name, player_name " +
-		"FROM accounts " +
-		"WHERE player_name IS NOT NULL " +
-		"AND (account_name = " +
-		"(SELECT account_name FROM chars " +
-		"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
-		"OR LOWER(account_name) = LOWER(?))"
-
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	var txt string
-	var c Char
-	err = stmt.QueryRow(oper, oper).Scan(&c.acct, &c.name)
-	if err == sql.ErrNoRows {
-		query := "SELECT account_name " +
-			"FROM accounts " +
-			"WHERE (account_name = " +
-			"(SELECT account_name FROM chars " +
-			"WHERE LOWER(char_name) = LOWER(?) AND vis = 't') " +
-			"OR LOWER(account_name) = LOWER(?))"
-
-		stmt, err := db.Prepare(query)
-		ChkErr(err)
-		defer stmt.Close()
-
-		err = stmt.QueryRow(oper, oper).Scan(&c.acct)
-		if err == sql.ErrNoRows {
-			txt = NotFound("character or account", oper)
-		} else if err != nil {
-			fatal(err)
-		} else {
-			txt = fmt.Sprintf("@%s did not disclose their real name", c.acct)
-		}
-	} else if err != nil {
+	query := "SELECT account_name, player_name FROM accounts WHERE " +
+		ofAccount + " ORDER BY player_name IS NULL, " +
+		"CASE WHEN player_name IS NULL THEN account_name END, rowid LIMIT 1"
+	var acct string
+	var name sql.NullString
+	err := db.QueryRow(query, oper, oper).Scan(&acct, &name)
+	switch {
+	case err == sql.ErrNoRows:
+		return NotFound("character or account", oper)
+	case err != nil:
 		fatal(err)
-	} else {
-		txt = fmt.Sprintf("@%s's real name is %s", c.acct, c.name)
+	case !name.Valid:
+		return fmt.Sprintf("@%s did not disclose their real name", acct)
 	}
-	return txt
+	return fmt.Sprintf("@%s's real name is %s", acct, name.String)
 }
 
 // onlineWindow is how lately a char has to have been on the who list to
@@ -948,65 +912,50 @@ func letters(s string) string {
 	}, s)
 }
 
+// DelAlt is delalt's reply to char: the alt oper names is hidden from then
+// on, if it's visible and on char's own account.
 func DelAlt(oper string, char string) string {
-	db := OpenDB()
-	defer db.Close()
-
-	query := "SELECT account_name, char_name FROM chars " +
-		"WHERE LOWER(char_name) = LOWER(?) " +
-		"AND vis = 't' AND account_name = " +
-		"(SELECT account_name FROM chars WHERE char_name = ?)"
-
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	var txt string
-	var c Char
-	err = stmt.QueryRow(oper, char).Scan(&c.acct, &c.name)
-	if err == sql.ErrNoRows {
-		txt = NotFound("character or account", oper)
-	} else if err != nil {
-		fatal(err)
-	} else {
-		// One statement commits as it runs, so if it fails, nothing was
-		// saved, and the reply says the records are unavailable instead.
-		_, err = db.Exec("UPDATE chars SET vis = 'f' "+
-			"WHERE LOWER(char_name) = LOWER(?)", oper)
-		ChkErr(err)
-		log.Printf("Delalt: %s\n", oper)
-		txt = fmt.Sprintf("Removed character from your alt list:: %s", oper)
-	}
-	return txt
+	return setVis(oper, char, false)
 }
 
+// AddAlt is addalt's reply to char: the alt oper names is shown again, if
+// it's on char's own account. One that wasn't hidden gets the same reply.
 func AddAlt(oper string, char string) string {
+	return setVis(oper, char, true)
+}
+
+// setVis hides the alt oper names, or shows it again, for char, who has to
+// be on the same account, and says which it did. Only a visible alt can be
+// hidden.
+func setVis(oper string, char string, show bool) string {
 	db := OpenDB()
 	defer db.Close()
 
-	query := "SELECT account_name, char_name FROM chars " +
-		"WHERE LOWER(char_name) = LOWER(?) " +
-		"AND account_name = " +
-		"(SELECT account_name FROM chars WHERE char_name = ?)"
-
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
-	var txt string
-	var c Char
-	err = stmt.QueryRow(oper, char).Scan(&c.acct, &c.name)
-	if err == sql.ErrNoRows {
-		txt = NotFound("character or account", oper)
-	} else if err != nil {
-		fatal(err)
-	} else {
-		_, err = db.Exec("UPDATE chars SET vis = 't' "+
-			"WHERE LOWER(char_name) = LOWER(?)", oper)
-		ChkErr(err)
-		txt = fmt.Sprintf("Re-added character to your alt list:: %s", oper)
+	vis, visible := "t", ""
+	done := "Re-added character to your alt list:: "
+	if !show {
+		vis, visible = "f", "AND vis = 't' "
+		done = "Removed character from your alt list:: "
 	}
-	return txt
+	var acct string
+	err := db.QueryRow("SELECT account_name FROM chars "+
+		"WHERE LOWER(char_name) = LOWER(?) "+visible+
+		"AND account_name = "+
+		"(SELECT account_name FROM chars WHERE char_name = ?)",
+		oper, char).Scan(&acct)
+	if err == sql.ErrNoRows {
+		return NotFound("character or account", oper)
+	}
+	ChkErr(err)
+	// One statement commits as it runs, so if it fails, nothing was saved,
+	// and the reply says the records are unavailable instead.
+	_, err = db.Exec("UPDATE chars SET vis = ? "+
+		"WHERE LOWER(char_name) = LOWER(?)", vis, oper)
+	ChkErr(err)
+	if !show {
+		log.Printf("Delalt: %s\n", oper)
+	}
+	return done + oper
 }
 
 // titleCase gives each word of a name a capital first letter and leaves the
@@ -1043,13 +992,9 @@ func AddName(oper string, char string) string {
 		"FROM chars " +
 		"WHERE char_name = ?"
 
-	stmt, err := db.Prepare(query)
-	ChkErr(err)
-	defer stmt.Close()
-
 	var txt string
 	var c Char
-	err = stmt.QueryRow(char).Scan(&c.acct)
+	err := db.QueryRow(query, char).Scan(&c.acct)
 	if err == sql.ErrNoRows {
 		txt = NotFound("character", char)
 	} else if err != nil {

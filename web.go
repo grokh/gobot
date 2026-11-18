@@ -12,58 +12,16 @@ import (
 	"strings"
 )
 
-type Zone struct {
-	ZoneAbbr string
-	ZoneDisp string
-}
-
-type Attrib struct {
-	AttAbbr string
-	AttDisp string
-}
-
-type Slot struct {
-	SlotAbbr string
-	SlotDisp string
-}
-
-type IType struct {
-	TypeAbbr string
-	TypeDisp string
-}
-
-type Effect struct {
-	EffAbbr string
-	EffDisp string
-}
-
-type Resist struct {
-	ResAbbr string
-	ResDisp string
-}
-
-type Flag struct {
-	FlagAbbr string
-	FlagDisp string
-}
-
-type Supp struct {
-	SuppAbbr string
-	SuppDisp string
-}
+// Option is one choice in a list the TorilEQ form offers: what the form
+// sends for it, and what the page calls it.
+type Option struct{ Abbr, Disp string }
 
 type Page struct {
 	Date    string
 	Results []string
 	Link    string // to the search that found Results
-	Zones   []Zone
-	Attribs []Attrib
-	Slots   []Slot
-	Types   []IType
-	Effects []Effect
-	Resists []Resist
-	Flags   []Flag
-	Supps   []Supp
+	// the form's lists
+	Zones, Attribs, Slots, Types, Effects, Resists, Flags, Supps []Option
 }
 
 // column reads a one-column query into a slice.
@@ -95,33 +53,33 @@ func fillStructs() Page {
 
 	for _, z := range zoneNames(column(db,
 		"SELECT DISTINCT zone FROM eq WHERE zone != ''")) {
-		p.Zones = append(p.Zones, Zone{z, z})
+		p.Zones = append(p.Zones, Option{z, z})
 	}
 	for _, t := range column(db,
 		"SELECT DISTINCT type FROM eq WHERE type != ''") {
-		p.Types = append(p.Types, IType{t, typeName(t)})
+		p.Types = append(p.Types, Option{t, typeName(t)})
 	}
 	sort.Slice(p.Types, func(a, b int) bool {
-		return p.Types[a].TypeDisp < p.Types[b].TypeDisp
+		return p.Types[a].Disp < p.Types[b].Disp
 	})
 
 	for _, s := range stats {
-		p.Attribs = append(p.Attribs, Attrib{s.abbr, s.display})
+		p.Attribs = append(p.Attribs, Option{s.abbr, s.display})
 	}
 	for _, s := range slots {
-		p.Slots = append(p.Slots, Slot{s.abbr, s.display})
+		p.Slots = append(p.Slots, Option{s.abbr, s.display})
 	}
 	for _, e := range effects {
-		p.Effects = append(p.Effects, Effect{e.abbr, e.display})
+		p.Effects = append(p.Effects, Option{e.abbr, e.display})
 	}
 	for _, r := range resists {
-		p.Resists = append(p.Resists, Resist{r.abbr, r.display})
+		p.Resists = append(p.Resists, Option{r.abbr, r.display})
 	}
 	for _, f := range flags {
-		p.Flags = append(p.Flags, Flag{f.abbr, f.display})
+		p.Flags = append(p.Flags, Option{f.abbr, f.display})
 	}
 	for _, s := range supps {
-		p.Supps = append(p.Supps, Supp{s.abbr, s.display})
+		p.Supps = append(p.Supps, Option{s.abbr, s.display})
 	}
 	return p
 }

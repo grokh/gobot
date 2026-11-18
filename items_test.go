@@ -579,19 +579,19 @@ func testWeb(t *testing.T, src string) {
 	}
 	var zones []string
 	for _, z := range p.Zones {
-		zones = append(zones, z.ZoneDisp)
+		zones = append(zones, z.Disp)
 	}
 	chk(t, "fillStructs() zones", []string{"Ako Village", "Ashstone",
 		"Calimport Palace Vault", "Finn's Keep", "Jotunheim", "Ribcage",
 		"Silverymoon", "Skullport", "Tiamat", "Waterdeep", "Westgate"}, zones)
 	var types []string
 	for _, ty := range p.Types {
-		types = append(types, ty.TypeAbbr+"="+ty.TypeDisp)
+		types = append(types, ty.Abbr+"="+ty.Disp)
 	}
 	chk(t, "fillStructs() types", []string{"ARMOR=Armor",
 		"CONTAINER=Container", "OTHER=Other", "PET_CATALOG=Pet Catalog",
 		"WEAPON=Weapon", "WORN=Worn"}, types)
-	if len(p.Attribs) != len(stats) || p.Attribs[0].AttAbbr != "ac" ||
+	if len(p.Attribs) != len(stats) || p.Attribs[0].Abbr != "ac" ||
 		len(p.Slots) != len(slots) || len(p.Effects) != len(effects) ||
 		len(p.Resists) != len(resists) || len(p.Flags) != len(flags) ||
 		len(p.Supps) != len(supps) {

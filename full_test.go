@@ -1,16 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -367,7 +371,7 @@ func Test_All(t *testing.T) {
 	testSplit(t)
 	testTellCap(t, db)
 	testTimes(t, db, filepath.Join(src, "fix_times_and_stats.sql"))
-	testBackup(t)
+	testRestore(t, db, testBackup(t))
 	testRecordsDown(t, db) // last: it breaks toril.db's writes for a while
 }
 
@@ -1028,8 +1032,9 @@ func testTimes(t *testing.T, db *sql.DB, fix string) {
 }
 
 // testBackup checks that -bak saves a whole dump, refuses to save one that
-// stopped partway, and prunes old dailies but keeps the first of each month.
-func testBackup(t *testing.T) {
+// stopped partway or isn't of the bot's database, and prunes old dailies but
+// keeps the first of each month. It returns the path of today's backup.
+func testBackup(t *testing.T) string {
 	chkErr(t, os.MkdirAll("bak", 0750))
 	now := time.Now()
 	ago := func(days int) string {
@@ -1043,7 +1048,7 @@ func testBackup(t *testing.T) {
 	chkErr(t, os.WriteFile(filepath.Join("bak", "notes.txt"),
 		[]byte("keep"), 0640))
 
-	BackupDB()
+	chkErr(t, BackupDB())
 
 	// today's backup is a whole dump, and nothing temporary is left over
 	today := filepath.Join("bak", "toril.db."+now.Format("2006-01-02")+".gz")
@@ -1094,6 +1099,250 @@ func testBackup(t *testing.T) {
 	dumpWait = wait
 	_, err = conn.ExecContext(ctx, "ROLLBACK")
 	chkErr(t, err)
+
+	// A toril.db that's missing, empty, or the copy dbcopy.sh publishes,
+	// which has no online table: -bak fails, makes no toril.db, and leaves
+	// the day's earlier backup as it was.
+	today, err = filepath.Abs(today)
+	chkErr(t, err)
+	saved, err := os.ReadFile(today)
+	chkErr(t, err)
+	here, err := os.Getwd()
+	chkErr(t, err)
+	defer os.Chdir(here)
+	for _, c := range []struct {
+		name, want string
+		setup      func()
+	}{
+		{"missing", "toril.db: unable to open database file", func() {}},
+		{"empty", "toril.db has no tables", func() {
+			chkErr(t, os.WriteFile("toril.db", nil, 0640))
+		}},
+		{"published", "toril.db has no online table", func() {
+			pub, err := sql.Open("sqlite3", "toril.db")
+			chkErr(t, err)
+			defer pub.Close()
+			for _, table := range botTables {
+				if table != "online" {
+					_, err := pub.Exec("CREATE TABLE " + table + "(x)")
+					chkErr(t, err)
+				}
+			}
+		}},
+	} {
+		chkErr(t, os.Chdir(t.TempDir()))
+		day := filepath.Join("bak", filepath.Base(today))
+		chkErr(t, os.MkdirAll("bak", 0750))
+		chkErr(t, os.WriteFile(day, saved, 0640))
+		c.setup()
+		if err := BackupDB(); err == nil ||
+			!strings.Contains(err.Error(), c.want) {
+			t.Errorf("backup check failed: toril.db %s: Expected: %q, "+
+				"Actual: %v", c.name, c.want, err)
+		}
+		if got, err := os.ReadFile(day); err != nil || !bytes.Equal(got, saved) {
+			t.Errorf("backup check failed: toril.db %s: the day's backup "+
+				"was replaced (%v)", c.name, err)
+		}
+		if _, err := os.Stat(day + ".tmp"); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("backup check failed: toril.db %s: temp file left "+
+				"behind", c.name)
+		}
+		if c.name != "missing" {
+			continue
+		}
+		// nor does the dump on its own, which opens toril.db read-only
+		if err := writeDump(filepath.Join("bak", "dump.gz")); err == nil {
+			t.Errorf("backup check failed: toril.db missing: the dump passed")
+		}
+		if _, err := os.Stat("toril.db"); !errors.Is(err, os.ErrNotExist) {
+			t.Errorf("backup check failed: toril.db missing: one was made")
+		}
+	}
+	chkErr(t, os.Chdir(here))
+	return today
+}
+
+// testRestore checks that -res makes toril.db from a backup, whole, and that
+// it neither makes nor changes anything, nor leaves a temp file behind, when
+// the backup can't be decompressed, stopped partway, won't load or isn't of
+// the bot's database, or when toril.db has tables or left its journal. db is
+// the toril.db the backup was made of.
+func testRestore(t *testing.T, db *sql.DB, backup string) {
+	here, err := os.Getwd()
+	chkErr(t, err)
+	defer os.Chdir(here)
+	saved, err := os.ReadFile(backup)
+	chkErr(t, err)
+	zr, err := gzip.NewReader(bytes.NewReader(saved))
+	chkErr(t, err)
+	dump, err := io.ReadAll(zr)
+	chkErr(t, err)
+	var chars, accounts, boots int
+	chkErr(t, db.QueryRow("SELECT (SELECT count(*) FROM chars), "+
+		"(SELECT count(*) FROM accounts), (SELECT count(*) FROM boots)").
+		Scan(&chars, &accounts, &boots))
+	// files lists what's in the working folder, by name, with contents
+	files := func() map[string]string {
+		entries, err := os.ReadDir(".")
+		chkErr(t, err)
+		got := make(map[string]string)
+		for _, e := range entries {
+			b, err := os.ReadFile(e.Name())
+			chkErr(t, err)
+			got[e.Name()] = string(b)
+		}
+		return got
+	}
+	// names lists the names in what files returned, sorted
+	names := func(listed map[string]string) []string {
+		var got []string
+		for name := range listed {
+			got = append(got, name)
+		}
+		slices.Sort(got)
+		return got
+	}
+
+	// a good backup, where there's no toril.db and where gobot left an
+	// empty one while the old one was away: toril.db then dumps exactly as
+	// the backup does, and is all that's left in the folder
+	for _, empty := range []bool{false, true} {
+		chkErr(t, os.Chdir(t.TempDir()))
+		if empty {
+			chkErr(t, os.WriteFile("toril.db", nil, 0640))
+		}
+		msg, err := RestoreDB(backup)
+		chkErr(t, err)
+		chk(t, "RestoreDB()", []string{fmt.Sprintf("Restored toril.db from "+
+			"%s: %d chars, %d accounts, %d boots.", backup, chars, accounts,
+			boots)}, []string{msg})
+		out, err := exec.Command("sqlite3", "toril.db", ".dump").Output()
+		chkErr(t, err)
+		if !bytes.Equal(out, dump) {
+			t.Errorf("restore check failed: toril.db dumps %d bytes, "+
+				"the backup %d", len(out), len(dump))
+		}
+		if left := names(files()); !slices.Equal(left, []string{"toril.db"}) {
+			t.Errorf("restore check failed: left behind: %v", left)
+		}
+	}
+
+	// bad backups
+	gz := func(b []byte) []byte {
+		var buf bytes.Buffer
+		zw := gzip.NewWriter(&buf)
+		_, err := zw.Write(b)
+		chkErr(t, err)
+		chkErr(t, zw.Close())
+		return buf.Bytes()
+	}
+	badSum := bytes.Clone(saved)
+	badSum[len(badSum)-8] ^= 0xff // the CRC-32 in the gzip trailer
+	// how a dump of a locked database ends
+	partway := append(bytes.Clone(dump[:bytes.LastIndexByte(
+		dump[:len(dump)/2], '\n')+1]), "ROLLBACK; -- due to errors\n"...)
+	// the dump -bak saved of a toril.db that wasn't there
+	empty := []byte("PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\nCOMMIT;\n")
+	// one of the copy dbcopy.sh publishes, which has no online table
+	published := []byte("BEGIN TRANSACTION;\n")
+	for _, table := range botTables {
+		if table != "online" {
+			published = fmt.Appendf(published, "CREATE TABLE %s(x);\n", table)
+		}
+	}
+	published = append(published, "COMMIT;\n"...)
+	// and one with a syntax error at its first row
+	broken := bytes.Replace(dump, []byte("INSERT INTO "),
+		[]byte("INSERT INTO INTO "), 1)
+	dir := t.TempDir()
+	for _, c := range []struct {
+		name, want string
+		file       []byte // nil for none at all
+	}{
+		{"missing", "missing.gz", nil},
+		{"not gzip", "can't decompress it: gzip: invalid header", dump},
+		{"cut short", "can't decompress it: unexpected EOF",
+			saved[:len(saved)/2]},
+		{"with a bad checksum", "can't decompress it: gzip: invalid checksum",
+			badSum},
+		{"stopped partway", "doesn't end in COMMIT", gz(partway)},
+		{"that won't load", "loading the dump: exit status 1", gz(broken)},
+		{"of an empty database", "the backup has no tables", gz(empty)},
+		{"of the published copy", "the backup has no online table",
+			gz(published)},
+	} {
+		file := filepath.Join(dir, strings.ReplaceAll(c.name, " ", "-")+".gz")
+		if c.file != nil {
+			chkErr(t, os.WriteFile(file, c.file, 0640))
+		}
+		chkErr(t, os.Chdir(t.TempDir()))
+		if _, err := RestoreDB(file); err == nil ||
+			!strings.Contains(err.Error(), c.want) {
+			t.Errorf("restore check failed: a backup %s: Expected: %q, "+
+				"Actual: %v", c.name, c.want, err)
+		}
+		if left := files(); len(left) > 0 {
+			t.Errorf("restore check failed: a backup %s: left behind: %v",
+				c.name, names(left))
+		}
+	}
+
+	// toril.db in the way: refused, with nothing changed
+	for _, c := range []struct {
+		name, want string
+		setup      func()
+	}{
+		{"has tables", "toril.db has tables: move it aside first", func() {
+			old, err := sql.Open("sqlite3", "toril.db")
+			chkErr(t, err)
+			defer old.Close()
+			_, err = old.Exec("CREATE TABLE chars(x)")
+			chkErr(t, err)
+		}},
+		{"isn't a database", "toril.db can't be read", func() {
+			chkErr(t, os.WriteFile("toril.db", []byte("half a download\n"),
+				0640))
+		}},
+		{"left its journal", "toril.db-journal is left from the old toril.db",
+			func() {
+				chkErr(t, os.WriteFile("toril.db-journal",
+					[]byte("a hot journal\n"), 0640))
+			}},
+	} {
+		chkErr(t, os.Chdir(t.TempDir()))
+		c.setup()
+		before := files()
+		if _, err := RestoreDB(backup); err == nil ||
+			!strings.Contains(err.Error(), c.want) {
+			t.Errorf("restore check failed: toril.db %s: Expected: %q, "+
+				"Actual: %v", c.name, c.want, err)
+		}
+		if !maps.Equal(files(), before) {
+			t.Errorf("restore check failed: toril.db %s: the folder changed",
+				c.name)
+		}
+	}
+	chkErr(t, os.Chdir(here))
+}
+
+// Test_BotTables checks that botTables, the tables -bak and -res insist on,
+// are the ones init_db.sql makes.
+func Test_BotTables(t *testing.T) {
+	schema, err := os.ReadFile("init_db.sql")
+	chkErr(t, err)
+	var made []string
+	for _, m := range regexp.MustCompile(`(?m)^CREATE TABLE (\w+)`).
+		FindAllSubmatch(schema, -1) {
+		made = append(made, string(m[1]))
+	}
+	slices.Sort(made)
+	want := slices.Clone(botTables)
+	slices.Sort(want)
+	if !slices.Equal(made, want) {
+		t.Errorf("botTables check failed: init_db.sql makes %v, "+
+			"botTables lists %v", made, want)
+	}
 }
 
 // testRecordsDown checks that a tell needing toril.db gets a reply when the

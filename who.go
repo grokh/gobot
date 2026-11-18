@@ -16,6 +16,13 @@ type Char struct {
 	tseen                         time.Time
 }
 
+// line is the char as clist and char show it. NyyLIB reads this form (see
+// nyylib_test.go), so it mustn't change.
+func (c Char) line() string {
+	return fmt.Sprintf("[%d %s] %s (%s) (@%s) seen %s UTC",
+		c.lvl, c.class, c.name, c.race, c.acct, c.seen)
+}
+
 func WhoBatch(batch string) []string {
 	var cmds []string
 	batch = strings.Trim(batch, "| ")

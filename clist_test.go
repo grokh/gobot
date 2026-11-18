@@ -13,7 +13,8 @@ import (
 
 // Test_Clist checks clist's filters: a class, a level, or both after the
 // name list only the account's alts that fit, in the same lines as a whole
-// clist.
+// clist. With the same accounts, it checks which account name answers for
+// when a name means two.
 func Test_Clist(t *testing.T) {
 	src, err := os.Getwd()
 	chkErr(t, err)
@@ -57,6 +58,10 @@ func Test_Clist(t *testing.T) {
 		// both
 		{"Cal", "Cid", "Warrior", "Human", 50, "t"},
 		{"Dot", "Cal", "Cleric", "Human", 40, "t"},
+		// the same again, where the account named like the char is the newer
+		// of the two but the first by name, for name
+		{"Zoe", "Amy", "Warrior", "Human", 20, "t"},
+		{"Amy", "Ava", "Cleric", "Human", 10, "t"},
 	}
 	line := map[string]string{} // each alt's clist line, by name
 	for _, a := range alts {
@@ -128,6 +133,34 @@ func Test_Clist(t *testing.T) {
 		for _, oper := range strings.Split(opers, "|") {
 			chk(t, "Clist("+oper+")", good, Clist(oper))
 		}
+	}
+
+	// name looks the account up the way clist does. For a name that is one
+	// account's and another's char, it answers for the one with a real name
+	// on record. Of two with none it's the first by name: Amy, though the DB
+	// has had Zoe longer. Of two with one it's the one the DB has had
+	// longer: Zoe. Each case first gives acct the real name player, if any.
+	for _, c := range []struct{ acct, player, oper, good string }{
+		{"", "", "cal", "@Cal did not disclose their real name"},
+		{"Dot", "Dee", "cal", "@Dot's real name is Dee"},
+		{"Cal", "Cy", "cal", "@Cal's real name is Cy"},
+		{"", "", "dot", "@Dot's real name is Dee"},
+		{"", "", "CID", "@Cal's real name is Cy"},
+		{"", "", "amy", "@Amy did not disclose their real name"},
+		{"", "", "ava", "@Amy did not disclose their real name"},
+		{"Zoe", "Zia", "amy", "@Zoe's real name is Zia"},
+		{"Amy", "Ada", "amy", "@Zoe's real name is Zia"},
+		{"", "", "ava", "@Amy's real name is Ada"},
+		{"", "", "bob", "@Bob did not disclose their real name"},
+		// a hidden char's name finds no account
+		{"", "", "bud", "404 character or account not found: bud"},
+	} {
+		if c.acct != "" {
+			_, err = db.Exec("UPDATE accounts SET player_name = ? "+
+				"WHERE account_name = ?", c.player, c.acct)
+			chkErr(t, err)
+		}
+		chk(t, "Name("+c.oper+")", []string{c.good}, []string{Name(c.oper)})
 	}
 
 	// through a tell, as Katumi sends it

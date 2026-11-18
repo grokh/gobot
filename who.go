@@ -43,7 +43,6 @@ func WhoBatch(batch string) []string {
 	var name string
 	for _, who := range ppl {
 		char := re.FindStringSubmatch(who)
-		//log.Println(char)
 		if len(char) == 5 {
 			lvl, _ := strconv.Atoi(char[1]) // one or two digits
 			name = char[3]

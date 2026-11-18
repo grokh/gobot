@@ -47,7 +47,7 @@ New item stats go to Kegor by mwrite, ideally with the zone, the load type, and 
 
 ## Build and run
 
-You need Go 1.21+ and gcc, since `mattn/go-sqlite3` compiles SQLite into gobot.
+You need Go 1.22+ and gcc, since `mattn/go-sqlite3` compiles SQLite into gobot.
 
     go vet ./... && go test ./...   # needs the sqlite3 CLI
     go install                      # the bot uses it from its next event

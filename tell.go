@@ -726,7 +726,6 @@ func Find(oper string) string {
 		} else {
 			log.Printf("'find' error: seconds were %d\n", int(secs.Seconds()))
 		}
-		// Char.seen = secs.String() // easier :/
 		if !online {
 			txt = fmt.Sprintf(
 				"@%s last seen %s ago as %s",

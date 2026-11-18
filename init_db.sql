@@ -104,7 +104,11 @@ CREATE TABLE loads(
 	,deleted BOOLEAN NOT NULL
 	,PRIMARY KEY (boot_id, report_time)
 );
--- how many players who counted, by UTC hour (see onlineSchema in online.go)
+-- how many players who counted, by UTC hour: the who checks made that hour,
+-- their total, and the fewest and most at once, so an hour's average is
+-- total / checks (see RecordOnline in online.go). Its history from before
+-- gobot kept it came from Katumi's logs, timed by the MUD's own clock, which
+-- has run up to about 40 minutes slow.
 CREATE TABLE online(
 	hour DATETIME PRIMARY KEY
 	,checks INTEGER NOT NULL

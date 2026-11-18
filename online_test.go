@@ -21,13 +21,10 @@ func Test_OnlineHour(t *testing.T) {
 	}
 }
 
-// testOnline checks that who's counts add up by hour, in a toril.db made
-// before the online table too.
+// testOnline checks that who's counts add up by hour.
 func testOnline(t *testing.T) {
 	db := OpenDB()
 	defer db.Close()
-	_, err := db.Exec("DROP TABLE online")
-	chkErr(t, err)
 	for _, n := range []int{17, 21, 15} {
 		RecordOnline(n)
 	}

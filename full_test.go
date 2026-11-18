@@ -1221,7 +1221,28 @@ func testRestore(t *testing.T, db *sql.DB, backup string) {
 	for _, empty := range []bool{false, true} {
 		chkErr(t, os.Chdir(t.TempDir()))
 		if empty {
-			chkErr(t, os.WriteFile("toril.db", nil, 0640))
+			// what katumi.tin runs every 30 seconds while Katumi is in the
+			// game. Each fails without the bot's tables, and none may make
+			// one: a toril.db with a table in it isn't replaced.
+			for what, run := range map[string]func(){
+				"RecordOnline": func() { RecordOnline(17) },
+				"Uptime":       func() { Uptime("1:00:00", now()) },
+				"WhoBatch":     func() { WhoBatch("[50 War] Bob  (Human)") },
+			} {
+				func() {
+					defer func() {
+						if _, ok := recover().(fatalError); !ok {
+							t.Errorf("%s() without the bot's tables "+
+								"didn't fail", what)
+						}
+					}()
+					run()
+				}()
+			}
+			if fi, err := os.Stat("toril.db"); err != nil || fi.Size() != 0 {
+				t.Errorf("gobot without a toril.db didn't leave an empty "+
+					"one: %v", err)
+			}
 		}
 		msg, err := RestoreDB(backup)
 		chkErr(t, err)

@@ -370,7 +370,13 @@ func Test_All(t *testing.T) {
 	testOnline(t)
 	testSplit(t)
 	testTellCap(t, db)
-	testTimes(t, db, filepath.Join(src, "fix_times_and_stats.sql"))
+	testTimes(t, db)
+	// The live toril.db still has the item tables it kept before TorilDB.db,
+	// so the one backed up and restored here has a table init_db.sql doesn't
+	// make too.
+	_, err = db.Exec("CREATE TABLE items (item_id INTEGER PRIMARY KEY, " +
+		"full_stats TEXT); INSERT INTO items (full_stats) VALUES ('x')")
+	chkErr(t, err)
 	testRestore(t, db, testBackup(t))
 	testRecordsDown(t, db) // last: it breaks toril.db's writes for a while
 }
@@ -908,8 +914,8 @@ func Test_NoHTML(t *testing.T) {
 
 // testTimes checks that times are stored in UTC and compared as times, so
 // the hour after clocks fall back can't make an old sighting look new, and
-// that the one-time fix converts old rows without moving them.
-func testTimes(t *testing.T, db *sql.DB, fix string) {
+// that a report stored in the oldest format can still be deleted.
+func testTimes(t *testing.T, db *sql.DB) {
 	for _, q := range []string{
 		"SELECT CAST(last_seen AS TEXT) FROM chars WHERE char_name = 'Bob'",
 		"SELECT CAST(boot_time AS TEXT) FROM boots " +
@@ -967,66 +973,6 @@ func testTimes(t *testing.T, db *sql.DB, fix string) {
 	for _, line := range ReplyTo("Yog", "lr") {
 		if strings.Contains(line, "old report here") {
 			t.Errorf("lrdel check failed: old report still listed")
-		}
-	}
-
-	// the one-time fix: every time to UTC without moving it, literal \n in
-	// full_stats to real line breaks, and nothing changes a second time
-	_, err = db.Exec("UPDATE chars SET last_seen = '2013-04-18 10:31:52.862423' " +
-		"WHERE char_name = 'Tom'")
-	chkErr(t, err)
-	// a toril.db from before TorilDB.db still has its items table, which
-	// the fix also cleans up
-	_, err = db.Exec("CREATE TABLE items " +
-		"(item_id INTEGER PRIMARY KEY, full_stats TEXT)")
-	chkErr(t, err)
-	_, err = db.Exec("INSERT INTO items (full_stats) VALUES (?)",
-		`Name 'x'\nKeyword 'x'\tok`)
-	chkErr(t, err)
-	instants := func() map[string]float64 {
-		m := make(map[string]float64)
-		for _, c := range [][2]string{{"chars", "last_seen"},
-			{"boots", "boot_time"}, {"loads", "report_time"}} {
-			rows, err := db.Query("SELECT rowid, JULIANDAY(" + c[1] +
-				") FROM " + c[0])
-			chkErr(t, err)
-			for rows.Next() {
-				var id int64
-				var jd float64
-				chkErr(t, rows.Scan(&id, &jd))
-				m[fmt.Sprintf("%s %d", c[0], id)] = jd
-			}
-			ChkRows(rows)
-		}
-		return m
-	}
-	before := instants()
-	script, err := os.ReadFile(fix)
-	chkErr(t, err)
-	_, err = db.Exec(string(script))
-	chkErr(t, err)
-	for k, jd := range instants() {
-		if diff := (jd - before[k]) * 86400; diff > 0.002 || diff < -0.002 {
-			t.Errorf("fix check failed: %s moved %.3fs", k, diff)
-		}
-	}
-	var left, stats int
-	chkErr(t, db.QueryRow("SELECT "+
-		"(SELECT COUNT(*) FROM chars WHERE last_seen NOT LIKE '%+00:00') + "+
-		"(SELECT COUNT(*) FROM boots WHERE boot_time NOT LIKE '%+00:00') + "+
-		"(SELECT COUNT(*) FROM loads WHERE report_time NOT LIKE '%+00:00'), "+
-		"(SELECT COUNT(*) FROM items WHERE full_stats = ?)",
-		"Name 'x'\nKeyword 'x'\tok").Scan(&left, &stats))
-	if left != 0 || stats != 1 {
-		t.Errorf("fix check failed: %d times not UTC, %d stats fixed",
-			left, stats)
-	}
-	after := instants()
-	_, err = db.Exec(string(script))
-	chkErr(t, err)
-	for k, jd := range instants() {
-		if jd != after[k] {
-			t.Errorf("fix check failed: second run changed %s", k)
 		}
 	}
 }

@@ -86,7 +86,9 @@ func Test_EndRun(t *testing.T) {
 // Test_RunLog checks what a run of gobot that ends early leaves in
 // logs/bot.log, besides stderr, which tintin leaves on its screen: flags it
 // doesn't take, as when katumi.tin is newer than the gobot installed, and a
-// fatal error, each with the run's name.
+// fatal error, each with the run's name. What's run by hand or from cron
+// (-bak, -res, -checkitems and the two alerts) says why it failed in the
+// log and, in the same words and no others, on stderr, and prints nothing.
 func Test_RunLog(t *testing.T) {
 	if testing.Short() {
 		t.Skip("builds gobot")
@@ -102,28 +104,52 @@ func Test_RunLog(t *testing.T) {
 	}
 	run := filepath.Join(dir, "run")
 	chkErr(t, os.MkdirAll(filepath.Join(run, "logs"), 0750))
+	// a backup that isn't gzip, a TorilDB.db that isn't a database, and an
+	// ntfy.url with no topic in it
+	for name, text := range map[string]string{
+		"bad.gz": "a backup that was never gzipped\n",
+		"bad.db": "half a download\n", ntfyFile: "\n"} {
+		chkErr(t, os.WriteFile(filepath.Join(run, name), []byte(text), 0640))
+	}
 	for _, c := range []struct {
-		args []string
-		exit int
-		want string
+		args   []string
+		exit   int
+		want   string
+		stderr bool // whether stderr says the same, and nothing else
 	}{
 		{[]string{"-time", "1:02:03", "-nosuch", "x"}, 2,
-			"Bad flags for gobot -time: flag provided but not defined: -nosuch"},
+			"Bad flags for gobot -time: flag provided but not defined: -nosuch",
+			false},
 		// the toril.db it makes has no tables
-		{[]string{"-time", "1:02:03"}, 1, "gobot -time: no such table: boots"},
+		{[]string{"-time", "1:02:03"}, 1, "gobot -time: no such table: boots",
+			false},
+		{[]string{"-bak"}, 1, "Backup failed: toril.db has no tables", true},
+		{[]string{"-res", "bad.gz"}, 1, "Restore failed: bad.gz: can't " +
+			"decompress it: gzip: invalid header", true},
+		{[]string{"-checkitems", "bad.db"}, 1, itemDBFile + " check failed: " +
+			"bad.db: file is not a database", true},
+		{[]string{"-testalert"}, 1, "Test alert failed: no ntfy topic URL " +
+			"on the first line of " + ntfyFile, true},
+		{[]string{"-loginalert"}, 1, "Login alert failed: no ntfy topic URL " +
+			"on the first line of " + ntfyFile, true},
 	} {
+		what := "gobot " + strings.Join(c.args, " ")
+		var stdout, stderr bytes.Buffer
 		cmd := exec.Command(gobot, c.args...)
 		cmd.Dir = run
+		cmd.Stdout, cmd.Stderr = &stdout, &stderr
 		err := cmd.Run()
 		var exit *exec.ExitError
 		if !errors.As(err, &exit) || exit.ExitCode() != c.exit {
-			t.Errorf("gobot %s: %v, want exit status %d",
-				strings.Join(c.args, " "), err, c.exit)
+			t.Errorf("%s: %v, want exit status %d", what, err, c.exit)
 		}
 		got := readIfThere(t, filepath.Join(run, "logs", "bot.log"))
 		if !strings.Contains(got, c.want+"\n") {
-			t.Errorf("gobot %s logged %q, want %q",
-				strings.Join(c.args, " "), got, c.want)
+			t.Errorf("%s logged %q, want %q", what, got, c.want)
+		}
+		if c.stderr && (stderr.String() != c.want+"\n" || stdout.Len() > 0) {
+			t.Errorf("%s said %q on stderr and printed %q, want %q and nothing",
+				what, stderr.String(), stdout.String(), c.want+"\n")
 		}
 	}
 }

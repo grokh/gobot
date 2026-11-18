@@ -121,6 +121,18 @@ func endRun() {
 	panic(r)
 }
 
+// fail ends a run that couldn't do what it was started for, with exit
+// status 1: a backup, a restore, a check of TorilDB.db or an alert. It says
+// why in the log and, in the same words, on stderr, for whoever ran it by
+// hand and for cron. An error inside any other run goes through fatal
+// instead.
+func fail(format string, a ...interface{}) {
+	why := fmt.Sprintf(format, a...)
+	log.Println(why)
+	fmt.Fprintln(os.Stderr, why)
+	os.Exit(1)
+}
+
 func main() {
 	f, err := os.OpenFile(
 		"logs/bot.log",
@@ -227,44 +239,32 @@ func main() {
 		cmds = GlistStats(*glist)
 	case *backup:
 		if err := BackupDB(); err != nil {
-			log.Printf("Backup failed: %v\n", err)
-			fmt.Fprintf(os.Stderr, "Backup failed: %v\n", err)
-			os.Exit(1)
+			fail("Backup failed: %v", err)
 		}
 	case *restore != "":
 		msg, err := RestoreDB(*restore)
 		if err != nil {
-			log.Printf("Restore failed: %s: %v\n", *restore, err)
-			fmt.Fprintf(os.Stderr, "Restore failed: %s: %v\n", *restore, err)
-			os.Exit(1)
+			fail("Restore failed: %s: %v", *restore, err)
 		}
 		log.Println(msg)
 		cmds = []string{msg + "\n"}
 	case *checkItems != "":
 		msg, err := CheckItemDB(*checkItems)
 		if err != nil {
-			log.Printf("%s check failed: %s: %v\n",
-				itemDBFile, *checkItems, err)
-			fmt.Fprintf(os.Stderr, "%s check failed: %s: %v\n",
-				itemDBFile, *checkItems, err)
-			os.Exit(1)
+			fail("%s check failed: %s: %v", itemDBFile, *checkItems, err)
 		}
 		log.Println(msg)
 		cmds = []string{msg + "\n"}
 	case *testAlert:
 		if err := SendTestAlert(); err != nil {
-			log.Printf("Test alert failed: %v\n", err)
-			fmt.Fprintf(os.Stderr, "Test alert failed: %v\n", err)
-			os.Exit(1)
+			fail("Test alert failed: %v", err)
 		}
 		log.Println("Test alert sent")
 		cmds = []string{"Test alert sent to the ntfy topic in " +
 			ntfyFile + ".\n"}
 	case *loginAlert:
 		if err := SendLoginAlert(); err != nil {
-			log.Printf("Login alert failed: %v\n", err)
-			fmt.Fprintf(os.Stderr, "Login alert failed: %v\n", err)
-			os.Exit(1)
+			fail("Login alert failed: %v", err)
 		}
 	case *port != "":
 		loadPage()

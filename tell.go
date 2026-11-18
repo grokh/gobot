@@ -23,9 +23,8 @@ func NotFound(four string, oper string) string {
 // nameMatch is one way of matching the requested item name: eq's name
 // column has to match every arg using op.
 type nameMatch struct {
-	op    string
-	args  []string
-	limit int
+	op   string
+	args []string
 }
 
 // nameMatches lists the ways FindItem matches a name, best match first.
@@ -36,13 +35,13 @@ func nameMatches(oper string) []nameMatch {
 	}
 	return []nameMatch{
 		// exact item name
-		{"=", []string{oper}, 12},
+		{"=", []string{oper}},
 		// LIKE, anywhere in the name
-		{"LIKE", []string{"%" + oper + "%"}, 1},
+		{"LIKE", []string{"%" + oper + "%"}},
 		// LIKE with %'s in place of spaces
-		{"LIKE", []string{strings.Replace(" "+oper+" ", " ", "%", -1)}, 1},
+		{"LIKE", []string{strings.Replace(" "+oper+" ", " ", "%", -1)}},
 		// every word, in any order
-		{"LIKE", words, 1},
+		{"LIKE", words},
 	}
 }
 
@@ -50,11 +49,14 @@ func nameMatches(oper string) []nameMatch {
 // readied for the MUD.
 type foundItem struct{ name, stats string }
 
-// findStats runs one name match against eq, returning the items found, with
-// their stats in the length asked for (short_stats or long_stats).
-func findStats(db *sql.DB, m nameMatch, length string) ([]foundItem, error) {
+// findStats runs one name match against eq, returning the item found, with
+// its stats in the length asked for (short_stats or long_stats). ok is false
+// if nothing matched. name is eq's key, so the exact match finds one item at
+// most, and a loose match takes the closest.
+func findStats(db *sql.DB, m nameMatch, length string) (
+	item foundItem, ok bool, err error) {
 	if len(m.args) == 0 {
-		return nil, nil
+		return foundItem{}, false, nil
 	}
 	query := "SELECT name, " + length + " FROM eq WHERE "
 	args := make([]interface{}, len(m.args))
@@ -64,23 +66,16 @@ func findStats(db *sql.DB, m nameMatch, length string) ([]foundItem, error) {
 	}
 	// a row without stats isn't an answer; of loose matches, the shortest
 	// name is the one closest to what was asked for
-	query += length + " != '' ORDER BY length(name), name LIMIT " +
-		strconv.Itoa(m.limit)
-	rows, err := db.Query(query, args...)
-	if err != nil {
-		return nil, err
+	query += length + " != '' ORDER BY length(name), name LIMIT 1"
+	var name, text sql.NullString
+	switch err := db.QueryRow(query, args...).Scan(&name, &text); err {
+	case nil:
+		return foundItem{name.String, tintinSafe(text.String)}, true, nil
+	case sql.ErrNoRows:
+		return foundItem{}, false, nil
+	default:
+		return foundItem{}, false, err
 	}
-	defer rows.Close()
-
-	var res []foundItem
-	for rows.Next() {
-		var name, text sql.NullString
-		if err := rows.Scan(&name, &text); err != nil {
-			return nil, err
-		}
-		res = append(res, foundItem{name.String, tintinSafe(text.String)})
-	}
-	return res, rows.Err()
 }
 
 // queryStats runs a query for one column of stats text, returning the first
@@ -215,15 +210,18 @@ func findItem(oper string, length string, namesakes, loads bool) []string {
 func lookUpItem(db *sql.DB, oper, length string, namesakes bool) (
 	items []foundItem, more int, err error) {
 	for _, m := range nameMatches(oper) {
-		items, err = findStats(db, m, length)
-		if err != nil || len(items) > 0 {
-			break
+		item, ok, err := findStats(db, m, length)
+		switch {
+		case err != nil:
+			return nil, 0, err
+		case !ok:
+			continue
+		case namesakes:
+			return sameName(db, item.name, length)
 		}
+		return []foundItem{item}, 0, nil
 	}
-	if err != nil || len(items) == 0 || !namesakes {
-		return items, 0, err
-	}
-	return sameName(db, items[0].name, length)
+	return nil, 0, nil
 }
 
 // sameName returns the items whose names are name's but for the number

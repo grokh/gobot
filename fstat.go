@@ -702,11 +702,11 @@ func namesItem(name string) bool {
 	}
 	defer db.Close()
 	for _, m := range nameMatches(name) {
-		items, err := findStats(db, m, "short_stats")
-		if err != nil || len(items) == 0 {
+		item, ok, err := findStats(db, m, "short_stats")
+		if err != nil || !ok {
 			continue
 		}
-		words := strings.FieldsFunc(strings.ToLower(items[0].name),
+		words := strings.FieldsFunc(strings.ToLower(item.name),
 			func(r rune) bool {
 				return !unicode.IsLetter(r) && !unicode.IsDigit(r) &&
 					r != '\'' && r != '-'

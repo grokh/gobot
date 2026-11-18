@@ -13,7 +13,6 @@
 	<h1><a href="https://www.grokh.com/torileq/">TorilEQ 3.0 - TorilMUD Equipment Database</a></h1>
 	<p>Items Updated: {{.Date}} - Alternate: <a href="https://toril.utopiaprogramming.com/">https://toril.utopiaprogramming.com/</a></p>
 	<form action="?" name="searchForm" id="searchForm" method="post">
-		<input type="hidden" name="exactItem" id="exactItem" />
 		<p><label for="itemName">Item name: </label><input type="text" size="45" maxlength="80" name="itemName" id="itemName" /></p>
 		<p><label for="zoneName">Zone name: </label>
 			<select name="zoneName" id="zoneName"><option value=""></option>
@@ -73,7 +72,6 @@
 			<select name="format" id="format">
 				<option value="long">Long Stats</option>
 				<option value="short">Short Stats</option>
-				<!--<option value="full">Full Stats</option>-->
 			</select>
         </p>
 		<p>
@@ -124,17 +122,6 @@
 	<h2>All Results ({{len .Results}}):</h2>
 	{{end}}
 	{{range .Results}}<p>{{.}}</p>
-	{{else}}
-	<div class="hide">
-	<h2>News and Info</h2>
-	<p>This equipment database is provided by Kegor, Nerun, Katumi, and the players of TorilMUD. The web interface was built by <a href="mailto:system@grokh.com">Todrael</a> and Katumi. Visit the <a href="https://www.tapatalk.com/groups/triteriumbbs/">Triterium BBS</a> for instructions on how to get stats in-game. Mwrite new stats and corrections to Kegor, with the zone, how the item loads, and any quest it's used in if you know them.</p>
-	<h3>Current features:</h3>
-	<ul>
-		<li>Item name search: can be any portion of the name in any order, ex. 'a silver spoon' or 'sil sp' or 'spo silv'.</li>
-		<li>Full stats on first match, short-hand stats on all matches.</li>
-		<li>Click on the item name in short-hand for full stats.</li>
-	</ul>
-	</div>
 	{{end}}
 	<script src="/torileq/form.js"></script>
 </body>

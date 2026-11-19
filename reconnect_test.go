@@ -200,19 +200,18 @@ func (s tinScript) reconnect(t *testing.T, tt, bin, work string) {
 		to := regexp.QuoteMeta(host + " port " + port)
 		in := "logged in as " + regexp.QuoteMeta(s.login[2])
 		from := "disconnected from " + regexp.QuoteMeta(host)
-		checkBotLog(t, run, []string{
-			"started",
-			"couldn't connect to " + to,
-			"connected to " + to + ` after \d+ failed tries`,
+		checkBotLog(t, run, s.noted(
+			"couldn't connect to "+to,
+			"connected to "+to+` after \d+ failed tries`,
 			in, from,
-			"connected to " + to, in, from,
-			"connected to " + to,
+			"connected to "+to, in, from,
+			"connected to "+to,
 			"the MUD kept asking for the account, logging in again", from,
-			"connected to " + to,
+			"connected to "+to,
 			"the login stalled, logging in again", from,
-			"connected to " + to, in,
+			"connected to "+to, in,
 			from, "quit",
-		})
+		))
 	}
 	if s.daily {
 		ran := make(map[string]bool)
@@ -231,14 +230,14 @@ func (s tinScript) reconnect(t *testing.T, tt, bin, work string) {
 // password twice. The script may try it a second time, in case a stray
 // line was taken for it, but then has to close the connection and stay
 // out: trying a wrong password over and over can only lock the account.
-// A script with botLog notes why in logs/bot.log, and sends an alert to a
-// stand-in for ntfy, as nothing else will bring it back.
+// A script with botLog notes why in logs/bot.log, and one with alert sends
+// an alert to a stand-in for ntfy, as nothing else will bring it back.
 func (s tinScript) password(t *testing.T, tt, bin, work string) {
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	chkErr(t, err)
 	defer ln.Close()
 	alerts := make(chan string, 4)
-	if s.botLog {
+	if s.alert {
 		ntfy := httptest.NewServer(http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				alerts <- r.Method + " " + r.URL.Path + " " +
@@ -284,7 +283,7 @@ func (s tinScript) password(t *testing.T, tt, bin, work string) {
 		t.Errorf("tintin didn't say why it stopped logging in%s",
 			tin.report())
 	}
-	if s.botLog {
+	if s.alert {
 		select {
 		case got := <-alerts:
 			if want := "POST /katumi Katumi stopped logging in"; got != want {
@@ -296,13 +295,16 @@ func (s tinScript) password(t *testing.T, tt, bin, work string) {
 				readIfThere(t, filepath.Join(run, "logs", "bot.log")),
 				tin.report())
 		}
+	}
+	if s.botLog {
 		host, port, err := net.SplitHostPort(ln.Addr().String())
 		chkErr(t, err)
-		checkBotLog(t, run, []string{
-			"started",
-			"connected to " + regexp.QuoteMeta(host+" port "+port),
+		checkBotLog(t, run, s.noted(
+			"connected to "+regexp.QuoteMeta(host+" port "+port),
 			"the MUD turned the password down twice, not logging back in",
-		})
+		))
+	}
+	if s.alert {
 		// gobot notes the alert before it sends it
 		botLog := readIfThere(t, filepath.Join(run, "logs", "bot.log"))
 		if !strings.Contains(botLog,
@@ -313,7 +315,16 @@ func (s tinScript) password(t *testing.T, tt, bin, work string) {
 	tin.checkScreen(t)
 }
 
-// tintinLine is a line katumi.tin's botlog writes in logs/bot.log, dated the
+// noted is what a script's tintin should have put in logs/bot.log: that it
+// started, unless another file starts it, and then what.
+func (s tinScript) noted(what ...string) []string {
+	if s.start != "" {
+		return what
+	}
+	return append([]string{"started"}, what...)
+}
+
+// tintinLine is a line a script's botlog writes in logs/bot.log, dated the
 // way gobot dates its own.
 var tintinLine = regexp.MustCompile(
 	`^\d{4}/\d\d/\d\d \d\d:\d\d:\d\d tintin: (.*)$`)

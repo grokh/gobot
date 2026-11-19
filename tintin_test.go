@@ -65,7 +65,7 @@ func Test_Tintin(t *testing.T) {
 	scripts := []tinScript{
 		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
 			everyTell: true, online: true, uptime: true, daily: true,
-			chars: true, botLog: true, stamped: true,
+			chars: true, botLog: true, alert: true, stamped: true,
 			login: []string{fakeAcct, fakeSecret, fakeChar}, tick: "who"},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
@@ -73,7 +73,7 @@ func Test_Tintin(t *testing.T) {
 		// adds, and names its account itself.
 		scripts = append(scripts, tinScript{name: "torilmud.tin",
 			path: path, deps: []string{"gags.tin", "ynndchiarhlizz.tin"},
-			assoc: true, start: "play ynndchiarhlizz;login",
+			assoc: true, botLog: true, start: "play ynndchiarhlizz;login",
 			login: []string{"", fakeSecret, "Ynndchiarhlizz"}, tick: "l"})
 	}
 	for _, s := range scripts {
@@ -96,17 +96,18 @@ func Test_Tintin(t *testing.T) {
 // toril.db at midnight (an #event {DAY}), and whether it adds the chars
 // that who <name> lines show. botLog is whether it notes in
 // logs/bot.log when it starts, connects, logs in, drops and quits, and the
-// logins that go wrong, and sends an alert when it stops logging in, and
-// stamped whether its session log has the time each line came. start is the
-// command that logs in when tintin starts, for a script that leaves that to
-// another file. login is what the script answers the MUD's login prompts
-// with: the account ("" for any), the password and the character. tick is a
-// line its ticker sends once the character is in.
+// logins that go wrong, alert whether it sends an alert when it stops
+// logging in, and stamped whether its session log has the time each line
+// came. start is the command that logs in when tintin starts, for a script
+// that leaves that to another file, and so doesn't note that it started.
+// login is what the script answers the MUD's login prompts with: the
+// account ("" for any), the password and the character. tick is a line its
+// ticker sends once the character is in.
 type tinScript struct {
 	name, path                              string
 	deps                                    []string
 	assoc, everyTell, online, uptime, daily bool
-	chars, botLog, stamped                  bool
+	chars, botLog, alert, stamped           bool
 	start, tick                             string
 	login                                   []string
 }

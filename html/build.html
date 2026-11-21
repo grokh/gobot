@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+
+<html lang="en-US">
+<head>
+	<title>TorilEQ Build Designer - TorilMUD Equipment Database</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<meta name="Description" content="Dress a TorilMUD character in items from TorilEQ, and compare the stats of sets of gear." />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<link href="/torileq/style.css" rel="stylesheet" type="text/css" media="all" />
+	<link rel="shortcut icon" href="/torileq/favicon.ico" type="image/vnd.microsoft.icon" />
+</head>
+<body class="build">
+	<h1><a href="build">TorilEQ Build Designer</a></h1>
+	<div id="designer">
+	<p>Items Updated: {{.Date}} - <a href="./">Item Search</a>{{if ne .Link "build"}} - <a href="{{.Link}}" rel="nofollow">Link to this build</a>{{end}}</p>
+	<form action="build" method="post" id="build">
+		<input type="hidden" name="sets" value="{{len .Sets}}" />
+		<p>
+			<label for="class">Class: </label><select name="class" id="class"><option value=""></option>
+				{{range .Classes}}<option{{if eq . $.Class}} selected="selected"{{end}}>{{.}}</option>
+				{{end}}
+			</select>
+			<label for="race">Race: </label><select name="race" id="race"><option value=""></option>
+				{{range .Races}}<option{{if eq . $.Race}} selected="selected"{{end}}>{{.}}</option>
+				{{end}}
+			</select>
+			<label for="align">Alignment: </label><select name="align" id="align"><option value=""></option>
+				{{range .Aligns}}<option value="{{.Abbr}}"{{if eq .Abbr $.Align}} selected="selected"{{end}}>{{.Disp}}</option>
+				{{end}}
+			</select>
+			<label for="sex">Sex: </label><select name="sex" id="sex"><option value=""></option>
+				{{range .Sexes}}<option value="{{.Abbr}}"{{if eq .Abbr $.Sex}} selected="selected"{{end}}>{{.Disp}}</option>
+				{{end}}
+			</select>
+			<input type="submit" value="Update" />
+		</p>
+		<table class="sets{{len .Sets}}">
+			<thead>
+				<tr><th scope="col">Slot</th>{{range .Sets}}<th scope="col">
+					<input type="text" class="label" name="{{.Key}}.label" id="{{.Key}}-label" value="{{.Label}}" placeholder="{{.Name}}" maxlength="30" aria-label="Name for {{.Name}}" />
+					<button type="submit" name="copy" value="{{.Key}}" title="Copy {{.Name}} into an empty set">Copy</button>
+					<button type="submit" name="clear" value="{{.Key}}" title="Empty {{.Name}}">Clear</button>
+					{{if .Problems}}<div class="warn">{{.Problems}} {{if eq .Problems 1}}problem{{else}}problems{{end}}</div>{{end}}
+				</th>{{end}}</tr>
+			</thead>
+			<tbody>
+				{{range .Slots}}<tr><th scope="row">&lt;{{.Label}}&gt;</th>{{range .Cells}}<td>
+					<div class="pick"><input type="text" class="item" name="{{.Field}}" id="{{.ID}}" value="{{.Value}}" data-slot="{{.Slot}}" aria-label="{{.Aria}}" maxlength="100" autocomplete="off" spellcheck="false" /></div>
+					{{if .Stats}}<div class="stats" title="{{.Long}}">{{.Stats}}</div>{{end}}
+					{{range .Warnings}}<div class="{{if .Maybe}}maybe{{else}}warn{{end}}">{{.Text}}</div>{{end}}
+				</td>{{end}}</tr>
+				{{end}}
+			</tbody>
+			<tbody class="totals">
+				<tr><th scope="colgroup" colspan="{{.Cols}}">Totals</th></tr>
+				{{range .Totals}}<tr><th scope="row">{{.Label}}</th>{{range .Cells}}<td>{{.Value}}{{range .Diffs}} <span class="{{.Class}}">{{.Text}}</span>{{end}}</td>{{end}}</tr>
+				{{else}}<tr><td colspan="{{.Cols}}">Nothing worn yet: type an item's name in a slot, or paste an equipment list below.</td></tr>
+				{{end}}
+			</tbody>
+		</table>
+		<p>{{if .CanAdd}}<button type="submit" name="add" value="1">Add a set</button> {{end}}Each set after the first shows how it differs from Set A. Restrictions follow TorilMUD's builder docs.</p>
+		<p><label for="paste">Paste what 'equipment' shows, or 'look' at someone, to fill a set:</label></p>
+		<textarea cols="80" rows="8" name="paste" id="paste"></textarea>
+		<p><label for="pasteTo">Into: </label><select name="pasteTo" id="pasteTo">
+			{{range .PasteTo}}<option value="{{.Abbr}}"{{if eq .Abbr $.PasteDefault}} selected="selected"{{end}}>{{.Disp}}</option>
+			{{end}}
+		</select>
+		<button type="submit" name="paste-go" value="1">Paste</button></p>
+	</form>
+	</div>
+	<script src="/torileq/build.js"></script>
+</body>
+</html>

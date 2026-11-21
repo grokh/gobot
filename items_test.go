@@ -220,6 +220,7 @@ func testItems(t *testing.T, src string) {
 	testGuesses(t)
 	testFstat(t)
 	testWeb(t, src)
+	testBuild(t, src)
 	testGlist(t)
 	testCheckItemDB(t)
 	testMobsDown(t)
@@ -898,6 +899,8 @@ func testItemDBDown(t *testing.T) {
 		t.Errorf("eqHandler() check failed: worn renamed gave %d: %s",
 			w.Code, w.Body.String())
 	}
+	buildDown(t, "worn renamed", http.StatusInternalServerError, buildSorry,
+		buildSorry)
 
 	mobs := []string{"t Yog " + mobsDown + "\n"}
 	for what, contents := range map[string][]byte{
@@ -927,6 +930,11 @@ func testItemDBDown(t *testing.T) {
 		!strings.Contains(w.Body.String(), itemsDown) {
 		t.Errorf("eqHandler() check failed: no TorilDB.db gave %d: %s",
 			w.Code, w.Body.String())
+	}
+	buildDown(t, "no TorilDB.db", http.StatusServiceUnavailable, itemsDown,
+		"[]")
+	if _, err := os.Stat(itemDBFile); !os.IsNotExist(err) {
+		t.Errorf("TorilDB.db check failed: the designer created the file")
 	}
 }
 

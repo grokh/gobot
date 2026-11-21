@@ -24,6 +24,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 | `guess.go` | what Katumi suggests for a mistyped tell |
 | `who.go`, `time.go`, `online.go` | who lists, boots, hourly player counts |
 | `web.go`, `html/` | the TorilEQ site (`gobot -port`) |
+| `build.go`, `html/build.*` | the site's build designer (`/build`, and `/build/names` for `build.js`) |
 | `paste.go` | reading item names out of a list pasted into the site, and `-glist`'s |
 | `db.go` | opening, backing up and restoring `toril.db` |
 | `local.go` | `-glist` |
@@ -48,7 +49,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - **The published `toril.db` is an allowlist.** Only what `dbcopy_public.sql` lists is copied. Real names (`accounts.player_name`), hidden alts (`vis = 'f'`), load reports and the `online` table stay out, and nothing may add them. A new table or column stays private until it is listed there.
 - **`init_db.sql` has to match the live database**, lookup rows included. A class or race added by hand on the server goes into it too, and into `testNewClasses` in `full_test.go`. A new table also goes into `botTables` in `db.go` (`Test_BotTables` checks), and into the live database before that gobot is installed: `-bak` and `-res` refuse a database that lacks one of those tables.
 - **Never in the repo:** `toril.db`, `TorilDB.db`, `torildb.url` (Kegor's download link is his to share), `tokens.tin`, `ntfy.url`. `.gitignore` covers them.
-- **No inline script or style in `html/`.** grokh.com sends `Content-Security-Policy: default-src 'self'`.
+- **No inline script or style in `html/`.** grokh.com sends `Content-Security-Policy: default-src 'self'`, and `Test_PageCSP` checks the pages. A new file the site serves needs its own `http.Handle` in `gobot.go`'s `-port` case.
 - **Begin every transaction on `toril.db` with `Begin()` on `OpenDB`'s handle**, which starts it with `BEGIN IMMEDIATE`. A transaction that reads before its first write, begun any other way, gets "database is locked" at once whenever another gobot is writing, without the 5-second wait. `testWhoWaits` checks `WhoBatch`.
 - The live `toril.db` stays in rollback-journal mode, by the owner's choice. `dbcopy.sh` works with either mode.
 

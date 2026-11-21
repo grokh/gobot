@@ -124,11 +124,13 @@ func findHands(abbr string) (handChoice, bool) {
 }
 
 // leaveOuts are the kinds of item a fill can be asked to leave out, by
-// Kegor's load codes.
-var leaveOuts = []struct{ abbr, display, load string }{
-	{"rare", "rare items", "R"},
-	{"quest", "quest rewards", "Q"},
-	{"invasion", "invasion items", "I"},
+// Kegor's load codes, or by a flag in item_flags: NORENT, which his short
+// stats show as !RENT.
+var leaveOuts = []struct{ abbr, display, load, flag string }{
+	{"rare", "rare items", "R", ""},
+	{"quest", "quest rewards", "Q", ""},
+	{"invasion", "invasion items", "I", ""},
+	{"norent", "no-rent items", "", "NORENT"},
 }
 
 // neverLoads are the load codes of items no fill uses: out of the game, and
@@ -411,16 +413,23 @@ func candidates(db *sql.DB, c buildChar, o bestOpts) ([]*candidate, error) {
 	for _, l := range neverLoads {
 		args = append(args, l)
 	}
+	noFlags := []string{"NOTAKE"}
 	for _, l := range leaveOuts {
-		if hasWord(o.leave, l.abbr) {
+		if !hasWord(o.leave, l.abbr) {
+			continue
+		}
+		if l.load != "" {
 			args = append(args, l.load)
+		}
+		if l.flag != "" {
+			noFlags = append(noFlags, l.flag)
 		}
 	}
 	marks := strings.TrimSuffix(strings.Repeat("?, ", len(args)), ", ")
-	noTake, targs := hasToken("item_flags", "NOTAKE")
+	flagged, fargs := hasToken("item_flags", noFlags...)
 	items, err := queryItems(db, " WHERE short_stats != '' AND "+test+
-		" AND coalesce(load, '') NOT IN ("+marks+") AND NOT "+noTake,
-		append(args, targs...)...)
+		" AND coalesce(load, '') NOT IN ("+marks+") AND NOT "+flagged,
+		append(args, fargs...)...)
 	if err != nil {
 		return nil, err
 	}

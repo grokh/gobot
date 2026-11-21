@@ -199,17 +199,31 @@ func (it *buildItem) whole(flag string) bool {
 }
 
 // isFor reports whether usable_by names class, as in Hexblade:Hellborne,
-// Blackguard, Warrior. What follows a colon narrows it to a specialization,
-// which the designer doesn't know, so only the class is checked.
+// Blackguard, Warrior. What follows a colon narrows it to a subclass, which
+// the designer doesn't know for a class, so only the class is checked. But
+// a class it offers that the game has made a subclass (subclassOf) is that
+// subclass, so Wizard and Wizard:Illusionist are for an illusionist, and
+// Wizard with another subclass isn't.
 func (it *buildItem) isFor(class string) bool {
+	of := subclassOf[class]
 	for _, o := range it.only {
-		name, _, _ := strings.Cut(o, ":")
-		if strings.EqualFold(strings.TrimSpace(name), class) {
+		name, sub, _ := strings.Cut(o, ":")
+		name, sub = strings.TrimSpace(name), strings.TrimSpace(sub)
+		if strings.EqualFold(name, class) || of != "" &&
+			strings.EqualFold(name, of) && (sub == "" ||
+			strings.EqualFold(sub, class)) {
 			return true
 		}
 	}
 	return false
 }
+
+// subclassOf is the class each class the designer offers is a subclass of,
+// if the game has made it one. Since July 2024 illusionists are wizards of
+// the Illusionist subclass: "who subclass" shows them as [50 Ill  Wiz], and
+// the who list as [50 Wiz]. Kegor's usable_by gives their relics, the bound
+// quest weapons from Baldur's Gate, to Wizard:Illusionist.
+var subclassOf = map[string]string{"Illusionist": "Wizard"}
 
 // buildCols is how many columns itemQuery reads before the stats.
 const buildCols = 8

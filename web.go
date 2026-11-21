@@ -46,10 +46,7 @@ func fillStructs() Page {
 	db, err := OpenItemDB()
 	ChkErr(err)
 	defer db.Close()
-
-	var date sql.NullString
-	ChkErr(db.QueryRow("SELECT MAX(date) FROM eq").Scan(&date))
-	p.Date = date.String
+	p.Date = itemsUpdated(db)
 
 	for _, z := range zoneNames(column(db,
 		"SELECT DISTINCT zone FROM eq WHERE zone != ''")) {
@@ -404,23 +401,18 @@ func ParseList(txt string) []string {
 }
 
 // tmpl is the TorilEQ page. Only the web server (-port) uses it, so main
-// loads it there with loadPage, and the bot's commands don't need html/.
+// loads it there with loadPage, with the build designer's (buildTmpl), and
+// the bot's commands don't need html/.
 var tmpl *template.Template
 
 func loadPage() {
 	tmpl = template.Must(template.ParseFiles("html/index.html"))
+	buildTmpl = template.Must(template.ParseFiles("html/build.html"))
 }
 
 func eqHandler(w http.ResponseWriter, r *http.Request) {
-	// Errors while serving a request panic (see fatal); answer them with a
-	// 500 instead of letting one bad request take the whole site down.
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("web: %s %s failed: %v", r.Method, r.URL.Path, err)
-			http.Error(w, "Sorry, that search failed. Please try again.",
-				http.StatusInternalServerError)
-		}
-	}()
+	// Errors while serving a request panic (see fatal)
+	defer webRecover(w, r, "Sorry, that search failed. Please try again.")
 	if _, err := os.Stat(itemDBFile); err != nil {
 		log.Printf("web: %s: %v", itemDBFile, err)
 		http.Error(w, itemsDown, http.StatusServiceUnavailable)

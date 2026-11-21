@@ -269,9 +269,12 @@ func main() {
 	case *port != "":
 		loadPage()
 		http.HandleFunc("/", eqHandler)
-		http.Handle("/style.css", http.FileServer(http.Dir("html")))
-		http.Handle("/form.js", http.FileServer(http.Dir("html")))
-		http.Handle("/favicon.ico", http.FileServer(http.Dir("html")))
+		http.HandleFunc("/build", buildHandler)
+		http.HandleFunc("/build/names", namesHandler)
+		for _, f := range []string{"/style.css", "/form.js", "/build.js",
+			"/favicon.ico"} {
+			http.Handle(f, http.FileServer(http.Dir("html")))
+		}
 		// nginx, on the same machine, is the only way in
 		err := http.ListenAndServe("127.0.0.1:"+*port, nil)
 		ChkErr(err)

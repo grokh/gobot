@@ -43,3 +43,129 @@ label.toggle:hover {
 .hide {
 	display: none;
 }
+
+/* the build designer, build.html */
+body.build {
+	max-width: none;
+	margin: 0 1em;
+}
+.build table {
+	border-collapse: collapse;
+	margin: 1em 0;
+}
+.build th, .build td {
+	text-align: left;
+	vertical-align: top;
+	padding: 0.25em 0.5em;
+	border-bottom: 1px solid #303030;
+}
+.build thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background-color: black;
+	border-bottom: 1px solid #808000;
+}
+.build tbody th {
+	font-weight: normal;
+	color: #808000;
+	white-space: nowrap;
+}
+.build tbody.totals th[scope=colgroup] {
+	font-family: arial, sans-serif;
+	font-weight: bold;
+	padding-top: 1em;
+}
+.build input.item {
+	width: 30em;
+}
+.build .stats, .build .warn, .build .maybe {
+	max-width: 30em;
+	font-size: 85%;
+}
+.build .sets3 input.item, .build .sets4 input.item,
+.build .sets3 .stats, .build .sets4 .stats {
+	width: 22em;
+}
+.build .sets3 .warn, .build .sets4 .warn,
+.build .sets3 .maybe, .build .sets4 .maybe {
+	max-width: 22em;
+}
+.build .stats {
+	color: #909090;
+}
+.build .warn, .build .worse {
+	color: #FF5050;
+}
+.build .maybe {
+	color: #C8A000;
+}
+.build .better {
+	color: #00C000;
+}
+.build button {
+	font-family: monospace;
+	color: #C0C0C0;
+	background-color: #202020;
+	border: 1px solid #606060;
+}
+.build button:hover {
+	border-color: #C0C0C0;
+	cursor: pointer;
+}
+.build .pick {
+	position: relative;
+}
+.build ul.suggest {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	z-index: 2;
+	width: 44em;
+	max-width: 90vw;
+	max-height: 22em;
+	overflow-y: auto;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	background-color: black;
+	border: 1px solid #808000;
+}
+/* the last set's list opens leftward, so it doesn't run off the page */
+.build td:last-child ul.suggest {
+	left: auto;
+	right: 0;
+}
+.build ul.suggest li {
+	padding: 0.2em 0.4em;
+	cursor: pointer;
+}
+.build ul.suggest li span {
+	color: #909090;
+	font-size: 85%;
+}
+.build ul.suggest li.on, .build ul.suggest li:hover {
+	background-color: #303000;
+}
+/* phones: the sets still scroll sideways, but in narrower columns */
+@media (max-width: 40em) {
+	body.build {
+		margin: 0 0.5em;
+	}
+	.build th, .build td {
+		padding: 0.25em 0.25em;
+	}
+	.build tbody th {
+		white-space: normal;
+		max-width: 6em;
+	}
+	.build table input.item, .build table .stats {
+		width: 16em;
+	}
+	.build table .warn, .build table .maybe {
+		max-width: 16em;
+	}
+	.build ul.suggest {
+		width: 20em;
+	}
+}

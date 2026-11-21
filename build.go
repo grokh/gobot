@@ -612,12 +612,14 @@ type buildSet struct {
 
 func (s buildSet) empty() bool { return s.label == "" && len(s.names) == 0 }
 
-// build is a whole build: the character, the sets the page shows, and what
-// the page's Fill (best.go) is asked for.
+// build is a whole build: the character, the sets the page shows, what the
+// page's Fill (best.go) is asked for, and the essentials the set it last
+// filled lacks, if it needs them, which only the link from that fill tells.
 type build struct {
-	char buildChar
-	sets []buildSet
-	best bestOpts
+	char  buildChar
+	sets  []buildSet
+	best  bestOpts
+	lacks []string
 }
 
 // setKey is the letter that names the nth set in links, a to d.
@@ -653,12 +655,17 @@ func field(s string, max int) string {
 }
 
 // readBuild reads a build from a form or a link: the character, what a fill
-// is asked for, then each set's label and the name in each of its slots,
-// from a.label, a.head, b.head and so on. The page shows as many sets as
-// sets asks, at least minSets, and at least enough for the last set with
-// anything in it.
+// is asked for and the essentials it lacked, then each set's label and the
+// name in each of its slots, from a.label, a.head, b.head and so on. The
+// page shows as many sets as sets asks, at least minSets, and at least
+// enough for the last set with anything in it.
 func readBuild(v url.Values) build {
 	b := build{char: readChar(v), best: readBest(v)}
+	for _, e := range essentials {
+		if b.best.resists && hasWord(v["lacks"], e) {
+			b.lacks = append(b.lacks, e)
+		}
+	}
 	all := make([]buildSet, maxSets)
 	last := -1
 	for n := range all {
@@ -680,8 +687,9 @@ func readBuild(v url.Values) build {
 }
 
 // values is the build as link values, which readBuild reads back: only
-// what's filled in, what a fill is asked for unless it's the default, and
-// sets only when it shows more sets than it would without it.
+// what's filled in, what a fill is asked for unless it's the default, the
+// essentials the set it filled lacks, and sets only when it shows more sets
+// than it would without it.
 func (b build) values() url.Values {
 	v := url.Values{}
 	for k, val := range map[string]string{"class": b.char.class,
@@ -691,6 +699,9 @@ func (b build) values() url.Values {
 		}
 	}
 	b.best.addValues(v)
+	for _, e := range b.lacks {
+		v.Add("lacks", e)
+	}
 	last := -1
 	for n, s := range b.sets {
 		k := setKey(n)
@@ -749,8 +760,9 @@ func (b *build) target(to string) int {
 // into the first empty set, clear one, which takes the last set away if the
 // page shows more than minSets, or fill one with the best items for a stat.
 // Any equipment list pasted in goes into the set pasteTo names, or the first
-// empty one.
+// empty one. Only a fill's own link notes the essentials its set lacks.
 func (b *build) act(db *sql.DB, v url.Values) error {
+	b.lacks = nil
 	switch {
 	case v.Get("fill") != "":
 		if err := b.fill(db, v); err != nil {
@@ -1158,6 +1170,8 @@ type BuildPage struct {
 	Best, Then, Hands   string
 	BestStats, HandWays []Option
 	LeaveOuts           []Check
+	Resists             bool
+	Lacks               string // the essentials the set it filled lacks
 }
 
 // itemsUpdated is the date of the newest item in TorilDB.db.
@@ -1174,6 +1188,7 @@ func (b build) page(db *sql.DB) (BuildPage, error) {
 		Align: b.char.align, Sex: b.char.sex, Aligns: aligns, Sexes: sexes,
 		Cols: len(b.sets) + 1, CanAdd: len(b.sets) < maxSets,
 		Best: b.best.stat, Then: b.best.then, Hands: b.best.hands,
+		Resists: b.best.resists, Lacks: andList(b.lacks),
 	}
 	for _, c := range buildClasses {
 		p.Classes = append(p.Classes, c.name)

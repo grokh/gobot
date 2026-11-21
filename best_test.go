@@ -33,6 +33,11 @@ var bestEq = []dbRow{
 	bestItem("a lucky circlet", "WHOLE-HEAD", "NOBITS", "N", 1, dbRow{"luck": 4}),
 	bestItem("a leather cap", "HEAD", "NOBITS", "N", 1, dbRow{"luck": 1}),
 	bestItem("a bone mask", "FACE", "NOBITS", "N", 1, dbRow{"luck": 1}),
+	// sf_enc: a whole-head hood that ties with what it covers
+	bestItem("a motley hood", "WHOLE-HEAD", "NOBITS", "N", 2, dbRow{"sf_enc": 3}),
+	bestItem("a motley coif", "HEAD", "NOBITS", "N", 1, dbRow{"sf_enc": 2}),
+	bestItem("a pair of motley lenses", "EYES", "NOBITS", "N", 1,
+		dbRow{"sf_enc": 1}),
 	// int: the hands
 	bestItem("a willow wand", "WIELD", "NOBITS", "N", 1, dbRow{"int": 3}),
 	bestItem("an oak cudgel", "WIELD 2H", "NOBITS", "N", 8, dbRow{"int": 5}),
@@ -67,12 +72,29 @@ var bestEq = []dbRow{
 	// svbr: a save, better less
 	bestItem("a scorched cloak", "ABOUT", "NOBITS", "N", 2, dbRow{"sv_bre": -3}),
 	bestItem("a smoky cloak", "ABOUT", "NOBITS", "N", 2, dbRow{"sv_bre": 2}),
+	// maxwis, with the essential resists: necks with and without cold, the
+	// best cloak, which takes cold away, and a held item, a waist and a badge
+	// with them, while testEq's ruby stud, a quest reward, has fire
+	bestItem("an owl-feather amulet", "NECK", "NOBITS", "N", 1,
+		dbRow{"max_wis": 3}),
+	bestItem("a rimed amulet", "NECK", "NOBITS", "N", 1,
+		dbRow{"max_wis": 2, "r_cold": 5}),
+	bestItem("a shadow-woven mantle", "ABOUT", "NOBITS", "N", 1,
+		dbRow{"max_wis": 4, "r_cold": -5}),
+	bestItem("a hermit's cloak", "ABOUT", "NOBITS", "N", 2, dbRow{"max_wis": 2}),
+	bestItem("a scholar's sash", "WAIST", "NOBITS", "N", 1, dbRow{"max_wis": 2}),
+	bestItem("a slimy girdle", "WAIST", "NOBITS", "N", 3,
+		dbRow{"max_wis": 1, "r_acid": 5}),
+	bestItem("an acid-etched badge", "INSIGNIA", "NOBITS", "N", 1,
+		dbRow{"r_acid": 5}),
+	bestItem("a frost crystal", "HOLD", "NOBITS", "N", 1, dbRow{"r_cold": 5}),
 }
 
 // fillPicks fills a set for c as o asks, around the items keep names by
-// slot, and lists what the fill put where, as "slot=name". It checks that
-// nothing the fill put in shows a warning for c, nor for c with any value in
-// place of a part it leaves blank.
+// slot, and lists what the fill put where, as "slot=name", then each of the
+// essentials the set lacks, as "lacks=fire". It checks that nothing the fill
+// put in shows a warning for c, nor for c with any value in place of a part
+// it leaves blank.
 func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 	keep map[string]string) []string {
 	kept := make([]bool, len(buildSlots))
@@ -84,7 +106,7 @@ func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 		chkErr(t, err)
 		kept[n], keptItems[n], set.names[key] = true, it, name
 	}
-	picks, err := bestSet(db, c, o, kept, keptItems)
+	picks, lacks, err := bestSet(db, c, o, kept, keptItems)
 	chkErr(t, err)
 	var got []string
 	for n, p := range picks {
@@ -92,6 +114,9 @@ func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 			got = append(got, buildSlots[n].key+"="+p.it.name)
 			set.names[buildSlots[n].key] = p.it.name
 		}
+	}
+	for _, e := range lacks {
+		got = append(got, "lacks="+e)
 	}
 	chars := []buildChar{c}
 	for _, part := range charParts {
@@ -119,7 +144,11 @@ func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 
 func testBuildBest(t *testing.T, db *sql.DB) {
 	opts := func(stat, then, hands string, leave ...string) bestOpts {
-		return bestOpts{stat, then, hands, leave}
+		return bestOpts{stat: stat, then: then, hands: hands, leave: leave}
+	}
+	resists := func(o bestOpts) bestOpts {
+		o.resists = true
+		return o
 	}
 	luck := opts("luck", "", "any")
 	intel := func(hands string) bestOpts { return opts("int", "", hands) }
@@ -130,6 +159,12 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 	sash, anklet := "waist=a sash of the evil eye", "feet=a dancer's anklet"
 	rings := []string{"finger1=a sage's ring", "finger2=a sage's ring"}
 	cleric := buildChar{"Cleric", "Drow Elf", "neutral", "female"}
+	wisdom := resists(opts("maxwis", "", "any"))
+	badge, ruby := "badge=an acid-etched badge",
+		"ear1=a tiny mithril stud set with a ruby"
+	owl, rimed := "an owl-feather amulet", "a rimed amulet"
+	mantle, crystal := "about=a shadow-woven mantle", "held=a frost crystal"
+	scholar := "waist=a scholar's sash"
 	checks := []struct {
 		what string
 		char buildChar
@@ -151,6 +186,9 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{"nothing under a kept whole body", buildChar{}, luck,
 			map[string]string{"body": "a quilted robe"},
 			[]string{"head=a lucky circlet"}},
+		{"a tie, to what a whole head would cover", buildChar{},
+			opts("sf_ench", "", "any"), nil,
+			[]string{"head=a motley coif", "eyes=a pair of motley lenses"}},
 
 		{"hands, any way: two of a weapon", buildChar{}, intel("any"), nil,
 			wands},
@@ -215,10 +253,66 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 			[]string{"about=a scorched cloak"}},
 		{"nothing for the stat", buildChar{class: "Lich"},
 			opts("sf_sum", "", "any"), nil, nil},
+
+		{"without the essential resists", buildChar{},
+			opts("maxwis", "", "any"), nil,
+			[]string{"neck1=" + owl, "neck2=" + owl, mantle, scholar}},
+		{"the essential resists: a held item for its cold, and an amulet",
+			buildChar{}, wisdom, nil,
+			[]string{badge, ruby, "neck1=" + rimed, "neck2=" + owl, mantle,
+				scholar, crystal}},
+		{"the essential resists, with no hands: both amulets", buildChar{},
+			resists(opts("maxwis", "", "none")), nil,
+			[]string{badge, ruby, "neck1=" + rimed, "neck2=" + rimed, mantle,
+				scholar}},
+		{"as many of the essential resists as a set can have", buildChar{},
+			resists(opts("maxwis", "", "any", "quest")), nil,
+			[]string{badge, "neck1=" + rimed, "neck2=" + owl, mantle, scholar,
+				crystal, "lacks=fire"}},
+		{"the essential resists, around a kept cloak without cold",
+			buildChar{}, wisdom, map[string]string{"about": "a hermit's cloak"},
+			[]string{badge, ruby, "neck1=" + owl, "neck2=" + owl, scholar,
+				crystal}},
+		{"the essential resists, around a kept cloak that takes cold away",
+			buildChar{}, wisdom,
+			map[string]string{"about": "a shadow-woven mantle"},
+			[]string{badge, ruby, "neck1=" + rimed, "neck2=" + owl, scholar,
+				crystal}},
+		{"the essential resists, around a kept girdle with acid", buildChar{},
+			wisdom, map[string]string{"waist": "a slimy girdle"},
+			[]string{ruby, "neck1=" + rimed, "neck2=" + owl, mantle, crystal}},
+		{"the essential resists, all kept: the set it would be without them",
+			buildChar{}, resists(luck), map[string]string{
+				"ear1": "a tiny mithril stud set with a ruby", "neck1": rimed,
+				"badge": "an acid-etched badge"},
+			[]string{"head=a lucky circlet", "body=a padded jerkin",
+				"arms=some padded sleeves", "legs=some padded breeches"}},
 	}
 	for _, c := range checks {
 		chk(t, "bestSet() "+c.what, c.want,
 			fillPicks(t, db, c.char, c.opts, c.keep))
+	}
+
+	// the essentials are resists, which a fill counts; a plan that would
+	// count too many sums of them fails
+	for _, e := range essentials {
+		if r, ok := findBestStat(e); !ok || r.key != "r:"+e {
+			t.Errorf("essentials check failed: %s is no resist", e)
+		}
+	}
+	was := maxWays
+	maxWays = 2
+	if _, _, err := bestSet(db, buildChar{}, wisdom,
+		make([]bool, len(buildSlots)), make([]*buildItem, len(buildSlots))); err == nil {
+		t.Errorf("bestSet() check failed: no error counting more than %d "+
+			"sums", maxWays)
+	}
+	maxWays = was
+
+	for words, want := range map[string]string{"": "", "fire": "fire",
+		"fire acid": "fire and acid", "fire cold acid": "fire, cold and acid"} {
+		chk(t, "andList() "+words, []string{want},
+			[]string{andList(strings.Fields(words))})
 	}
 
 	// what a fill is asked for, from a link or form
@@ -233,10 +327,11 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{url.Values{"best": {"fire"}, "then": {"fire"}}, opts("fire", "", "any")},
 		{url.Values{"best": {"wt"}, "then": {"karma"}, "hands": {"juggle"}},
 			opts("hit", "", "any")},
+		{url.Values{"resists": {"1"}}, resists(opts("hit", "", "any"))},
 	} {
 		got := readBest(c.v)
 		if got.stat != c.want.stat || got.then != c.want.then ||
-			got.hands != c.want.hands ||
+			got.hands != c.want.hands || got.resists != c.want.resists ||
 			strings.Join(got.leave, " ") != strings.Join(c.want.leave, " ") {
 			t.Errorf("readBest() check failed: %v gave %+v, not %+v", c.v, got,
 				c.want)
@@ -254,6 +349,10 @@ func testBuildFill(t *testing.T) {
 			".body=a+padded+jerkin&" + set + ".head=a+lucky+circlet&" + set +
 			".label=Best+Luck&" + set + ".legs=some+padded+breeches"
 	}
+	wisdom := "a.about=a+shadow-woven+mantle&a.badge=an+acid-etched+badge" +
+		"&a.ear1=a+tiny+mithril+stud+set+with+a+ruby&a.held=a+frost+crystal" +
+		"&a.label=Best+Max+Wisdom&a.neck1=a+rimed+amulet" +
+		"&a.neck2=an+owl-feather+amulet&a.waist=a+scholar%27s+sash"
 	checks := []struct {
 		what string
 		form url.Values
@@ -286,9 +385,21 @@ func testBuildFill(t *testing.T) {
 			"fill": {"1"}}, "build?best=cha"},
 		{"nothing found", url.Values{"best": {"sf_sum"}, "fill": {"1"}},
 			"build?best=sf_sum"},
+		{"with the essential resists", url.Values{"best": {"maxwis"},
+			"resists": {"1"}, "fill": {"1"}}, "build?" + wisdom +
+			"&best=maxwis&resists=1"},
+		{"lacking an essential resist", url.Values{"best": {"maxwis"},
+			"resists": {"1"}, "leave": {"quest"}, "fill": {"1"}},
+			"build?" + strings.Replace(wisdom, "a.ear1=a+tiny+mithril+stud+"+
+				"set+with+a+ruby&", "", 1) +
+				"&best=maxwis&lacks=fire&leave=quest&resists=1"},
 		{"the choices, kept", url.Values{"best": {"luck"}, "then": {"pow"},
-			"hands": {"two"}, "leave": {"quest", "rare"}},
-			"build?best=luck&hands=two&leave=rare&leave=quest&then=pow"},
+			"hands": {"two"}, "leave": {"quest", "rare"}, "resists": {"1"}},
+			"build?best=luck&hands=two&leave=rare&leave=quest&resists=1" +
+				"&then=pow"},
+		{"no note of what an earlier fill lacked", url.Values{
+			"best": {"maxwis"}, "resists": {"1"}, "lacks": {"fire"}},
+			"build?best=maxwis&resists=1"},
 		{"no choice the page doesn't offer", url.Values{"best": {"wt"},
 			"then": {"hit"}, "hands": {"juggle"}, "leave": {"store"}}, "build"},
 	}
@@ -312,8 +423,13 @@ func testBuildFill(t *testing.T) {
 		"": {`<option value="hit" selected="selected">Hitroll</option>`,
 			`<option value="any" selected="selected">any way</option>`,
 			`<input type="checkbox" name="leave" value="rare" id="leave-rare" />`,
+			`<input type="checkbox" name="resists" value="1" id="resists" />`,
 			`<option value="fire">Fire resist</option>`,
 			`<button type="submit" name="fill" value="1" id="fill">Fill</button>`},
+		"best=maxwis&resists=1&lacks=cold&lacks=fire&a.head=cap": {
+			`<input type="checkbox" name="resists" value="1" id="resists" checked="checked" />`,
+			"so the one it made lacks fire and cold resist.",
+			`cap&amp;best=maxwis&amp;resists=1" rel="nofollow">`},
 		"best=svsp&then=fire&hands=twohanded&leave=quest&a.head=cap": {
 			`<option value="svsp" selected="selected">Save Spell</option>`,
 			`<option value="fire" selected="selected">Fire resist</option>`,
@@ -330,5 +446,10 @@ func testBuildFill(t *testing.T) {
 					query, want, body)
 			}
 		}
+	}
+	if body := page("best=maxwis&lacks=fire"); strings.Contains(body,
+		"lacks fire") {
+		t.Errorf("buildHandler() check failed: a fill that didn't need the " +
+			"essential resists noted one it lacked")
 	}
 }

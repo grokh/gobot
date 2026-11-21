@@ -113,11 +113,34 @@ body.build {
 	border-color: #C0C0C0;
 	cursor: pointer;
 }
+/* a fill's choices, in a box, and its button, the page's boldest */
+.build div.fill {
+	display: inline-block;
+	margin: 0.25em 0 0.5em;
+	padding: 0 0.75em;
+	border: 1px solid #505000;
+}
 .build .fill p {
 	margin: 0.5em 0;
 }
-.build .fill label[for=fillTo] {
-	margin-left: 1em;
+.build .fill p.warn {
+	max-width: none;
+}
+/* space before the button that doesn't indent it when it wraps */
+.build .fill label[for=keep] {
+	margin-right: 1em;
+}
+.build button#fill {
+	padding: 0.3em 1.5em;
+	font-size: 110%;
+	font-weight: bold;
+	color: black;
+	background-color: #808000;
+	border-color: #A0A000;
+}
+.build button#fill:hover, .build button#fill:focus-visible {
+	background-color: #A0A000;
+	border-color: #FFFF00;
 }
 .build .note {
 	color: #909090;

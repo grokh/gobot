@@ -52,6 +52,9 @@
 			<p>
 				Leave out: {{range .LeaveOuts}}<input type="checkbox" name="leave" value="{{.Abbr}}" id="leave-{{.Abbr}}"{{if .Checked}} checked="checked"{{end}} /><label for="leave-{{.Abbr}}">{{.Disp}}</label>
 				{{end}}
+			</p>
+			<p><input type="checkbox" name="resists" value="1" id="resists"{{if .Resists}} checked="checked"{{end}} /><label for="resists">Essential resists: at least 1% fire, cold and acid, needed to keep dragon breath from destroying equipment</label></p>
+			<p>
 				<label for="fillTo">Into: </label><select name="fillTo" id="fillTo">
 					{{range .PasteTo}}<option value="{{.Abbr}}"{{if eq .Abbr $.PasteDefault}} selected="selected"{{end}}>{{.Disp}}</option>
 					{{end}}
@@ -59,7 +62,8 @@
 				<input type="checkbox" name="keep" value="1" id="keep" /><label for="keep">keeping what's in it</label>
 				<button type="submit" name="fill" value="1" id="fill">Fill</button>
 			</p>
-			<p class="note">A fill uses only items the character can use. Leave the class, race, alignment or sex blank, and it uses only items that suit them all.</p>
+			{{if .Lacks}}<p class="warn">No set the fill can make has at least 1% fire, cold and acid resist, so the one it made lacks {{.Lacks}} resist.</p>
+			{{end}}<p class="note">A fill uses only items the character can use. Leave the class, race, alignment or sex blank, and it uses only items that suit them all.</p>
 		</div>
 		<table class="sets{{len .Sets}}">
 			<thead>

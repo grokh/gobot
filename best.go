@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"maps"
 	"net/url"
 	"slices"
@@ -25,6 +26,12 @@ import (
 // of them the game lets go together, so it never picks one. Players wear two
 // of the same ring, earring or bracer, as their logs show, so a pair's two
 // slots can hold the same item.
+//
+// Asked for the essential resists, a fill makes the set the best one with at
+// least 1% of each of them, counting what it keeps, which can mean an item
+// worn for its resist alone. That's the set it would make without them if
+// that set has them. If no set has them all, the set is the best one with
+// as many of them as any has.
 
 // bestStat is a stat or resist a set can be filled for: the name the page
 // posts, its key in buildItem's vals, its name on the page, its SQL, and
@@ -119,12 +126,30 @@ var leaveOuts = []struct{ abbr, display, load string }{
 // no take.
 var neverLoads = []string{"!", "X"}
 
+// essentials are the resists a set needs at least 1% of each of to keep
+// dragon breath from destroying its equipment, by their abbrs in resists.
+var essentials = [...]string{"fire", "cold", "acid"}
+
+// sums are what a set, or an item, gives of each of the essentials.
+type sums [len(essentials)]int
+
+// andList joins words as a sentence lists them: a, b and c.
+func andList(words []string) string {
+	if len(words) < 2 {
+		return strings.Join(words, "")
+	}
+	return strings.Join(words[:len(words)-1], ", ") + " and " +
+		words[len(words)-1]
+}
+
 // bestOpts are what a fill is asked for, as the page and the build's link
 // hold them: the stat, the stat after it if any, the way to fill the hands,
-// and the abbrs of the leaveOuts to leave out, in their order.
+// the abbrs of the leaveOuts to leave out, in their order, and whether the
+// set needs the essentials.
 type bestOpts struct {
 	stat, then, hands string
 	leave             []string
+	resists           bool
 }
 
 // defaultBest is what a fill is asked for unless the link says otherwise,
@@ -149,6 +174,7 @@ func readBest(v url.Values) bestOpts {
 			o.leave = append(o.leave, l.abbr)
 		}
 	}
+	o.resists = v.Get("resists") != ""
 	return o
 }
 
@@ -166,6 +192,9 @@ func (o bestOpts) addValues(v url.Values) {
 	}
 	for _, l := range o.leave {
 		v.Add("leave", l)
+	}
+	if o.resists {
+		v.Set("resists", "1")
 	}
 }
 
@@ -272,10 +301,12 @@ func (u users) suits(need users) bool {
 	return true
 }
 
-// candidate is an item a fill can choose, with what it gives the fill.
+// candidate is an item a fill can choose, with what it gives the fill: its
+// score, and the essentials, if the fill needs them.
 type candidate struct {
 	it    *buildItem
 	score score
+	res   sums
 }
 
 // wholeFlag is the flag of an item worn in the slot with key that covers
@@ -304,15 +335,22 @@ func poolKey(s buildSlot, it *buildItem) string {
 }
 
 // candidates reads the items a fill can choose from for the character c:
-// those that give the fill something, fit a slot, and that any player can
-// have and c can use.
+// those that give the fill something, or give one of the essentials if it
+// needs them, that fit a slot, and that any player can have and c can use.
 func candidates(db *sql.DB, c buildChar, o bestOpts) ([]*candidate, error) {
 	st, _ := findBestStat(o.stat)
 	then, hasThen := findBestStat(o.then)
-	test := st.sql + " != 0"
+	tests := []string{st.sql + " != 0"}
 	if hasThen {
-		test = "(" + test + " OR " + then.sql + " != 0)"
+		tests = append(tests, then.sql+" != 0")
 	}
+	if o.resists {
+		for _, e := range essentials {
+			r, _ := findBestStat(e)
+			tests = append(tests, r.sql+" > 0")
+		}
+	}
+	test := "(" + strings.Join(tests, " OR ") + ")"
 	var args []interface{}
 	for _, l := range neverLoads {
 		args = append(args, l)
@@ -341,7 +379,15 @@ func candidates(db *sql.DB, c buildChar, o bestOpts) ([]*candidate, error) {
 		if hasThen {
 			sc[1] = then.dir * it.vals[then.key]
 		}
-		if !(score{}).less(sc) || !slices.ContainsFunc(buildSlots,
+		var res sums
+		gives := (score{}).less(sc)
+		if o.resists {
+			for d, e := range essentials {
+				res[d] = it.vals["r:"+e]
+				gives = gives || res[d] > 0
+			}
+		}
+		if !gives || !slices.ContainsFunc(buildSlots,
 			func(s buildSlot) bool { return s.fits(it) }) {
 			continue
 		}
@@ -352,7 +398,7 @@ func candidates(db *sql.DB, c buildChar, o bestOpts) ([]*candidate, error) {
 			suits[flags] = ok
 		}
 		if ok {
-			cands = append(cands, &candidate{it, sc})
+			cands = append(cands, &candidate{it, sc, res})
 		}
 	}
 	return cands, nil
@@ -360,19 +406,73 @@ func candidates(db *sql.DB, c buildChar, o bestOpts) ([]*candidate, error) {
 
 // filler finds the best set for a fill from its candidates, by pool, best
 // first: around what a set keeps, if kept says it keeps the slot, with the
-// item found there in keptItems, and with the tail only for a yuan-ti.
+// item found there in keptItems, with the tail only for a yuan-ti, and with
+// the essentials if need says so.
+//
+// It plans the set a slot at a time, keeping in a table the best way it has
+// found to fill the slots so far. A plan that doesn't count the essentials
+// keeps one way, so it's the best item for each slot, or for a group of
+// slots, such as a whole-body item against what it covers. One that counts
+// them keeps the best way for each sum of them a way gives, so that it can
+// end on the best way with them all. It counts a sum only as far as tells
+// whether the set ends with 1%: no further down than the most the slots it
+// has yet to fill can take away, and no further up than enough to keep 1%
+// after they take that much.
 type filler struct {
 	pools     map[string][]*candidate
 	hands     handChoice
 	tail      bool
 	kept      []bool
 	keptItems []*buildItem
+	need      bool
+
+	// the plan under way: how many of the essentials it counts, the least
+	// and most of each it counts a way as giving, the sums a table holds
+	// at each index, and each pool's front
+	dims   int
+	lo, hi sums
+	at     []sums
+	fronts map[string][]*candidate
+}
+
+// maxWays is the most sums a plan may count. With TorilDB.db's items in
+// November 2026, no plan for a class or a race counts more than 528.
+var maxWays = 1 << 16
+
+// table holds the best way a plan has found to fill the slots so far for
+// each sums a way can give, at its index.
+type table []way
+
+// way is a way to fill the slots so far, if ok: its score, and the last of
+// its picks.
+type way struct {
+	ok    bool
+	score score
+	last  *pick
+}
+
+// pick is a candidate a way puts in a slot, by buildSlots index, and the
+// pick it made before.
+type pick struct {
+	n    int
+	c    *candidate
+	prev *pick
+}
+
+// merge puts each of u's ways in t where t has none for its sums, or one that
+// scores less.
+func (t table) merge(u table) {
+	for i, w := range u {
+		if w.ok && (!t[i].ok || t[i].score.less(w.score)) {
+			t[i] = w
+		}
+	}
 }
 
 func newFiller(cands []*candidate, o bestOpts, tail bool, kept []bool,
 	keptItems []*buildItem) *filler {
 	f := &filler{pools: map[string][]*candidate{}, tail: tail, kept: kept,
-		keptItems: keptItems}
+		keptItems: keptItems, need: o.resists}
 	f.hands, _ = findHands(o.hands)
 	slices.SortFunc(cands, func(a, b *candidate) int {
 		switch {
@@ -395,23 +495,212 @@ func newFiller(cands []*candidate, o bestOpts, tail bool, kept []bool,
 	return f
 }
 
-// best is the best candidate in a pool, or nil.
-func (f *filler) best(pool string) *candidate {
-	if p := f.pools[pool]; len(p) > 0 {
-		return p[0]
+// front is the candidates in a pool the plan under way chooses from: each
+// one but those that score no more than one before them and give no more of
+// each essential it counts. Without them, it's the best candidate alone.
+func (f *filler) front(pool string) []*candidate {
+	if fr, ok := f.fronts[pool]; ok {
+		return fr
 	}
-	return nil
+	var fr []*candidate
+	for _, c := range f.pools[pool] {
+		if !slices.ContainsFunc(fr, func(b *candidate) bool {
+			for d := range f.dims {
+				if b.res[d] < c.res[d] {
+					return false
+				}
+			}
+			return true
+		}) {
+			fr = append(fr, c)
+		}
+	}
+	f.fronts[pool] = fr
+	return fr
+}
+
+// prepare readies a plan that counts the essentials if count says to, with
+// a table as big as the sums it may count, and gives the sums it starts
+// with: what the set's kept items give.
+func (f *filler) prepare(count bool) (sums, error) {
+	f.dims, f.fronts = 0, map[string][]*candidate{}
+	if count {
+		f.dims = len(essentials)
+	}
+	var start, lose sums
+	for n, s := range buildSlots {
+		if f.kept[n] {
+			if it := f.keptItems[n]; it != nil {
+				for d := range f.dims {
+					start[d] += it.vals["r:"+essentials[d]]
+				}
+			}
+			continue
+		}
+		if s.key == "tail" && !f.tail ||
+			hasWord(handSlots, s.key) && f.hands.use[s.key] == noHand {
+			continue
+		}
+		// the most the slot can take away of each
+		var most sums
+		for _, p := range []string{s.slot, s.slot + " whole", s.slot + " 2h"} {
+			for _, c := range f.front(p) {
+				for d := range f.dims {
+					most[d] = min(most[d], c.res[d])
+				}
+			}
+		}
+		for d := range f.dims {
+			lose[d] += most[d]
+		}
+	}
+	size := 1
+	for d := range f.dims {
+		f.hi[d] = 1 - lose[d]
+		start[d] = min(start[d], f.hi[d])
+		f.lo[d] = start[d] + lose[d]
+		size *= f.hi[d] - f.lo[d] + 1
+	}
+	if size > maxWays {
+		return start, fmt.Errorf("a fill would count %d sums of %v, from %v "+
+			"to %v", size, essentials, f.lo, f.hi)
+	}
+	f.at = make([]sums, size)
+	for i := range f.at {
+		rest := i
+		for d := f.dims - 1; d >= 0; d-- {
+			width := f.hi[d] - f.lo[d] + 1
+			f.at[i][d] = f.lo[d] + rest%width
+			rest /= width
+		}
+	}
+	return start, nil
+}
+
+// index is where a table holds the way that gives s.
+func (f *filler) index(s sums) int {
+	i := 0
+	for d := range f.dims {
+		if s[d] < f.lo[d] || s[d] > f.hi[d] {
+			panic(fmt.Sprintf("a fill counted %v, not from %v to %v", s,
+				f.lo, f.hi))
+		}
+		i = i*(f.hi[d]-f.lo[d]+1) + s[d] - f.lo[d]
+	}
+	return i
+}
+
+// step is t after putting one of opts in slot n, or nothing if empty allows
+// it. Where two ways tie, it keeps the first it finds: it starts from the
+// ways that gave the most fire, then cold, then acid, and tries nothing
+// before an item, and the items in opts' order.
+func (f *filler) step(t table, n int, opts []*candidate, empty bool) table {
+	out := make(table, len(t))
+	for i := len(t) - 1; i >= 0; i-- {
+		w := t[i]
+		if !w.ok {
+			continue
+		}
+		if empty && (!out[i].ok || out[i].score.less(w.score)) {
+			out[i] = w
+		}
+		for _, c := range opts {
+			s := f.at[i]
+			for d := range f.dims {
+				s[d] = min(f.hi[d], s[d]+c.res[d])
+			}
+			j, sc := f.index(s), w.score.plus(c.score)
+			if !out[j].ok || out[j].score.less(sc) {
+				out[j] = way{true, sc, &pick{n, c, w.last}}
+			}
+		}
+	}
+	return out
+}
+
+// slot is t after filling the slot with key, unless the set keeps it.
+func (f *filler) slot(t table, key string) table {
+	if n := slotIndex(key); !f.kept[n] {
+		return f.step(t, n, f.front(buildSlots[n].slot), true)
+	}
+	return t
 }
 
 // plan is the best set for the slots the set doesn't keep: the candidate
-// for each slot, by buildSlots index, or nil.
-func (f *filler) plan() []*candidate {
-	picks := make([]*candidate, len(buildSlots))
-	put := func(key string) {
-		if n := slotIndex(key); !f.kept[n] {
-			picks[n] = f.best(buildSlots[n].slot)
+// for each slot, by buildSlots index, or nil, and the essentials it lacks
+// if the fill needs them. If the best set lacks any, it's the best set with
+// them all, or the best of those with the most of them.
+func (f *filler) plan() ([]*candidate, []string, error) {
+	picks, err := f.planCounting(false)
+	if err != nil || !f.need {
+		return picks, nil, err
+	}
+	if len(f.lacks(picks)) > 0 {
+		if picks, err = f.planCounting(true); err != nil {
+			return nil, nil, err
 		}
 	}
+	return picks, f.lacks(picks), nil
+}
+
+// lacks is the essentials a set with picks, as well as what it keeps, has
+// less than 1% of.
+func (f *filler) lacks(picks []*candidate) []string {
+	var got sums
+	add := func(it *buildItem) {
+		for d, e := range essentials {
+			got[d] += it.vals["r:"+e]
+		}
+	}
+	for n, it := range f.keptItems {
+		if f.kept[n] && it != nil {
+			add(it)
+		}
+	}
+	for _, c := range picks {
+		if c != nil {
+			add(c.it)
+		}
+	}
+	var lacks []string
+	for d, e := range essentials {
+		if got[d] < 1 {
+			lacks = append(lacks, e)
+		}
+	}
+	return lacks
+}
+
+// end is the way a plan ends on: of those with the most of the essentials
+// it counts, the one that scores best.
+func (f *filler) end(t table) way {
+	var top way
+	most := -1
+	for i, w := range t {
+		if !w.ok {
+			continue
+		}
+		has := 0
+		for d := range f.dims {
+			if f.at[i][d] >= 1 {
+				has++
+			}
+		}
+		if has > most || has == most && top.score.less(w.score) {
+			top, most = w, has
+		}
+	}
+	return top
+}
+
+// planCounting plans the best set, counting the essentials if count says to.
+func (f *filler) planCounting(count bool) ([]*candidate, error) {
+	start, err := f.prepare(count)
+	if err != nil {
+		return nil, err
+	}
+	t := make(table, len(f.at))
+	t[f.index(start)] = way{ok: true}
 
 	var mains, under []string
 	for _, c := range covers {
@@ -426,14 +715,15 @@ func (f *filler) plan() []*candidate {
 			hasWord(handSlots, s.key):
 		case s.key == "tail":
 			if f.tail {
-				put(s.key)
+				t = f.slot(t, s.key)
 			}
 		default:
-			put(s.key)
+			t = f.slot(t, s.key)
 		}
 	}
 
-	// a whole-body or whole-head item, or what it would cover
+	// a whole-body or whole-head item, or what it would cover, which wins if
+	// they tie
 	for _, main := range mains {
 		var covered []string
 		for _, c := range covers {
@@ -445,41 +735,37 @@ func (f *filler) plan() []*candidate {
 		if f.kept[n] {
 			if it := f.keptItems[n]; it == nil || !it.whole(wholeFlag(main)) {
 				for _, k := range covered {
-					put(k)
+					t = f.slot(t, k)
 				}
 			}
 			continue
 		}
 		kind := buildSlots[n].slot
-		parts, open := score{}, true
-		for _, k := range append([]string{main}, covered...) {
-			i := slotIndex(k)
-			if k != main && f.kept[i] {
-				open = false
-			} else if c := f.best(buildSlots[i].slot); c != nil {
-				parts = parts.plus(c.score)
-			}
-		}
-		if whole := f.best(kind + " whole"); open && whole != nil &&
-			parts.less(whole.score) {
-			picks[n] = whole
-			continue
-		}
-		picks[n] = f.best(kind)
+		parts, open := f.step(t, n, f.front(kind), true), true
 		for _, k := range covered {
-			put(k)
+			open = open && !f.kept[slotIndex(k)]
+			parts = f.slot(parts, k)
 		}
+		if open {
+			parts.merge(f.step(t, n, f.front(kind+" whole"), false))
+		}
+		t = parts
 	}
 
-	f.fillHands(picks)
-	return picks
+	picks := make([]*candidate, len(buildSlots))
+	for p := f.end(f.fillHands(t)).last; p != nil; p = p.prev {
+		picks[p.n] = p.c
+	}
+	return picks, nil
 }
 
-// fillHands fills the hand slots the set doesn't keep, the best way the
-// hands choice allows: two hands in all, counting what the set keeps, an
+// fillHands is t after filling the hand slots the set doesn't keep, each way
+// the hands choice allows: two hands in all, counting what the set keeps, an
 // item that takes both counting twice, and a secondary weapon only with a
-// primary one.
-func (f *filler) fillHands(picks []*candidate) {
+// primary one. Where two ways tie, the one tried first wins: leaving a slot
+// empty first, then an item that takes one hand, then one that takes both,
+// slot by slot.
+func (f *filler) fillHands(t table) table {
 	left := 2
 	for _, k := range handSlots {
 		if n := slotIndex(k); f.kept[n] {
@@ -489,23 +775,20 @@ func (f *filler) fillHands(picks []*candidate) {
 			}
 		}
 	}
-	at := func(key string) int { return slices.Index(handSlots, key) }
-	cur := make([]*candidate, len(handSlots))
-	var top []*candidate
-	var topScore score
-	var try func(i, left int, sum score)
-	try = func(i, left int, sum score) {
+	var out table
+	var try func(i, left int, t table, primary, secondary bool)
+	try = func(i, left int, t table, primary, secondary bool) {
 		if i == len(handSlots) {
-			if cur[at("secondary")] != nil && cur[at("primary")] == nil &&
-				!f.kept[slotIndex("primary")] {
-				return
-			}
-			if top == nil || topScore.less(sum) {
-				top, topScore = slices.Clone(cur), sum
+			switch {
+			case secondary && !primary:
+			case out == nil:
+				out = slices.Clone(t)
+			default:
+				out.merge(t)
 			}
 			return
 		}
-		try(i+1, left, sum)
+		try(i+1, left, t, primary, secondary)
 		key := handSlots[i]
 		n := slotIndex(key)
 		if f.kept[n] {
@@ -521,38 +804,34 @@ func (f *filler) fillHands(picks []*candidate) {
 			{buildSlots[n].slot + " 2h", 2, key != "secondary" &&
 				(use == anyHands || use == bothHands)},
 		} {
-			if !way.ok || way.hands > left {
-				continue
-			}
-			if c := f.best(way.pool); c != nil {
-				cur[i] = c
-				try(i+1, left-way.hands, sum.plus(c.score))
-				cur[i] = nil
+			if opts := f.front(way.pool); way.ok && way.hands <= left &&
+				len(opts) > 0 {
+				try(i+1, left-way.hands, f.step(t, n, opts, false),
+					primary || key == "primary", secondary || key == "secondary")
 			}
 		}
 	}
-	try(0, left, score{})
-	for i, c := range top {
-		picks[slotIndex(handSlots[i])] = c
-	}
+	try(0, left, t, f.kept[slotIndex("primary")], false)
+	return out
 }
 
 // bestSet finds the best set for a fill for the character c, around the
 // items a set keeps: the candidate for each slot it fills, by buildSlots
-// index, or nil.
+// index, or nil, and the essentials it lacks if the fill needs them.
 func bestSet(db *sql.DB, c buildChar, o bestOpts, kept []bool,
-	keptItems []*buildItem) ([]*candidate, error) {
+	keptItems []*buildItem) ([]*candidate, []string, error) {
 	cands, err := candidates(db, c, o)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return newFiller(cands, o, c.race == tailRace, kept, keptItems).plan(), nil
+	return newFiller(cands, o, c.race == tailRace, kept, keptItems).plan()
 }
 
 // fill fills a set with the best items for the fill the build asks for, as
 // the page's Fill button asks: the set fillTo names, or the first empty one,
 // in place of what it had, or around it if keep is checked. A set that gets
-// anything is labeled for the stat, unless it keeps a label.
+// anything is labeled for the stat, unless it keeps a label. If the fill
+// needs the essentials, the build notes any the set lacks.
 func (b *build) fill(db *sql.DB, v url.Values) error {
 	n := b.target(v.Get("fillTo"))
 	if n < 0 {
@@ -575,10 +854,11 @@ func (b *build) fill(db *sql.DB, v url.Values) error {
 			kept[i], keptItems[i] = true, it
 		}
 	}
-	picks, err := bestSet(db, b.char, b.best, kept, keptItems)
+	picks, lacks, err := bestSet(db, b.char, b.best, kept, keptItems)
 	if err != nil {
 		return err
 	}
+	b.lacks = lacks
 	filled := false
 	for i, c := range picks {
 		if c != nil {

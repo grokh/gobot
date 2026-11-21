@@ -165,6 +165,7 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 	owl, rimed := "an owl-feather amulet", "a rimed amulet"
 	mantle, crystal := "about=a shadow-woven mantle", "held=a frost crystal"
 	scholar := "waist=a scholar's sash"
+	human := buildChar{race: "Human"}
 	checks := []struct {
 		what string
 		char buildChar
@@ -172,17 +173,20 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		keep map[string]string
 		want []string
 	}{
-		{"whole head, and what whole body covers", buildChar{}, luck, nil,
+		{"whole head, and what whole body covers", human, luck, nil,
 			[]string{"head=a lucky circlet", "body=a padded jerkin",
 				"arms=some padded sleeves", "legs=some padded breeches"}},
-		{"no whole head over a kept face", buildChar{}, luck,
+		{"no whole head over a kept face", human, luck,
 			map[string]string{"face": "a bone mask"},
 			[]string{"head=a leather cap", "body=a padded jerkin",
 				"arms=some padded sleeves", "legs=some padded breeches"}},
-		{"no whole body over kept arms", buildChar{}, luck,
+		{"no whole body over kept arms", human, luck,
 			map[string]string{"arms": "some padded sleeves"},
 			[]string{"head=a lucky circlet", "body=a padded jerkin",
 				"legs=some padded breeches"}},
+		{"no ears, legs, feet or whole body with no race chosen", buildChar{},
+			luck, nil, []string{"head=a lucky circlet", "body=a padded jerkin",
+				"arms=some padded sleeves"}},
 		{"nothing under a kept whole body", buildChar{}, luck,
 			map[string]string{"body": "a quilted robe"},
 			[]string{"head=a lucky circlet"}},
@@ -242,10 +246,22 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{"no tail with no race chosen", buildChar{}, wis, nil, rings},
 		{"a kept tail", buildChar{}, wis,
 			map[string]string{"tail": "a jeweled tail ring"}, rings},
+		{"no whole body, nor legs, for a yuan-ti", buildChar{race: "Yuan-Ti"},
+			luck, nil, []string{"head=a lucky circlet", "body=a padded jerkin",
+				"arms=some padded sleeves"}},
+		{"no earrings for a yuan-ti", buildChar{race: "Yuan-Ti"},
+			opts("agi", "pow", "any"), nil,
+			[]string{"neck1=a moonstone pendant", "neck2=a moonstone pendant"}},
+		{"no anklet for a yuan-ti", buildChar{"Cleric", "Yuan-Ti", "neutral",
+			"female"}, cha, nil, append(pendants, sash)},
+		{"the essential resists for a yuan-ti, with no ear for fire",
+			buildChar{race: "Yuan-Ti"}, wisdom, nil,
+			[]string{badge, "neck1=" + rimed, "neck2=" + owl, mantle, scholar,
+				crystal, "lacks=fire"}},
 
-		{"a tie, to the lighter", buildChar{}, opts("agi", "", "any"), nil,
+		{"a tie, to the lighter", human, opts("agi", "", "any"), nil,
 			[]string{"ear1=a silver hoop", "ear2=a silver hoop"}},
-		{"a tie, to the second stat, which fills more", buildChar{},
+		{"a tie, to the second stat, which fills more", human,
 			opts("agi", "pow", "any"), nil,
 			[]string{"ear1=a gold hoop", "ear2=a gold hoop",
 				"neck1=a moonstone pendant", "neck2=a moonstone pendant"}},
@@ -254,35 +270,35 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{"nothing for the stat", buildChar{class: "Lich"},
 			opts("sf_sum", "", "any"), nil, nil},
 
-		{"without the essential resists", buildChar{},
+		{"without the essential resists", human,
 			opts("maxwis", "", "any"), nil,
 			[]string{"neck1=" + owl, "neck2=" + owl, mantle, scholar}},
 		{"the essential resists: a held item for its cold, and an amulet",
-			buildChar{}, wisdom, nil,
+			human, wisdom, nil,
 			[]string{badge, ruby, "neck1=" + rimed, "neck2=" + owl, mantle,
 				scholar, crystal}},
-		{"the essential resists, with no hands: both amulets", buildChar{},
+		{"the essential resists, with no hands: both amulets", human,
 			resists(opts("maxwis", "", "none")), nil,
 			[]string{badge, ruby, "neck1=" + rimed, "neck2=" + rimed, mantle,
 				scholar}},
-		{"as many of the essential resists as a set can have", buildChar{},
+		{"as many of the essential resists as a set can have", human,
 			resists(opts("maxwis", "", "any", "quest")), nil,
 			[]string{badge, "neck1=" + rimed, "neck2=" + owl, mantle, scholar,
 				crystal, "lacks=fire"}},
 		{"the essential resists, around a kept cloak without cold",
-			buildChar{}, wisdom, map[string]string{"about": "a hermit's cloak"},
+			human, wisdom, map[string]string{"about": "a hermit's cloak"},
 			[]string{badge, ruby, "neck1=" + owl, "neck2=" + owl, scholar,
 				crystal}},
 		{"the essential resists, around a kept cloak that takes cold away",
-			buildChar{}, wisdom,
+			human, wisdom,
 			map[string]string{"about": "a shadow-woven mantle"},
 			[]string{badge, ruby, "neck1=" + rimed, "neck2=" + owl, scholar,
 				crystal}},
-		{"the essential resists, around a kept girdle with acid", buildChar{},
+		{"the essential resists, around a kept girdle with acid", human,
 			wisdom, map[string]string{"waist": "a slimy girdle"},
 			[]string{ruby, "neck1=" + rimed, "neck2=" + owl, mantle, crystal}},
 		{"the essential resists, all kept: the set it would be without them",
-			buildChar{}, resists(luck), map[string]string{
+			human, resists(luck), map[string]string{
 				"ear1": "a tiny mithril stud set with a ruby", "neck1": rimed,
 				"badge": "an acid-etched badge"},
 			[]string{"head=a lucky circlet", "body=a padded jerkin",
@@ -344,10 +360,11 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 // testBuildFill checks the page's Fill button, and the page's fill choices.
 func testBuildFill(t *testing.T) {
 	stud := "a.ear1=a+tiny+mithril+stud"
+	// with no race chosen, nothing goes on the legs
 	luck := func(set string) string {
 		return set + ".arms=some+padded+sleeves&" + set +
 			".body=a+padded+jerkin&" + set + ".head=a+lucky+circlet&" + set +
-			".label=Best+Luck&" + set + ".legs=some+padded+breeches"
+			".label=Best+Luck"
 	}
 	wisdom := "a.about=a+shadow-woven+mantle&a.badge=an+acid-etched+badge" +
 		"&a.ear1=a+tiny+mithril+stud+set+with+a+ruby&a.held=a+frost+crystal" +
@@ -368,8 +385,7 @@ func testBuildFill(t *testing.T) {
 			"fillTo": {"b"}, "keep": {"1"}, "fill": {"1"}},
 			"build?" + stud + "&b.arms=some+padded+sleeves" +
 				"&b.body=a+padded+jerkin&b.face=a+bone+mask" +
-				"&b.head=a+leather+cap&b.label=Mine" +
-				"&b.legs=some+padded+breeches&best=luck"},
+				"&b.head=a+leather+cap&b.label=Mine&best=luck"},
 		{"a new set", url.Values{"a.ear1": {"stud"}, "b.ear1": {"stud"},
 			"best": {"luck"}, "fillTo": {"new"}, "fill": {"1"}},
 			"build?" + stud + "&b.ear1=a+tiny+mithril+stud&best=luck&" +
@@ -385,14 +401,15 @@ func testBuildFill(t *testing.T) {
 			"fill": {"1"}}, "build?best=cha"},
 		{"nothing found", url.Values{"best": {"sf_sum"}, "fill": {"1"}},
 			"build?best=sf_sum"},
-		{"with the essential resists", url.Values{"best": {"maxwis"},
-			"resists": {"1"}, "fill": {"1"}}, "build?" + wisdom +
-			"&best=maxwis&resists=1"},
-		{"lacking an essential resist", url.Values{"best": {"maxwis"},
-			"resists": {"1"}, "leave": {"quest"}, "fill": {"1"}},
+		{"with the essential resists", url.Values{"race": {"Human"},
+			"best": {"maxwis"}, "resists": {"1"}, "fill": {"1"}},
+			"build?" + wisdom + "&best=maxwis&race=Human&resists=1"},
+		{"lacking an essential resist", url.Values{"race": {"Human"},
+			"best": {"maxwis"}, "resists": {"1"}, "leave": {"quest"},
+			"fill": {"1"}},
 			"build?" + strings.Replace(wisdom, "a.ear1=a+tiny+mithril+stud+"+
 				"set+with+a+ruby&", "", 1) +
-				"&best=maxwis&lacks=fire&leave=quest&resists=1"},
+				"&best=maxwis&lacks=fire&leave=quest&race=Human&resists=1"},
 		{"the choices, kept", url.Values{"best": {"luck"}, "then": {"pow"},
 			"hands": {"two"}, "leave": {"quest", "rare"}, "resists": {"1"}},
 			"build?best=luck&hands=two&leave=rare&leave=quest&resists=1" +

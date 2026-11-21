@@ -60,6 +60,14 @@ var bestEq = []dbRow{
 	bestItem("a cursed collar", "NECK", "NO-WARRIOR NO-CLERIC NO-THIEF NO-MAGE",
 		"N", 1, dbRow{"con": 9}),
 	bestItem("an idol's crown", "HEAD", "ANTI-PLAYER", "N", 1, dbRow{"con": 9}),
+	// maxcon: a no-rent item to leave out, and a no-take item with a load
+	// code other than X, as some have, which never goes in
+	bestItem("a gravecloth veil", "FACE", "NORENT", "N", 1, dbRow{"max_con": 4}),
+	bestItem("a griffon-feather veil", "FACE", "NOBITS", "R", 1,
+		dbRow{"max_con": 3}),
+	bestItem("a linen veil", "FACE", "NOBITS", "N", 1, dbRow{"max_con": 2}),
+	bestItem("a carved stone visage", "FACE", "NOTAKE", "R", 50,
+		dbRow{"max_con": 9}),
 	// wis: a tail
 	bestItem("a scaled tail band", "TAIL", "NOBITS", "N", 0, dbRow{"wis": 3}),
 	bestItem("a sage's ring", "FINGER", "NOBITS", "N", 0, dbRow{"wis": 1}),
@@ -270,6 +278,14 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{"rare items and quest rewards left out", buildChar{},
 			opts("con", "", "any", "rare", "quest"), nil,
 			[]string{"wrist1=a copper bracer", "wrist2=a copper bracer"}},
+		{"a no-rent item", buildChar{}, opts("maxcon", "", "any"), nil,
+			[]string{"face=a gravecloth veil"}},
+		{"no-rent items left out", buildChar{},
+			opts("maxcon", "", "any", "norent"), nil,
+			[]string{"face=a griffon-feather veil"}},
+		{"no-rent and rare items left out", buildChar{},
+			opts("maxcon", "", "any", "rare", "norent"), nil,
+			[]string{"face=a linen veil"}},
 
 		{"a tail for a yuan-ti", buildChar{race: "Yuan-Ti"}, wis, nil,
 			append(rings, "tail=a scaled tail band")},
@@ -421,6 +437,8 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{url.Values{"best": {"LUCK"}, "then": {"pow"}, "hands": {"two"},
 			"leave": {"quest", "junk", "rare"}},
 			opts("luck", "pow", "two", "rare", "quest")},
+		{url.Values{"leave": {"norent", "invasion"}},
+			opts("hit", "", "any", "invasion", "norent")},
 		{url.Values{"best": {"fire"}, "then": {"fire"}}, opts("fire", "", "any")},
 		{url.Values{"best": {"wt"}, "then": {"karma"}, "hands": {"juggle"}},
 			opts("hit", "", "any")},
@@ -505,11 +523,15 @@ func testBuildFill(t *testing.T) {
 				"&a.neck1=a+prayer-bead+necklace&a.neck2=a+pilgrim%27s+amulet" +
 				"&a.wrist1=a+calming+charm&a.wrist2=a+calming+charm" +
 				"&best=sf_spir&cap=12&then=mv"},
+		{"leaving out no-rent items", url.Values{"best": {"maxcon"},
+			"leave": {"norent"}, "fill": {"1"}},
+			"build?a.face=a+griffon-feather+veil" +
+				"&a.label=Best+Max+Constitution&best=maxcon&leave=norent"},
 		{"the choices, kept", url.Values{"best": {"luck"}, "then": {"pow"},
-			"cap": {"-3"}, "hands": {"two"}, "leave": {"quest", "rare"},
+			"cap": {"-3"}, "hands": {"two"}, "leave": {"norent", "quest", "rare"},
 			"resists": {"1"}},
 			"build?best=luck&cap=-3&hands=two&leave=rare&leave=quest" +
-				"&resists=1&then=pow"},
+				"&leave=norent&resists=1&then=pow"},
 		{"no note of what an earlier fill lacked", url.Values{
 			"best": {"maxwis"}, "resists": {"1"}, "lacks": {"fire"}},
 			"build?best=maxwis&resists=1"},
@@ -536,6 +558,7 @@ func testBuildFill(t *testing.T) {
 		"": {`<option value="hit" selected="selected">Hitroll</option>`,
 			`<option value="any" selected="selected">any way</option>`,
 			`<input type="checkbox" name="leave" value="rare" id="leave-rare" />`,
+			`<input type="checkbox" name="leave" value="norent" id="leave-norent" /><label for="leave-norent">no-rent items</label>`,
 			`<input type="checkbox" name="resists" value="1" id="resists" />`,
 			`<input type="number" name="cap" id="cap" class="cap" value="" step="1" min="-9999" max="9999" />`,
 			`<option value="fire">Fire resist</option>`,
@@ -556,6 +579,10 @@ func testBuildFill(t *testing.T) {
 			`<input type="checkbox" name="leave" value="rare" id="leave-rare" />`,
 			`<option value="b" selected="selected">Set B</option>`,
 			"best=svsp&amp;hands=twohanded&amp;leave=quest&amp;then=fire"},
+		"leave=norent&a.head=cap": {
+			`<input type="checkbox" name="leave" value="norent" id="leave-norent" checked="checked" />`,
+			`<input type="checkbox" name="leave" value="rare" id="leave-rare" />`,
+			`cap&amp;leave=norent" rel="nofollow">`},
 	} {
 		body := page(query)
 		for _, want := range wants {

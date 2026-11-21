@@ -34,6 +34,33 @@
 			</select>
 			<input type="submit" value="Update" />
 		</p>
+		<div class="fill">
+			<p>
+				<label for="best">Fill a set with the best items for </label><select name="best" id="best">
+					{{range .BestStats}}<option value="{{.Abbr}}"{{if eq .Abbr $.Best}} selected="selected"{{end}}>{{.Disp}}</option>
+					{{end}}
+				</select>
+				<label for="then">then </label><select name="then" id="then"><option value=""></option>
+					{{range .BestStats}}<option value="{{.Abbr}}"{{if eq .Abbr $.Then}} selected="selected"{{end}}>{{.Disp}}</option>
+					{{end}}
+				</select>
+				<label for="hands">Hands: </label><select name="hands" id="hands">
+					{{range .HandWays}}<option value="{{.Abbr}}"{{if eq .Abbr $.Hands}} selected="selected"{{end}}>{{.Disp}}</option>
+					{{end}}
+				</select>
+			</p>
+			<p>
+				Leave out: {{range .LeaveOuts}}<input type="checkbox" name="leave" value="{{.Abbr}}" id="leave-{{.Abbr}}"{{if .Checked}} checked="checked"{{end}} /><label for="leave-{{.Abbr}}">{{.Disp}}</label>
+				{{end}}
+				<label for="fillTo">Into: </label><select name="fillTo" id="fillTo">
+					{{range .PasteTo}}<option value="{{.Abbr}}"{{if eq .Abbr $.PasteDefault}} selected="selected"{{end}}>{{.Disp}}</option>
+					{{end}}
+				</select>
+				<input type="checkbox" name="keep" value="1" id="keep" /><label for="keep">keeping what's in it</label>
+				<button type="submit" name="fill" value="1" id="fill">Fill</button>
+			</p>
+			<p class="note">A fill uses only items the character can use. Leave the class, race, alignment or sex blank, and it uses only items that suit them all.</p>
+		</div>
 		<table class="sets{{len .Sets}}">
 			<thead>
 				<tr><th scope="col">Slot</th>{{range .Sets}}<th scope="col">

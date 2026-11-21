@@ -113,6 +113,16 @@ body.build {
 	border-color: #C0C0C0;
 	cursor: pointer;
 }
+.build .fill p {
+	margin: 0.5em 0;
+}
+.build .fill label[for=fillTo] {
+	margin-left: 1em;
+}
+.build .note {
+	color: #909090;
+	font-size: 85%;
+}
 .build .pick {
 	position: relative;
 }

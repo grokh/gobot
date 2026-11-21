@@ -69,8 +69,8 @@ var buildEq = []dbRow{
 
 // testBuild checks the build designer against a test TorilDB.db.
 func testBuild(t *testing.T, src string) {
-	writeItemDB(t, itemDBFile, append(append([]dbRow{}, testEq...),
-		buildEq...))
+	writeItemDB(t, itemDBFile, append(append(append([]dbRow{}, testEq...),
+		buildEq...), bestEq...))
 	defer writeItemDB(t, itemDBFile, testEq)
 	buildTmpl = template.Must(template.ParseFiles(
 		filepath.Join(src, "html", "build.html")))
@@ -82,6 +82,7 @@ func testBuild(t *testing.T, src string) {
 	testBuildEval(t, db)
 	testBuildChar(t, db)
 	testBuildPaste(t, db)
+	testBuildBest(t, db)
 	testBuildPost(t)
 	testBuildPage(t)
 	testBuildNames(t)

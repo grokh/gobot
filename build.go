@@ -612,10 +612,12 @@ type buildSet struct {
 
 func (s buildSet) empty() bool { return s.label == "" && len(s.names) == 0 }
 
-// build is a whole build: the character, and the sets the page shows.
+// build is a whole build: the character, the sets the page shows, and what
+// the page's Fill (best.go) is asked for.
 type build struct {
 	char buildChar
 	sets []buildSet
+	best bestOpts
 }
 
 // setKey is the letter that names the nth set in links, a to d.
@@ -650,12 +652,13 @@ func field(s string, max int) string {
 	return s
 }
 
-// readBuild reads a build from a form or a link: the character, then each
-// set's label and the name in each of its slots, from a.label, a.head, b.head
-// and so on. The page shows as many sets as sets asks, at least minSets, and
-// at least enough for the last set with anything in it.
+// readBuild reads a build from a form or a link: the character, what a fill
+// is asked for, then each set's label and the name in each of its slots,
+// from a.label, a.head, b.head and so on. The page shows as many sets as
+// sets asks, at least minSets, and at least enough for the last set with
+// anything in it.
 func readBuild(v url.Values) build {
-	b := build{char: readChar(v)}
+	b := build{char: readChar(v), best: readBest(v)}
 	all := make([]buildSet, maxSets)
 	last := -1
 	for n := range all {
@@ -677,8 +680,8 @@ func readBuild(v url.Values) build {
 }
 
 // values is the build as link values, which readBuild reads back: only
-// what's filled in, and sets only when it shows more sets than it would
-// without it.
+// what's filled in, what a fill is asked for unless it's the default, and
+// sets only when it shows more sets than it would without it.
 func (b build) values() url.Values {
 	v := url.Values{}
 	for k, val := range map[string]string{"class": b.char.class,
@@ -687,6 +690,7 @@ func (b build) values() url.Values {
 			v.Set(k, val)
 		}
 	}
+	b.best.addValues(v)
 	last := -1
 	for n, s := range b.sets {
 		k := setKey(n)
@@ -731,12 +735,27 @@ func (b *build) emptySet(not int) int {
 	return -1
 }
 
+// target is the set a pasted list or a fill goes in: the set to names, or
+// else the first empty one, which is a new one if there's room for it. It's
+// -1 if there's none.
+func (b *build) target(to string) int {
+	if n := setIndex(to); n >= 0 && n < len(b.sets) {
+		return n
+	}
+	return b.emptySet(-1)
+}
+
 // act does what the button a post was sent by asks for: add a set, copy one
-// into the first empty set, or clear one, which takes the last set away if
-// the page shows more than minSets. Any equipment list pasted in goes into
-// the set pasteTo names, or the first empty one.
+// into the first empty set, clear one, which takes the last set away if the
+// page shows more than minSets, or fill one with the best items for a stat.
+// Any equipment list pasted in goes into the set pasteTo names, or the first
+// empty one.
 func (b *build) act(db *sql.DB, v url.Values) error {
 	switch {
+	case v.Get("fill") != "":
+		if err := b.fill(db, v); err != nil {
+			return err
+		}
 	case v.Get("add") != "":
 		if len(b.sets) < maxSets {
 			b.sets = append(b.sets, buildSet{names: map[string]string{}})
@@ -795,11 +814,9 @@ func equipList(txt string) []equipped {
 // slot, or the second of a pair once the first is taken, by its name in eq if
 // pastedItem finds it there. A set with no room is left alone.
 func (b *build) paste(db *sql.DB, list []equipped, to string) error {
-	n := setIndex(to)
-	if n < 0 || n >= len(b.sets) {
-		if n = b.emptySet(-1); n < 0 {
-			return nil
-		}
+	n := b.target(to)
+	if n < 0 {
+		return nil
 	}
 	names := map[string]string{}
 	for _, e := range list {
@@ -1118,6 +1135,12 @@ type SlotRow struct {
 	Cells []SlotCell
 }
 
+// Check is a checkbox the page shows, and whether it's checked.
+type Check struct {
+	Abbr, Disp string
+	Checked    bool
+}
+
 // BuildPage is what html/build.html shows.
 type BuildPage struct {
 	Date, Link              string
@@ -1129,8 +1152,12 @@ type BuildPage struct {
 	Totals                  []TotalRow
 	Cols                    int // the table's columns, the slots' and the sets'
 	CanAdd                  bool
-	PasteTo                 []Option // the sets a pasted list can go in
+	PasteTo                 []Option // the sets a pasted list or a fill can go in
 	PasteDefault            string   // the first empty one, or new
+	// what a fill is asked for, and what the page offers
+	Best, Then, Hands   string
+	BestStats, HandWays []Option
+	LeaveOuts           []Check
 }
 
 // itemsUpdated is the date of the newest item in TorilDB.db.
@@ -1146,6 +1173,7 @@ func (b build) page(db *sql.DB) (BuildPage, error) {
 		Date: itemsUpdated(db), Class: b.char.class, Race: b.char.race,
 		Align: b.char.align, Sex: b.char.sex, Aligns: aligns, Sexes: sexes,
 		Cols: len(b.sets) + 1, CanAdd: len(b.sets) < maxSets,
+		Best: b.best.stat, Then: b.best.then, Hands: b.best.hands,
 	}
 	for _, c := range buildClasses {
 		p.Classes = append(p.Classes, c.name)
@@ -1153,9 +1181,19 @@ func (b build) page(db *sql.DB) (BuildPage, error) {
 	for _, r := range buildRaces {
 		p.Races = append(p.Races, r.name)
 	}
+	for _, s := range bestStats() {
+		p.BestStats = append(p.BestStats, Option{s.abbr, s.display})
+	}
+	for _, h := range handChoices {
+		p.HandWays = append(p.HandWays, Option{h.abbr, h.display})
+	}
+	for _, l := range leaveOuts {
+		p.LeaveOuts = append(p.LeaveOuts,
+			Check{l.abbr, l.display, hasWord(b.best.leave, l.abbr)})
+	}
 
 	// the link holds each item by its name in eq, as a post's redirect does
-	settled := build{char: b.char}
+	settled := build{char: b.char, best: b.best}
 	var evals []setEval
 	f := newFinder(db)
 	for n, set := range b.sets {

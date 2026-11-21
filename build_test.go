@@ -409,6 +409,25 @@ func testBuildChar(t *testing.T, db *sql.DB) {
 		chk(t, "eval() bare slots, "+race, want,
 			append(warnings(evals[0]), warnings(evals[1])...))
 	}
+
+	// a secondary weapon takes the dual wield skill, which only some classes
+	// have, in the game's words; with no class chosen, none is warned of
+	for class, want := range map[string][]string{
+		"": nil, "Warrior": nil, "Hexblade": nil,
+		"Psionicist": {"secondary: A Psionicist lacks the training to use " +
+			"two weapons."},
+		"Enchanter": {"secondary: An Enchanter lacks the training to use " +
+			"two weapons."},
+	} {
+		evals := evalSets(t, db, url.Values{"class": {class},
+			"a.primary": {"a willow wand"}, "a.secondary": {"a willow wand"}})
+		chk(t, "eval() a secondary weapon, "+class, want, warnings(evals[0]))
+	}
+	for _, class := range dualWielders {
+		if _, ok := findClass(class); !ok {
+			t.Errorf("dualWielders check failed: the designer has no %s", class)
+		}
+	}
 }
 
 func testBuildPaste(t *testing.T, db *sql.DB) {
@@ -649,6 +668,10 @@ func testBuildNames(t *testing.T) {
 		{"slot=primary&q=sword&class=Ranger", []string{short}},
 		{"slot=primary&q=sword&class=Rogue", nil},
 		{"slot=primary&q=sword&class=Bard", []string{short, sword}},
+		// a secondary weapon only for a class with the dual wield skill
+		{"slot=primary&q=sword&class=Cleric", []string{short}},
+		{"slot=secondary&q=sword&class=Cleric", nil},
+		{"slot=secondary&q=sword&class=Warrior", []string{short}},
 		{"slot=finger1&q=evil", []string{"an evil ring | " +
 			"#showme pwned; say $cpw @x {y} \\z"}},
 		// what a race can wear: a tail only for yuan-ti, which wear nothing

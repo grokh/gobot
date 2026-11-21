@@ -53,6 +53,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - **Begin every transaction on `toril.db` with `Begin()` on `OpenDB`'s handle**, which starts it with `BEGIN IMMEDIATE`. A transaction that reads before its first write, begun any other way, gets "database is locked" at once whenever another gobot is writing, without the 5-second wait. `testWhoWaits` checks `WhoBatch`.
 - The live `toril.db` stays in rollback-journal mode, by the owner's choice. `dbcopy.sh` works with either mode.
 - The build designer's class and race rules follow TorilMUD's builder docs where Kegor's `-ONLY` summaries differ, by the owner's choice: ANTI-RANGER bars hexblades, and ANTI-HUMAN or ANTI-ORC bars half-orcs. Don't change them to match his summaries.
+- With the race left blank, a Fill stands for every race but yuan-ti, by the owner's choice (`standsFor`): the set has ears, legs and feet, and nothing on the tail. A yuan-ti wears nothing in the ears, on the legs or feet, nor a whole-body item (`bareSlots`).
 
 ## Previewing the site
 

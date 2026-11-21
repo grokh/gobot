@@ -345,15 +345,22 @@ func testBuildChar(t *testing.T, db *sql.DB) {
 		t.Errorf("readChar() check failed: %+v", c)
 	}
 
-	// only yuan-ti have tails
+	// only yuan-ti have tails, and yuan-ti wear nothing in the ears, on the
+	// legs or feet, nor a whole-body item
 	for race, want := range map[string][]string{
-		"":        nil,
-		"Yuan-Ti": nil,
-		"Human":   {"tail: Only yuan-ti have a tail."},
+		"": nil,
+		"Yuan-Ti": {"ear1: Yuan-ti can't wear anything here.",
+			"legs: Yuan-ti can't wear anything here.",
+			"feet: Yuan-ti can't wear anything here.",
+			"body: Yuan-ti can't wear whole-body items."},
+		"Human": {"tail: Only yuan-ti have a tail."},
 	} {
 		evals := evalSets(t, db, url.Values{"race": {race},
-			"a.tail": {"tail ring"}})
-		chk(t, "eval() tail, "+race, want, warnings(evals[0]))
+			"a.ear1": {"a tiny mithril stud"}, "a.legs": {"leg irons"},
+			"a.feet": {"anklet"}, "a.tail": {"tail ring"},
+			"a.arms": {"padded sleeves"}, "b.body": {"quilted robe"}})
+		chk(t, "eval() bare slots, "+race, want,
+			append(warnings(evals[0]), warnings(evals[1])...))
 	}
 }
 
@@ -572,6 +579,16 @@ func testBuildNames(t *testing.T) {
 		{"slot=primary&q=sword&class=Bard", []string{short, sword}},
 		{"slot=finger1&q=evil", []string{"an evil ring | " +
 			"#showme pwned; say $cpw @x {y} \\z"}},
+		// what a race can wear: a tail only for yuan-ti, which wear nothing
+		// in the ears, nor a whole-body item
+		{"slot=tail&q=tail+ring&race=Yuan-Ti", []string{"a jeweled tail " +
+			"ring | (TAIL) * Hp:10 * Wt:0 Val:0 * Ashstone"}},
+		{"slot=tail&q=tail+ring&race=Human", nil},
+		{"slot=ear1&q=stud&race=Yuan-Ti", nil},
+		{"slot=body&q=quilted", []string{"a quilted robe | (WHOLE-BODY)"}},
+		{"slot=body&q=quilted&race=Yuan-Ti", nil},
+		{"slot=body&q=jerkin&race=Yuan-Ti", []string{
+			"a padded jerkin | (BODY)"}},
 	}
 	for _, c := range checks {
 		chk(t, "namesHandler() "+c.query, c.want, names(c.query))

@@ -21,11 +21,12 @@ import (
 // A fill uses only items the character can use with no warning at all, not
 // even a maybe, and none a player can't have: those Kegor marks out of the
 // game (load code !) or no take (load code X, or NOTAKE). A part of the
-// character the page leaves blank stands for every class, race, alignment or
-// sex the page offers, so a set suits them all: the designer can't tell which
-// of them the game lets go together, so it never picks one. Players wear two
-// of the same ring, earring or bracer, as their logs show, so a pair's two
-// slots can hold the same item.
+// character the page leaves blank stands for every class, alignment or sex
+// the page offers, and a race left blank for every race but yuan-ti, by the
+// owner's choice, so a set suits them all (see standsFor): the designer
+// can't tell which of them the game lets go together, so it never picks
+// one. Players wear two of the same ring, earring or bracer, as their logs
+// show, so a pair's two slots can hold the same item.
 //
 // Asked for the essential resists, a fill makes the set the best one with at
 // least 1% of each of them, counting what it keeps, which can mean an item
@@ -272,15 +273,33 @@ func usersOf(it *buildItem) users {
 	return u
 }
 
-// suitedBy is who a fill's items must suit for the character c: each part c
-// leaves blank stands for everything the page offers for it. An illithid has
-// no sex for an item to suit.
+// standsFor is what part p of the character stands for with chosen as its
+// value: that value, or if it's blank, everything the page offers for it,
+// but for the race, every race but yuan-ti, whose body differs (see
+// bareSlots), as the owner chose.
+func standsFor(p int, chosen string) []string {
+	if chosen != "" {
+		return []string{chosen}
+	}
+	var c buildChar
+	race := charParts[p].get(&c) == &c.race
+	var values []string
+	for _, v := range charParts[p].values() {
+		if !race || v != tailRace {
+			values = append(values, v)
+		}
+	}
+	return values
+}
+
+// suitedBy is who a fill's items must suit for the character c: what each
+// of its parts stands for. An illithid has no sex for an item to suit.
 func suitedBy(c buildChar) users {
 	var need users
 	for p, part := range charParts {
-		chosen := *part.get(&c)
+		stands := standsFor(p, *part.get(&c))
 		for i, v := range part.values() {
-			if chosen == "" || chosen == v {
+			if hasWord(stands, v) {
 				need[p] |= 1 << i
 			}
 		}
@@ -406,8 +425,9 @@ func candidates(db *sql.DB, c buildChar, o bestOpts) ([]*candidate, error) {
 
 // filler finds the best set for a fill from its candidates, by pool, best
 // first: around what a set keeps, if kept says it keeps the slot, with the
-// item found there in keptItems, with the tail only for a yuan-ti, and with
-// the essentials if need says so.
+// item found there in keptItems, with nothing in the slots bare names (see
+// bareSlots) nor a whole item that would cover one, and with the essentials
+// if need says so.
 //
 // It plans the set a slot at a time, keeping in a table the best way it has
 // found to fill the slots so far. A plan that doesn't count the essentials
@@ -421,7 +441,7 @@ func candidates(db *sql.DB, c buildChar, o bestOpts) ([]*candidate, error) {
 type filler struct {
 	pools     map[string][]*candidate
 	hands     handChoice
-	tail      bool
+	bare      []string
 	kept      []bool
 	keptItems []*buildItem
 	need      bool
@@ -469,10 +489,10 @@ func (t table) merge(u table) {
 	}
 }
 
-func newFiller(cands []*candidate, o bestOpts, tail bool, kept []bool,
+func newFiller(cands []*candidate, o bestOpts, race string, kept []bool,
 	keptItems []*buildItem) *filler {
-	f := &filler{pools: map[string][]*candidate{}, tail: tail, kept: kept,
-		keptItems: keptItems, need: o.resists}
+	f := &filler{pools: map[string][]*candidate{}, bare: bareSlots(race),
+		kept: kept, keptItems: keptItems, need: o.resists}
 	f.hands, _ = findHands(o.hands)
 	slices.SortFunc(cands, func(a, b *candidate) int {
 		switch {
@@ -537,13 +557,17 @@ func (f *filler) prepare(count bool) (sums, error) {
 			}
 			continue
 		}
-		if s.key == "tail" && !f.tail ||
+		if hasWord(f.bare, s.key) ||
 			hasWord(handSlots, s.key) && f.hands.use[s.key] == noHand {
 			continue
 		}
 		// the most the slot can take away of each
 		var most sums
-		for _, p := range []string{s.slot, s.slot + " whole", s.slot + " 2h"} {
+		pools := []string{s.slot, s.slot + " 2h"}
+		if !coversBare(f.bare, s.key) {
+			pools = append(pools, s.slot+" whole")
+		}
+		for _, p := range pools {
 			for _, c := range f.front(p) {
 				for d := range f.dims {
 					most[d] = min(most[d], c.res[d])
@@ -618,9 +642,10 @@ func (f *filler) step(t table, n int, opts []*candidate, empty bool) table {
 	return out
 }
 
-// slot is t after filling the slot with key, unless the set keeps it.
+// slot is t after filling the slot with key, unless the set keeps it or the
+// slot is bare.
 func (f *filler) slot(t table, key string) table {
-	if n := slotIndex(key); !f.kept[n] {
+	if n := slotIndex(key); !f.kept[n] && !hasWord(f.bare, key) {
 		return f.step(t, n, f.front(buildSlots[n].slot), true)
 	}
 	return t
@@ -710,20 +735,14 @@ func (f *filler) planCounting(count bool) ([]*candidate, error) {
 		under = append(under, c.what)
 	}
 	for _, s := range buildSlots {
-		switch {
-		case hasWord(mains, s.key), hasWord(under, s.key),
-			hasWord(handSlots, s.key):
-		case s.key == "tail":
-			if f.tail {
-				t = f.slot(t, s.key)
-			}
-		default:
+		if !hasWord(mains, s.key) && !hasWord(under, s.key) &&
+			!hasWord(handSlots, s.key) {
 			t = f.slot(t, s.key)
 		}
 	}
 
-	// a whole-body or whole-head item, or what it would cover, which wins if
-	// they tie
+	// a whole-body or whole-head item, unless it would cover a bare slot, or
+	// what it would cover, which wins if they tie
 	for _, main := range mains {
 		var covered []string
 		for _, c := range covers {
@@ -746,7 +765,7 @@ func (f *filler) planCounting(count bool) ([]*candidate, error) {
 			open = open && !f.kept[slotIndex(k)]
 			parts = f.slot(parts, k)
 		}
-		if open {
+		if open && !coversBare(f.bare, main) {
 			parts.merge(f.step(t, n, f.front(kind+" whole"), false))
 		}
 		t = parts
@@ -824,7 +843,7 @@ func bestSet(db *sql.DB, c buildChar, o bestOpts, kept []bool,
 	if err != nil {
 		return nil, nil, err
 	}
-	return newFiller(cands, o, c.race == tailRace, kept, keptItems).plan()
+	return newFiller(cands, o, c.race, kept, keptItems).plan()
 }
 
 // fill fills a set with the best items for the fill the build asks for, as

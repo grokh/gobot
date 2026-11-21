@@ -88,13 +88,17 @@ var bestEq = []dbRow{
 	bestItem("an acid-etched badge", "INSIGNIA", "NOBITS", "N", 1,
 		dbRow{"r_acid": 5}),
 	bestItem("a frost crystal", "HOLD", "NOBITS", "N", 1, dbRow{"r_cold": 5}),
+	// maxdex: an item barred to yuan-ti alone, which a race left blank, any
+	// race but yuan-ti, can use
+	bestItem("a snakeskin cincture", "WAIST", "ANTI-YUANTI", "N", 1,
+		dbRow{"max_dex": 2}),
 }
 
 // fillPicks fills a set for c as o asks, around the items keep names by
 // slot, and lists what the fill put where, as "slot=name", then each of the
 // essentials the set lacks, as "lacks=fire". It checks that nothing the fill
-// put in shows a warning for c, nor for c with any value in place of a part
-// it leaves blank.
+// put in shows a warning for c, nor for c with each value a part it leaves
+// blank stands for (standsFor).
 func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 	keep map[string]string) []string {
 	kept := make([]bool, len(buildSlots))
@@ -119,9 +123,9 @@ func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 		got = append(got, "lacks="+e)
 	}
 	chars := []buildChar{c}
-	for _, part := range charParts {
+	for p, part := range charParts {
 		if *part.get(&c) == "" {
-			for _, v := range part.values() {
+			for _, v := range standsFor(p, "") {
 				w := c
 				*part.get(&w) = v
 				chars = append(chars, w)
@@ -242,6 +246,23 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{"no tail with no race chosen", buildChar{}, wis, nil, rings},
 		{"a kept tail", buildChar{}, wis,
 			map[string]string{"tail": "a jeweled tail ring"}, rings},
+		{"no whole body, nor legs, for a yuan-ti", buildChar{race: "Yuan-Ti"},
+			luck, nil, []string{"head=a lucky circlet", "body=a padded jerkin",
+				"arms=some padded sleeves"}},
+		{"no earrings for a yuan-ti", buildChar{race: "Yuan-Ti"},
+			opts("agi", "pow", "any"), nil,
+			[]string{"neck1=a moonstone pendant", "neck2=a moonstone pendant"}},
+		{"no anklet for a yuan-ti", buildChar{"Cleric", "Yuan-Ti", "neutral",
+			"female"}, cha, nil, append(pendants, sash)},
+		{"the essential resists for a yuan-ti, with no ear for fire",
+			buildChar{race: "Yuan-Ti"}, wisdom, nil,
+			[]string{badge, "neck1=" + rimed, "neck2=" + owl, mantle, scholar,
+				crystal, "lacks=fire"}},
+		{"an item barred to yuan-ti, with no race chosen", buildChar{},
+			opts("maxdex", "", "any"), nil,
+			[]string{"waist=a snakeskin cincture"}},
+		{"an item barred to yuan-ti, for a yuan-ti", buildChar{race: "Yuan-Ti"},
+			opts("maxdex", "", "any"), nil, nil},
 
 		{"a tie, to the lighter", buildChar{}, opts("agi", "", "any"), nil,
 			[]string{"ear1=a silver hoop", "ear2=a silver hoop"}},

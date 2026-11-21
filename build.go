@@ -483,8 +483,48 @@ var (
 	noSexRace = "Illithid"
 )
 
-// tailRace is the one race with a tail to wear an item on.
+// tailRace is the one race with a tail to wear an item on. It has a tail in
+// place of legs and feet, so it wears nothing on them, nor a whole-body item,
+// which covers the legs, and it wears no earrings: the yuan-ti whose
+// equipment players' logs list wear none of them.
 const tailRace = "Yuan-Ti"
+
+// tailRaceBare are the slots tailRace has nothing to wear an item on.
+var tailRaceBare = []string{"ear1", "ear2", "legs", "feet"}
+
+// bareSlots are the slots a character of race has nothing to wear an item
+// on, by key: a yuan-ti's tailRaceBare, and for any other race the tail. A
+// race left blank has the body every other race has, by the owner's choice,
+// though the designer warns of neither (see wears).
+func bareSlots(race string) []string {
+	if race == tailRace {
+		return tailRaceBare
+	}
+	return []string{"tail"}
+}
+
+// coversBare reports whether a whole item worn in the slot with key would
+// cover one of the bare slots, so that it can't be worn.
+func coversBare(bare []string, key string) bool {
+	for _, c := range covers {
+		if c.slot == key && hasWord(bare, c.what) {
+			return true
+		}
+	}
+	return false
+}
+
+// wears reports whether the character has what it takes to wear the item in
+// slot s, as far as its race is chosen: the slot, and any slot the item
+// would cover.
+func (c buildChar) wears(s buildSlot, it *buildItem) bool {
+	if c.race == "" {
+		return true
+	}
+	bare := bareSlots(c.race)
+	return !hasWord(bare, s.key) &&
+		!(it.whole(wholeFlag(s.key)) && coversBare(bare, s.key))
+}
 
 // noPlayer are the flags Kegor gives items no player can use.
 var noPlayer = []string{"ANTI-PLAYER", "NO-PLAYER", "NO-PC"}
@@ -941,8 +981,15 @@ func (b build) eval(f *finder, set buildSet) (setEval, error) {
 				", not here.")
 		}
 		e.warns[n] = append(e.warns[n], b.char.barred(it)...)
-		if s.key == "tail" && b.char.race != "" && b.char.race != tailRace {
+		switch bare := bareSlots(b.char.race); {
+		case b.char.wears(s, it):
+		case s.key == "tail":
 			warn(n, "Only yuan-ti have a tail.")
+		case hasWord(bare, s.key):
+			warn(n, "Yuan-ti can't wear anything here.")
+		default:
+			warn(n, "Yuan-ti can't wear "+
+				strings.ToLower(wholeFlag(s.key))+" items.")
 		}
 	}
 
@@ -1331,7 +1378,8 @@ type suggestion struct {
 
 // suggest finds the items to offer for a slot as q is typed in it, matched
 // loosely, as a typed name is found, and closest first: those that fit the
-// slot and that nothing certain bars the character from.
+// slot, that the character can wear there, and that nothing certain bars the
+// character from.
 func suggest(db *sql.DB, s buildSlot, q string, c buildChar) (
 	[]suggestion, error) {
 	found, err := looseItems(db, q, s, 100)
@@ -1340,7 +1388,7 @@ func suggest(db *sql.DB, s buildSlot, q string, c buildChar) (
 	}
 	names := []suggestion{}
 	for _, it := range found {
-		if len(names) < suggestLimit && c.canUse(it) {
+		if len(names) < suggestLimit && c.wears(s, it) && c.canUse(it) {
 			names = append(names, suggestion{it.name, it.short})
 		}
 	}

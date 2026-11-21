@@ -191,6 +191,8 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 	owl, rimed := "an owl-feather amulet", "a rimed amulet"
 	mantle, crystal := "about=a shadow-woven mantle", "held=a frost crystal"
 	scholar := "waist=a scholar's sash"
+	studs := []string{"ear1=a tiny mithril stud set with a ruby",
+		"ear2=a tiny mithril stud set with a ruby"}
 	human := buildChar{race: "Human"}
 	spirit := opts("sf_spir", "mv", "any")
 	bead, pilgrim := "a prayer-bead necklace", "a pilgrim's amulet"
@@ -292,6 +294,13 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 			[]string{"waist=a snakeskin cincture"}},
 		{"an item barred to yuan-ti, for a yuan-ti", buildChar{race: "Yuan-Ti"},
 			opts("maxdex", "", "any"), nil, nil},
+		{"an illusionist, with a Wizard:Illusionist weapon",
+			buildChar{class: "Illusionist"}, opts("dam", "", "any"), nil,
+			[]string{studs[0], studs[1], "primary=a phantom blade",
+				"secondary=a phantom blade"}},
+		{"a sorcerer, without it", buildChar{class: "Sorcerer"},
+			opts("dam", "", "any"), nil, []string{studs[0], studs[1],
+				"primary=a short sword", "secondary=a short sword"}},
 
 		{"a focus, then movement", buildChar{}, spirit, nil,
 			append(append(beads, charms...), spiritRings...)},

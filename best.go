@@ -27,8 +27,9 @@ import (
 // the page offers, and a race left blank for every race but yuan-ti, by the
 // owner's choice, so a set suits them all (see standsFor): the designer
 // can't tell which of them the game lets go together, so it never picks
-// one. Players wear two of the same ring, earring or bracer, as their logs
-// show, so a pair's two slots can hold the same item.
+// one. Players wear two of the same ring, earring or bracer, and hold two of
+// the same item, as their logs show, so a pair's two slots can hold the same
+// item.
 //
 // Asked for the essential resists, a fill makes the set the best one with at
 // least 1% of each of them, counting what it keeps, which can mean an item
@@ -100,7 +101,8 @@ type handChoice struct {
 
 var handChoices = []handChoice{
 	{"any", "any way", map[string]handUse{"primary": anyHands,
-		"secondary": oneHand, "held": anyHands, "shield": anyHands}},
+		"secondary": oneHand, "held": anyHands, "held2": oneHand,
+		"shield": anyHands}},
 	{"shield", "a weapon and a shield",
 		map[string]handUse{"primary": oneHand, "shield": oneHand}},
 	{"two", "two weapons",
@@ -111,6 +113,10 @@ var handChoices = []handChoice{
 		map[string]handUse{"primary": oneHand, "held": oneHand}},
 	{"shieldheld", "a shield and a held item",
 		map[string]handUse{"shield": oneHand, "held": oneHand}},
+	{"heldheld", "two held items",
+		map[string]handUse{"held": oneHand, "held2": oneHand}},
+	{"twohandedheld", "a two-handed held item",
+		map[string]handUse{"held": bothHands}},
 	{"none", "nothing", nil},
 }
 
@@ -955,35 +961,42 @@ func (f *filler) planWith(on []int, apart bool) ([]*candidate, bool, error) {
 
 // fillHands is t after filling the hand slots the set doesn't keep, each way
 // the hands choice allows: two hands in all, counting what the set keeps, an
-// item that takes both counting twice, and a secondary weapon only with a
-// primary one. Where two ways tie, the one tried first wins: leaving a slot
-// empty first, then an item that takes one hand, then one that takes both,
-// slot by slot. It's done with t.
+// item that takes both counting twice, and a second weapon or held item only
+// with a first (seconds). Where two ways tie, the one tried first wins:
+// leaving a slot empty first, then an item that takes one hand, then one
+// that takes both, slot by slot. It's done with t.
 func (f *filler) fillHands(t table) table {
 	left := 2
-	for _, k := range handSlots {
+	var kept uint // the hand slots the set keeps, a bit each, as handSlots
+	for i, k := range handSlots {
 		if n := slotIndex(k); f.kept[n] {
+			kept |= 1 << i
 			left--
 			if it := f.keptItems[n]; it != nil && it.twoHanded() {
 				left--
 			}
 		}
 	}
+	bit := func(key string) uint { return 1 << slices.Index(handSlots, key) }
 	var out table
-	var try func(i, left int, t table, primary, secondary bool)
-	try = func(i, left int, t table, primary, secondary bool) {
+	// put is the hand slots the way puts an item in, a bit each
+	var try func(i, left int, t table, put uint)
+	try = func(i, left int, t table, put uint) {
 		if i == len(handSlots) {
-			switch {
-			case secondary && !primary:
-			case out == nil:
+			for key, s := range seconds {
+				if put&bit(key) != 0 && (kept|put)&bit(s.first) == 0 {
+					return
+				}
+			}
+			if out == nil {
 				out = f.newTable()
 				copy(out, t)
-			default:
+			} else {
 				out.merge(t)
 			}
 			return
 		}
-		try(i+1, left, t, primary, secondary)
+		try(i+1, left, t, put)
 		key := handSlots[i]
 		n := slotIndex(key)
 		if f.kept[n] {
@@ -996,19 +1009,18 @@ func (f *filler) fillHands(t table) table {
 			ok    bool
 		}{
 			{buildSlots[n].slot, 1, use == oneHand || use == anyHands},
-			{buildSlots[n].slot + " 2h", 2, key != "secondary" &&
+			{buildSlots[n].slot + " 2h", 2, !buildSlots[n].second() &&
 				(use == anyHands || use == bothHands)},
 		} {
 			if opts := f.front(way.pool); way.ok && way.hands <= left &&
 				len(opts) > 0 {
 				next := f.step(t, n, opts, false)
-				try(i+1, left-way.hands, next,
-					primary || key == "primary", secondary || key == "secondary")
+				try(i+1, left-way.hands, next, put|1<<i)
 				f.done(next)
 			}
 		}
 	}
-	try(0, left, t, f.kept[slotIndex("primary")], false)
+	try(0, left, t, 0)
 	f.done(t)
 	return out
 }

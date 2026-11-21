@@ -29,7 +29,8 @@ import (
 // stands, and reloading the page can't post a change twice.
 
 // maxSets is the most sets a build compares, A to D. A link to four full
-// sets is still well inside the 8 KB nginx allows a request line.
+// sets, with the longest names in eq in every slot, is about 7.3 KB, inside
+// the 8 KB nginx allows a request line.
 const maxSets = 4
 
 // minSets is how many sets the page shows, filled or not.
@@ -71,21 +72,40 @@ var buildSlots = []buildSlot{
 	{"primary", "primary weapon", "wield"},
 	{"secondary", "secondary weapon", "wield"},
 	{"held", "held", "held"},
+	{"held2", "held", "held"},
 	{"legs", "worn on legs", "legs"},
 	{"feet", "worn on feet", "feet"},
 	{"tail", "worn on tail", "tail"},
 }
 
 // equipLabels are the equipment list's names for a weapon or held item that
-// takes both hands, with the slot's usual name.
-var equipLabels = map[string]string{
-	"wielding twohanded": "primary weapon",
-	"held in both hands": "held",
+// takes both hands, with the usual names of the slots it can be in: the
+// first, unless the item fits only another. The game shows a bow it wields
+// as held in both hands, as players' logs show, and Kegor lists bows,
+// crossbows and slings as two-handed weapons, worn WIELD 2H.
+var equipLabels = map[string][]string{
+	"wielding twohanded": {"primary weapon"},
+	"held in both hands": {"held", "primary weapon"},
 }
 
 // handSlots are the slots that take a hand. A character has two, and an item
-// that takes both hands counts twice.
-var handSlots = []string{"primary", "secondary", "held", "shield"}
+// that takes both hands counts twice. Players hold two items at once, as
+// their equipment lists show: two <held> lines, a slot for each.
+var handSlots = []string{"primary", "secondary", "held", "held2", "shield"}
+
+// seconds are the hand slots for a second weapon or held item, by key, each
+// with the key of the slot for the first and what the page calls it. A
+// second takes no item that takes both hands: that can only be the first.
+var seconds = map[string]struct{ first, what string }{
+	"secondary": {"primary", "primary weapon"},
+	"held2":     {"held", "first held item"},
+}
+
+// second reports whether the slot is for a second weapon or held item.
+func (s buildSlot) second() bool {
+	_, ok := seconds[s.key]
+	return ok
+}
 
 // covers are the slots an item covers besides its own: a whole-body item on
 // the body covers the arms and legs, and a whole-head item on the head
@@ -117,10 +137,11 @@ func (s buildSlot) worn() []string {
 }
 
 // sql is the test for the items that fit the slot, with its arguments: a
-// worn token of the slot's, and for the secondary weapon, not two-handed.
+// worn token of the slot's, and for a second weapon or held item, not
+// two-handed.
 func (s buildSlot) sql() (string, []interface{}) {
 	test, args := hasToken("worn", s.worn()...)
-	if s.key == "secondary" {
+	if s.second() {
 		two, targs := twoHandFlag().match()
 		test += " AND NOT " + two
 		args = append(args, targs...)
@@ -132,7 +153,7 @@ func (s buildSlot) sql() (string, []interface{}) {
 func (s buildSlot) fits(it *buildItem) bool {
 	for _, w := range s.worn() {
 		if it.wornAs(w) {
-			return s.key != "secondary" || !it.twoHanded()
+			return !s.second() || !it.twoHanded()
 		}
 	}
 	return false
@@ -369,8 +390,8 @@ func looseItems(db *sql.DB, name string, s buildSlot, limit int) (
 
 // finder finds the items a request's sets name, each name once for each
 // kind of slot. It matches at most maxLoose names loosely: a loose match
-// reads all of eq, and a link holds up to 104 names, so a link of names that
-// find nothing would otherwise cost each request 104 reads of the table.
+// reads all of eq, and a link holds up to 108 names, so a link of names that
+// find nothing would otherwise cost each request 108 reads of the table.
 type finder struct {
 	db    *sql.DB
 	found map[string]*buildItem
@@ -392,8 +413,8 @@ func newFinder(db *sql.DB) *finder {
 // there's none.
 func (f *finder) slotItem(name string, s buildSlot) (*buildItem, error) {
 	kind := s.slot
-	if s.key == "secondary" {
-		kind = s.key // no two-handed weapons
+	if s.second() {
+		kind = s.key // nothing that takes both hands
 	}
 	key := kind + "|" + name
 	if it, ok := f.found[key]; ok {
@@ -885,7 +906,9 @@ func equipList(txt string) []equipped {
 // paste puts the items of a pasted equipment list in a set, in place of what
 // it had: in the set to names, or else the first empty one. Each goes in its
 // slot, or the second of a pair once the first is taken, by its name in eq if
-// pastedItem finds it there. A set with no room is left alone.
+// pastedItem finds it there. An item held in both hands that eq lists as a
+// weapon goes in the primary weapon's slot (equipLabels). A set with no room
+// is left alone.
 func (b *build) paste(db *sql.DB, list []equipped, to string) error {
 	n := b.target(to)
 	if n < 0 {
@@ -893,24 +916,42 @@ func (b *build) paste(db *sql.DB, list []equipped, to string) error {
 	}
 	names := map[string]string{}
 	for _, e := range list {
-		label := e.label
-		if l, ok := equipLabels[label]; ok {
-			label = l
+		labels := []string{e.label}
+		if l, ok := equipLabels[e.label]; ok {
+			labels = l
 		}
-		for _, s := range buildSlots {
-			if s.label != label || names[s.key] != "" {
-				continue
+		// the first free slot with each label
+		var free []buildSlot
+		for _, l := range labels {
+			for _, s := range buildSlots {
+				if s.label == l && names[s.key] == "" {
+					free = append(free, s)
+					break
+				}
 			}
-			name, err := pastedItem(db, e.name)
+		}
+		if len(free) == 0 {
+			continue
+		}
+		name, err := pastedItem(db, e.name)
+		if err != nil {
+			return err
+		}
+		s := free[0]
+		if name == "" {
+			name = e.name
+		} else if len(free) > 1 {
+			it, err := itemNamed(db, name)
 			if err != nil {
 				return err
 			}
-			if name == "" {
-				name = e.name
+			for _, o := range free[1:] {
+				if it != nil && !s.fits(it) && o.fits(it) {
+					s = o
+				}
 			}
-			names[s.key] = field(name, maxName)
-			break
 		}
+		names[s.key] = field(name, maxName)
 	}
 	b.sets[n].names = names
 	return nil
@@ -993,8 +1034,9 @@ func (b build) eval(f *finder, set buildSet) (setEval, error) {
 		e.items[n] = it
 		switch {
 		case s.fits(it):
-		case s.key == "secondary" && it.wornAs("WIELD"):
-			warn(n, "It takes both hands, so it can only be the primary weapon.")
+		case s.second() && buildSlots[slotIndex(seconds[s.key].first)].fits(it):
+			warn(n, "It takes both hands, so it can only be the "+
+				seconds[s.key].what+".")
 		case len(it.worn) == 0 || it.wornAs("NOBITS"):
 			warn(n, "TorilEQ lists it as not worn at all.")
 		default:

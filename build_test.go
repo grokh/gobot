@@ -76,6 +76,11 @@ var buildEq = []dbRow{
 		"affect_flags": "NOBITS", "item_flags": "NOBITS",
 		"date": "2024-01-01", "short_stats": "a gnarled staff (HOLD 2H) * " +
 			"Mana:20 * Wt:6 Val:0 * Ashstone", "long_stats": "a gnarled staff"},
+	{"name": "a yew longbow", "zone": "Ashstone", "load": "N",
+		"type": "WEAPON", "worn": "WIELD 2H", "wt": 3,
+		"affect_flags": "NOBITS", "item_flags": "NOBITS",
+		"date": "2024-01-01", "short_stats": "a yew longbow (WIELD 2H) * " +
+			"1D8 * Wt:3 Val:0 * Ashstone", "long_stats": "a yew longbow"},
 }
 
 // testBuild checks the build designer against a test TorilDB.db.
@@ -116,6 +121,9 @@ func testSlotItem(t *testing.T, db *sql.DB) {
 		{"whole body on the body", "lordly", "body", "a suit of lordly plate"},
 		{"whole head on the head", "horned", "head", "a horned great helm"},
 		{"two-handed, held", "staff", "held", "a gnarled staff"},
+		{"not as the second held item", "staff", "held2", ""},
+		{"one-handed, as the second held item", "ember", "held2",
+			"a cursed ember"},
 		{"nothing by that name", "a sword of nothing", "primary", ""},
 	}
 	for _, c := range checks {
@@ -279,6 +287,25 @@ func testBuildEval(t *testing.T, db *sql.DB) {
 		t.Errorf("totalRows() check failed: no %q in %q", want, effects)
 	}
 
+	// two held items take both hands, a weapon with them makes three, and
+	// an item that takes both hands can only be the first held item
+	evals = evalSets(t, db, url.Values{"a.held": {"ember"},
+		"a.held2": {"ember"}, "b.held": {"ember"}, "b.held2": {"ember"},
+		"b.primary": {"short"}, "c.held2": {"a gnarled staff"}})
+	chk(t, "eval() warnings, two held items", nil, warnings(evals[0]))
+	chk(t, "eval() warnings, two held items and a weapon", []string{
+		"primary: The set needs 3 hands, and a character has two.",
+		"held: The set needs 3 hands, and a character has two.",
+		"held2: The set needs 3 hands, and a character has two."},
+		warnings(evals[1]))
+	chk(t, "eval() warnings, two-handed as the second held item", []string{
+		"held2: It takes both hands, so it can only be the first held item."},
+		warnings(evals[2]))
+	if evals[0].count != 2 || evals[0].vals["r:fire"] != -10 {
+		t.Errorf("eval() two held items check failed: %d items, %d fire",
+			evals[0].count, evals[0].vals["r:fire"])
+	}
+
 	// names that find nothing, and a set left empty between two
 	evals = evalSets(t, db, url.Values{"a.head": {"a hat of nothing"},
 		"c.tail": {"tail ring"}})
@@ -431,6 +458,28 @@ func testBuildPaste(t *testing.T, db *sql.DB) {
 	chkErr(t, b.paste(db, list[:1], "new"))
 	if len(b.sets) != 3 || b.sets[2].names["head"] != "a horned great helm" {
 		t.Errorf("paste() into a new set check failed: %+v", b.sets)
+	}
+
+	// two held items, one in each held slot, and an item held in both hands
+	// in the first, unless it's a weapon, as a wielded bow shows
+	for paste, want := range map[string][]string{
+		"<held>               a cursed ember\n" +
+			"<held>               a crystal orb (magic)\n": {
+			"held=a cursed ember", "held2=a crystal orb"},
+		"<held in both hands> a gnarled staff\n": {"held=a gnarled staff"},
+		"<held in both hands> a yew longbow (magic)\n": {
+			"primary=a yew longbow"},
+		"<held in both hands> a bow of nothing\n": {"held=a bow of nothing"},
+	} {
+		b := readBuild(url.Values{})
+		chkErr(t, b.paste(db, equipList(paste), "a"))
+		got = nil
+		for _, s := range buildSlots {
+			if name := b.sets[0].names[s.key]; name != "" {
+				got = append(got, s.key+"="+name)
+			}
+		}
+		chk(t, "paste() held items", want, got)
 	}
 }
 
@@ -594,6 +643,9 @@ func testBuildNames(t *testing.T) {
 		{"slot=neck1&q=stud", nil},
 		{"slot=primary&q=sword", []string{short, sword}},
 		{"slot=secondary&q=sword", []string{short}},
+		{"slot=held&q=staff", []string{"a gnarled staff | " +
+			"(HOLD 2H) * Mana:20 * Wt:6 Val:0 * Ashstone"}},
+		{"slot=held2&q=staff", nil},
 		{"slot=primary&q=sword&class=Ranger", []string{short}},
 		{"slot=primary&q=sword&class=Rogue", nil},
 		{"slot=primary&q=sword&class=Bard", []string{short, sword}},

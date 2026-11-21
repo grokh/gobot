@@ -294,11 +294,12 @@
 		clicked = b && b.form === form() ? b : null;
 	});
 
-	// a box or list changed: send it, but not the pasted list, which waits
-	// for its button
+	// a box or list changed: send it, but not the pasted list or what a fill
+	// is asked for, which wait for their buttons
 	document.addEventListener('change', function (e) {
 		var el = e.target;
-		if (el.form !== form() || el.name === 'paste' || el.name === 'pasteTo') {
+		if (el.form !== form() || el.name === 'paste' || el.name === 'pasteTo' ||
+			el.closest('.fill')) {
 			return;
 		}
 		send(null, el);

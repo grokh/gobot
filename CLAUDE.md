@@ -24,7 +24,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 | `guess.go` | what Katumi suggests for a mistyped tell |
 | `who.go`, `time.go`, `online.go` | who lists, boots, hourly player counts |
 | `web.go`, `html/` | the TorilEQ site (`gobot -port`) |
-| `build.go`, `html/build.*` | the site's build designer (`/build`, and `/build/names` for `build.js`) |
+| `build.go`, `best.go`, `html/build.*` | the site's build designer (`/build`, and `/build/names` for `build.js`), and its Fill (`best.go`), which fills a set with the best items for a stat |
 | `paste.go` | reading item names out of a list pasted into the site, and `-glist`'s |
 | `db.go` | opening, backing up and restoring `toril.db` |
 | `local.go` | `-glist` |

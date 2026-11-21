@@ -54,7 +54,7 @@ Katumi, a helper bot for TorilMUD, and the TorilEQ item search at grokh.com/tori
 - The live `toril.db` stays in rollback-journal mode, by the owner's choice. `dbcopy.sh` works with either mode.
 - The build designer's class and race rules follow TorilMUD's builder docs where Kegor's `-ONLY` summaries differ, by the owner's choice: ANTI-RANGER bars hexblades, and ANTI-HUMAN or ANTI-ORC bars half-orcs. Don't change them to match his summaries.
 - With the race left blank, a Fill stands for every race but yuan-ti, by the owner's choice (`standsFor`): the set has ears, legs and feet, and nothing on the tail. A yuan-ti wears nothing in the ears, on the legs or feet, nor a whole-body item (`bareSlots`).
-- Only the classes `help dual wield` names (`dualWielders`) can wield a secondary weapon, as the owner showed in November 2026: the game tells a psionicist who wields a second weapon "You lack the training to use two weapons." Don't go by players who say anyone can dual wield. With the class left blank, a Fill wields no secondary weapon (`twoWeapons`), since a blank class stands for every class.
+- Only the classes `help dual wield` names (`dualWielders`) can wield a secondary weapon, as the owner showed in November 2026: the game tells a psionicist who wields a second weapon "You lack the training to use two weapons." Don't go by players who say anyone can dual wield. With the class left blank, a Fill wields no secondary weapon, by the owner's choice (`twoWeapons`), since a blank class stands for every class.
 
 ## Previewing the site
 

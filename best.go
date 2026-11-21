@@ -27,9 +27,11 @@ import (
 // the page offers, and a race left blank for every race but yuan-ti, by the
 // owner's choice, so a set suits them all (see standsFor): the designer
 // can't tell which of them the game lets go together, so it never picks
-// one. Players wear two of the same ring, earring or bracer, and hold two of
-// the same item, as their logs show, so a pair's two slots can hold the same
-// item.
+// one. A secondary weapon takes the dual wield skill, so a fill wields one
+// only for a class that has it, and not for a class left blank, which stands
+// for classes that don't (see twoWeapons). Players wear two of the same ring,
+// earring or bracer, and hold two of the same item, as their logs show, so a
+// pair's two slots can hold the same item.
 //
 // Asked for the essential resists, a fill makes the set the best one with at
 // least 1% of each of them, counting what it keeps, which can mean an item
@@ -354,6 +356,13 @@ func suitedBy(c buildChar) users {
 	return need
 }
 
+// twoWeapons reports whether a fill may put a weapon in the secondary slot
+// for c: whether c's class has the dual wield skill (dualWielders). A class
+// left blank stands for every class (standsFor), and most lack it.
+func (c buildChar) twoWeapons() bool {
+	return c.class != "" && hasWord(dualWielders, c.class)
+}
+
 // suits reports whether everyone in need can use the item u is for.
 func (u users) suits(need users) bool {
 	for p := range u {
@@ -571,13 +580,20 @@ func (t table) merge(u table) {
 	}
 }
 
-func newFiller(cands []*candidate, o bestOpts, race string, kept []bool,
+// newFiller readies a fill for the character c from its candidates, around
+// the items a set keeps. The hands choice loses the secondary weapon unless
+// c can use two weapons.
+func newFiller(cands []*candidate, o bestOpts, c buildChar, kept []bool,
 	keptItems []*buildItem) *filler {
 	st, _ := findBestStat(o.stat)
-	f := &filler{pools: map[string][]*candidate{}, bare: bareSlots(race),
+	f := &filler{pools: map[string][]*candidate{}, bare: bareSlots(c.race),
 		kept: kept, keptItems: keptItems, need: o.resists, stat: st,
 		capped: o.capped, capAt: st.dir * o.capAt}
 	f.hands, _ = findHands(o.hands)
+	if !c.twoWeapons() {
+		f.hands.use = maps.Clone(f.hands.use)
+		delete(f.hands.use, dualSlot)
+	}
 	slices.SortFunc(cands, func(a, b *candidate) int {
 		switch {
 		case b.score.less(a.score):
@@ -1033,7 +1049,7 @@ func bestSet(db *sql.DB, c buildChar, o bestOpts, kept []bool,
 	if err != nil {
 		return filled{}, err
 	}
-	return newFiller(cands, o, c.race, kept, keptItems).plan()
+	return newFiller(cands, o, c, kept, keptItems).plan()
 }
 
 // fill fills a set with the best items for the fill the build asks for, as

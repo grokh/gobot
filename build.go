@@ -472,6 +472,17 @@ var buildClasses = []buildClass{
 	{"Wizard", []string{"NO-MAGE"}, nil},
 }
 
+// dualWielders are the classes with the dual wield skill, which a secondary
+// weapon takes. help dual wield gives it to hexblades and rangers at 10th
+// level, rogues at 15th, and warriors, bards and battlechanters at 20th. The
+// game tells any other class that wields a second weapon "You lack the
+// training to use two weapons."
+var dualWielders = []string{"Bard", "Battlechanter", "Hexblade", "Ranger",
+	"Rogue", "Warrior"}
+
+// dualSlot is the key of the slot that takes the dual wield skill.
+const dualSlot = "secondary"
+
 // buildRace is a race the designer checks items against: its side of the
 // racewar, and the item flags that bar it. Half-orcs are on neither side,
 // and the builder docs say they can use either side's items, but not an
@@ -559,6 +570,13 @@ func (c buildChar) wears(s buildSlot, it *buildItem) bool {
 	bare := bareSlots(c.race)
 	return !hasWord(bare, s.key) &&
 		!(it.whole(wholeFlag(s.key)) && coversBare(bare, s.key))
+}
+
+// trained reports whether the character has the training slot s takes, as
+// far as its class is chosen: a secondary weapon takes the dual wield skill
+// (dualWielders). A fill asks more of a class left blank (see twoWeapons).
+func (c buildChar) trained(s buildSlot) bool {
+	return s.key != dualSlot || c.class == "" || hasWord(dualWielders, c.class)
 }
 
 // noPlayer are the flags Kegor gives items no player can use.
@@ -1044,6 +1062,11 @@ func (b build) eval(f *finder, set buildSet) (setEval, error) {
 				", not here.")
 		}
 		e.warns[n] = append(e.warns[n], b.char.barred(it)...)
+		if !b.char.trained(s) {
+			who := article(b.char.class) + " " + b.char.class
+			warn(n, strings.ToUpper(who[:1])+who[1:]+
+				" lacks the training to use two weapons.")
+		}
 		switch bare := bareSlots(b.char.race); {
 		case b.char.wears(s, it):
 		case s.key == "tail":
@@ -1446,14 +1469,18 @@ type suggestion struct {
 // suggest finds the items to offer for a slot as q is typed in it, matched
 // loosely, as a typed name is found, and closest first: those that fit the
 // slot, that the character can wear there, and that nothing certain bars the
-// character from.
+// character from. It offers none for a slot the character lacks the
+// training for.
 func suggest(db *sql.DB, s buildSlot, q string, c buildChar) (
 	[]suggestion, error) {
+	names := []suggestion{}
+	if !c.trained(s) {
+		return names, nil
+	}
 	found, err := looseItems(db, q, s, 100)
 	if err != nil {
 		return nil, err
 	}
-	names := []suggestion{}
 	for _, it := range found {
 		if len(names) < suggestLimit && c.wears(s, it) && c.canUse(it) {
 			names = append(names, suggestion{it.name, it.short})

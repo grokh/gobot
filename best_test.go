@@ -42,6 +42,7 @@ var bestEq = []dbRow{
 	bestItem("a willow wand", "WIELD", "NOBITS", "N", 1, dbRow{"int": 3}),
 	bestItem("an oak cudgel", "WIELD 2H", "NOBITS", "N", 8, dbRow{"int": 5}),
 	bestItem("a crystal orb", "HOLD", "NOBITS", "N", 1, dbRow{"int": 2}),
+	bestItem("a scrying bowl", "HOLD 2H", "NOBITS", "N", 3, dbRow{"int": 4}),
 	bestItem("a warded buckler", "SHIELD", "NOBITS", "N", 5, dbRow{"int": 1}),
 	// cha: a class's item, a sex's, and one barred to good characters and
 	// good races
@@ -198,6 +199,7 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		"ear1=a tiny mithril stud set with a ruby"
 	owl, rimed := "an owl-feather amulet", "a rimed amulet"
 	mantle, crystal := "about=a shadow-woven mantle", "held=a frost crystal"
+	crystal2 := "held2=a frost crystal"
 	scholar := "waist=a scholar's sash"
 	studs := []string{"ear1=a tiny mithril stud set with a ruby",
 		"ear2=a tiny mithril stud set with a ruby"}
@@ -244,6 +246,16 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 			[]string{"primary=a willow wand", "held=a crystal orb"}},
 		{"a shield and a held item", buildChar{}, intel("shieldheld"), nil,
 			[]string{"shield=a warded buckler", "held=a crystal orb"}},
+		{"two held items", buildChar{}, intel("heldheld"), nil,
+			[]string{"held=a crystal orb", "held2=a crystal orb"}},
+		{"a two-handed held item", buildChar{}, intel("twohandedheld"), nil,
+			[]string{"held=a scrying bowl"}},
+		{"a second held item with a kept first", buildChar{},
+			intel("heldheld"), map[string]string{"held": "a crystal orb"},
+			[]string{"held2=a crystal orb"}},
+		{"a first held item with a kept second", buildChar{},
+			intel("heldheld"), map[string]string{"held2": "a crystal orb"},
+			[]string{"held=a crystal orb"}},
 		{"hands left empty", buildChar{}, intel("none"), nil, nil},
 		{"no hand left by a kept two-handed weapon", buildChar{}, intel("any"),
 			map[string]string{"primary": "an oak cudgel"}, nil},
@@ -303,8 +315,8 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 			"female"}, cha, nil, append(pendants, sash)},
 		{"the essential resists for a yuan-ti, with no ear for fire",
 			buildChar{race: "Yuan-Ti"}, wisdom, nil,
-			[]string{badge, "neck1=" + rimed, "neck2=" + owl, mantle, scholar,
-				crystal, "lacks=fire"}},
+			[]string{badge, "neck1=" + owl, "neck2=" + owl, mantle, scholar,
+				crystal, crystal2, "lacks=fire"}},
 		{"an item barred to yuan-ti, with no race chosen", buildChar{},
 			opts("maxdex", "", "any"), nil,
 			[]string{"waist=a snakeskin cincture"}},
@@ -364,8 +376,12 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{"without the essential resists", buildChar{},
 			opts("maxwis", "", "any"), nil,
 			[]string{"neck1=" + owl, "neck2=" + owl, mantle, scholar}},
+		{"the essential resists: two held items for their cold", buildChar{},
+			wisdom, nil,
+			[]string{badge, ruby, "neck1=" + owl, "neck2=" + owl, mantle,
+				scholar, crystal, crystal2}},
 		{"the essential resists: a held item for its cold, and an amulet",
-			buildChar{}, wisdom, nil,
+			buildChar{}, resists(opts("maxwis", "", "held")), nil,
 			[]string{badge, ruby, "neck1=" + rimed, "neck2=" + owl, mantle,
 				scholar, crystal}},
 		{"the essential resists, with no hands: both amulets", buildChar{},
@@ -374,8 +390,8 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 				scholar}},
 		{"as many of the essential resists as a set can have", buildChar{},
 			resists(opts("maxwis", "", "any", "quest")), nil,
-			[]string{badge, "neck1=" + rimed, "neck2=" + owl, mantle, scholar,
-				crystal, "lacks=fire"}},
+			[]string{badge, "neck1=" + owl, "neck2=" + owl, mantle, scholar,
+				crystal, crystal2, "lacks=fire"}},
 		{"the essential resists, around a kept cloak without cold",
 			buildChar{}, wisdom, map[string]string{"about": "a hermit's cloak"},
 			[]string{badge, ruby, "neck1=" + owl, "neck2=" + owl, scholar,
@@ -383,11 +399,12 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{"the essential resists, around a kept cloak that takes cold away",
 			buildChar{}, wisdom,
 			map[string]string{"about": "a shadow-woven mantle"},
-			[]string{badge, ruby, "neck1=" + rimed, "neck2=" + owl, scholar,
-				crystal}},
+			[]string{badge, ruby, "neck1=" + owl, "neck2=" + owl, scholar,
+				crystal, crystal2}},
 		{"the essential resists, around a kept girdle with acid", buildChar{},
 			wisdom, map[string]string{"waist": "a slimy girdle"},
-			[]string{ruby, "neck1=" + rimed, "neck2=" + owl, mantle, crystal}},
+			[]string{ruby, "neck1=" + owl, "neck2=" + owl, mantle, crystal,
+				crystal2}},
 		{"the essential resists, all kept: the set it would be without them",
 			buildChar{}, resists(luck), map[string]string{
 				"ear1": "a tiny mithril stud set with a ruby", "neck1": rimed,
@@ -442,6 +459,9 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{url.Values{"best": {"fire"}, "then": {"fire"}}, opts("fire", "", "any")},
 		{url.Values{"best": {"wt"}, "then": {"karma"}, "hands": {"juggle"}},
 			opts("hit", "", "any")},
+		{url.Values{"hands": {"heldheld"}}, opts("hit", "", "heldheld")},
+		{url.Values{"hands": {"twohandedheld"}},
+			opts("hit", "", "twohandedheld")},
 		{url.Values{"resists": {"1"}}, resists(opts("hit", "", "any"))},
 		{url.Values{"cap": {" 35 "}}, capAt(35, opts("hit", "", "any"))},
 		{url.Values{"cap": {"-10"}}, capAt(-10, opts("hit", "", "any"))},
@@ -474,8 +494,9 @@ func testBuildFill(t *testing.T) {
 	}
 	wisdom := "a.about=a+shadow-woven+mantle&a.badge=an+acid-etched+badge" +
 		"&a.ear1=a+tiny+mithril+stud+set+with+a+ruby&a.held=a+frost+crystal" +
-		"&a.label=Best+Max+Wisdom&a.neck1=a+rimed+amulet" +
-		"&a.neck2=an+owl-feather+amulet&a.waist=a+scholar%27s+sash"
+		"&a.held2=a+frost+crystal&a.label=Best+Max+Wisdom" +
+		"&a.neck1=an+owl-feather+amulet&a.neck2=an+owl-feather+amulet" +
+		"&a.waist=a+scholar%27s+sash"
 	checks := []struct {
 		what string
 		form url.Values
@@ -527,6 +548,9 @@ func testBuildFill(t *testing.T) {
 			"leave": {"norent"}, "fill": {"1"}},
 			"build?a.face=a+griffon-feather+veil" +
 				"&a.label=Best+Max+Constitution&best=maxcon&leave=norent"},
+		{"two held items", url.Values{"best": {"int"}, "hands": {"heldheld"},
+			"fill": {"1"}}, "build?a.held=a+crystal+orb&a.held2=a+crystal+orb" +
+			"&a.label=Best+Intelligence&best=int&hands=heldheld"},
 		{"the choices, kept", url.Values{"best": {"luck"}, "then": {"pow"},
 			"cap": {"-3"}, "hands": {"two"}, "leave": {"norent", "quest", "rare"},
 			"resists": {"1"}},
@@ -557,6 +581,8 @@ func testBuildFill(t *testing.T) {
 	for query, wants := range map[string][]string{
 		"": {`<option value="hit" selected="selected">Hitroll</option>`,
 			`<option value="any" selected="selected">any way</option>`,
+			`<option value="heldheld">two held items</option>`,
+			`<option value="twohandedheld">a two-handed held item</option>`,
 			`<input type="checkbox" name="leave" value="rare" id="leave-rare" />`,
 			`<input type="checkbox" name="leave" value="norent" id="leave-norent" /><label for="leave-norent">no-rent items</label>`,
 			`<input type="checkbox" name="resists" value="1" id="resists" />`,

@@ -126,6 +126,9 @@ body.build {
 .build .fill p.warn {
 	max-width: none;
 }
+.build .fill input.cap {
+	width: 5em;
+}
 /* space before the button that doesn't indent it when it wraps */
 .build .fill label[for=keep] {
 	margin-right: 1em;

@@ -92,13 +92,27 @@ var bestEq = []dbRow{
 	// race but yuan-ti, can use
 	bestItem("a snakeskin cincture", "WAIST", "ANTI-YUANTI", "N", 1,
 		dbRow{"max_dex": 2}),
+	// sf_spir capped, then mv: necks and rings with the focus or movement,
+	// and bracers with a save or movement
+	bestItem("a prayer-bead necklace", "NECK", "NOBITS", "N", 1,
+		dbRow{"sf_spi": 5}),
+	bestItem("a pilgrim's amulet", "NECK", "NOBITS", "N", 1,
+		dbRow{"sf_spi": 2, "move": 20}),
+	bestItem("a spirit-bound ring", "FINGER", "NOBITS", "N", 0,
+		dbRow{"sf_spi": 3}),
+	bestItem("a wanderer's ring", "FINGER", "NOBITS", "N", 0,
+		dbRow{"move": 15}),
+	bestItem("a ward of stillness", "WRIST", "NOBITS", "N", 1,
+		dbRow{"sv_para": -3}),
+	bestItem("a calming charm", "WRIST", "NOBITS", "N", 1,
+		dbRow{"sv_para": -1, "move": 10}),
 }
 
 // fillPicks fills a set for c as o asks, around the items keep names by
 // slot, and lists what the fill put where, as "slot=name", then each of the
-// essentials the set lacks, as "lacks=fire". It checks that nothing the fill
-// put in shows a warning for c, nor for c with each value a part it leaves
-// blank stands for (standsFor).
+// essentials the set lacks, as "lacks=fire", and "capout" if it left the cap
+// out. It checks that nothing the fill put in shows a warning for c, nor for
+// c with each value a part it leaves blank stands for (standsFor).
 func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 	keep map[string]string) []string {
 	kept := make([]bool, len(buildSlots))
@@ -110,8 +124,9 @@ func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 		chkErr(t, err)
 		kept[n], keptItems[n], set.names[key] = true, it, name
 	}
-	picks, lacks, err := bestSet(db, c, o, kept, keptItems)
+	made, err := bestSet(db, c, o, kept, keptItems)
 	chkErr(t, err)
+	picks := made.picks
 	var got []string
 	for n, p := range picks {
 		if p != nil {
@@ -119,8 +134,11 @@ func fillPicks(t *testing.T, db *sql.DB, c buildChar, o bestOpts,
 			set.names[buildSlots[n].key] = p.it.name
 		}
 	}
-	for _, e := range lacks {
+	for _, e := range made.lacks {
 		got = append(got, "lacks="+e)
+	}
+	if made.capOut {
+		got = append(got, "capout")
 	}
 	chars := []buildChar{c}
 	for p, part := range charParts {
@@ -154,6 +172,10 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		o.resists = true
 		return o
 	}
+	capAt := func(n int, o bestOpts) bestOpts {
+		o.capped, o.capAt = true, n
+		return o
+	}
 	luck := opts("luck", "", "any")
 	intel := func(hands string) bestOpts { return opts("int", "", hands) }
 	cha, con, wis := opts("cha", "", "any"), opts("con", "", "any"),
@@ -169,6 +191,13 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 	owl, rimed := "an owl-feather amulet", "a rimed amulet"
 	mantle, crystal := "about=a shadow-woven mantle", "held=a frost crystal"
 	scholar := "waist=a scholar's sash"
+	human := buildChar{race: "Human"}
+	spirit := opts("sf_spir", "mv", "any")
+	bead, pilgrim := "a prayer-bead necklace", "a pilgrim's amulet"
+	beads := []string{"neck1=" + bead, "neck2=" + bead}
+	charms := []string{"wrist1=a calming charm", "wrist2=a calming charm"}
+	spiritRings := []string{"finger1=a spirit-bound ring",
+		"finger2=a spirit-bound ring"}
 	checks := []struct {
 		what string
 		char buildChar
@@ -264,6 +293,38 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{"an item barred to yuan-ti, for a yuan-ti", buildChar{race: "Yuan-Ti"},
 			opts("maxdex", "", "any"), nil, nil},
 
+		{"a focus, then movement", buildChar{}, spirit, nil,
+			append(append(beads, charms...), spiritRings...)},
+		{"a focus capped, then movement", buildChar{}, capAt(12, spirit), nil,
+			append(append([]string{"neck1=" + bead, "neck2=" + pilgrim},
+				charms...), spiritRings...)},
+		{"a focus capped at what it gets", buildChar{}, capAt(16, spirit), nil,
+			append(append(beads, charms...), spiritRings...)},
+		{"a focus capped above what it can get", buildChar{},
+			capAt(30, spirit), nil,
+			append(append(beads, charms...), spiritRings...)},
+		{"a focus capped at nothing: movement alone", buildChar{},
+			capAt(0, spirit), nil,
+			append(append([]string{"neck1=" + pilgrim, "neck2=" + pilgrim},
+				charms...), "finger1=a wanderer's ring",
+				"finger2=a wanderer's ring")},
+		{"a focus capped, with nothing after it: the lightest", buildChar{},
+			capAt(12, opts("sf_spir", "", "any")), nil,
+			append(beads, "finger1=a spirit-bound ring")},
+		{"a focus capped around a kept ring", buildChar{}, capAt(12, spirit),
+			map[string]string{"finger1": "a spirit-bound ring"},
+			append(append([]string{"neck1=" + bead, "neck2=" + pilgrim},
+				charms...), "finger2=a spirit-bound ring")},
+		{"a save capped, then movement", buildChar{},
+			capAt(-4, opts("svpar", "mv", "any")), nil,
+			[]string{"neck1=" + pilgrim, "neck2=" + pilgrim,
+				"wrist1=a ward of stillness", "wrist2=a calming charm",
+				"finger1=a wanderer's ring", "finger2=a wanderer's ring"}},
+		{"a focus capped, with the essential resists", human,
+			resists(capAt(12, spirit)), nil,
+			append(append(append([]string{badge, ruby, "neck1=" + bead,
+				"neck2=" + pilgrim}, charms...), spiritRings...), crystal)},
+
 		{"a tie, to the lighter", buildChar{}, opts("agi", "", "any"), nil,
 			[]string{"ear1=a silver hoop", "ear2=a silver hoop"}},
 		{"a tie, to the second stat, which fills more", buildChar{},
@@ -323,11 +384,17 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 	}
 	was := maxWays
 	maxWays = 2
-	if _, _, err := bestSet(db, buildChar{}, wisdom,
+	if _, err := bestSet(db, buildChar{}, wisdom,
 		make([]bool, len(buildSlots)), make([]*buildItem, len(buildSlots))); err == nil {
 		t.Errorf("bestSet() check failed: no error counting more than %d "+
 			"sums", maxWays)
 	}
+	// a cap the essentials would make too much to count is left out
+	maxWays = 50
+	chk(t, "bestSet() a cap left out", append(append(append(
+		[]string{badge, ruby}, beads...), charms...), append(spiritRings,
+		crystal, "capout")...),
+		fillPicks(t, db, human, resists(capAt(12, spirit)), nil))
 	maxWays = was
 
 	for words, want := range map[string]string{"": "", "fire": "fire",
@@ -349,10 +416,18 @@ func testBuildBest(t *testing.T, db *sql.DB) {
 		{url.Values{"best": {"wt"}, "then": {"karma"}, "hands": {"juggle"}},
 			opts("hit", "", "any")},
 		{url.Values{"resists": {"1"}}, resists(opts("hit", "", "any"))},
+		{url.Values{"cap": {" 35 "}}, capAt(35, opts("hit", "", "any"))},
+		{url.Values{"cap": {"-10"}}, capAt(-10, opts("hit", "", "any"))},
+		{url.Values{"cap": {"0"}}, capAt(0, opts("hit", "", "any"))},
+		{url.Values{"cap": {""}}, opts("hit", "", "any")},
+		{url.Values{"cap": {"lots"}}, opts("hit", "", "any")},
+		{url.Values{"cap": {"10000"}}, opts("hit", "", "any")},
+		{url.Values{"cap": {"3.5"}}, opts("hit", "", "any")},
 	} {
 		got := readBest(c.v)
 		if got.stat != c.want.stat || got.then != c.want.then ||
 			got.hands != c.want.hands || got.resists != c.want.resists ||
+			got.capped != c.want.capped || got.capAt != c.want.capAt ||
 			strings.Join(got.leave, " ") != strings.Join(c.want.leave, " ") {
 			t.Errorf("readBest() check failed: %v gave %+v, not %+v", c.v, got,
 				c.want)
@@ -414,10 +489,18 @@ func testBuildFill(t *testing.T) {
 			"build?" + strings.Replace(wisdom, "a.ear1=a+tiny+mithril+stud+"+
 				"set+with+a+ruby&", "", 1) +
 				"&best=maxwis&lacks=fire&leave=quest&resists=1"},
+		{"capped, labeled with its cap", url.Values{"best": {"sf_spir"},
+			"then": {"mv"}, "cap": {"12"}, "fill": {"1"}},
+			"build?a.finger1=a+spirit-bound+ring&a.finger2=a+spirit-bound+ring" +
+				"&a.label=Spell+Focus+Spirit+to+12" +
+				"&a.neck1=a+prayer-bead+necklace&a.neck2=a+pilgrim%27s+amulet" +
+				"&a.wrist1=a+calming+charm&a.wrist2=a+calming+charm" +
+				"&best=sf_spir&cap=12&then=mv"},
 		{"the choices, kept", url.Values{"best": {"luck"}, "then": {"pow"},
-			"hands": {"two"}, "leave": {"quest", "rare"}, "resists": {"1"}},
-			"build?best=luck&hands=two&leave=rare&leave=quest&resists=1" +
-				"&then=pow"},
+			"cap": {"-3"}, "hands": {"two"}, "leave": {"quest", "rare"},
+			"resists": {"1"}},
+			"build?best=luck&cap=-3&hands=two&leave=rare&leave=quest" +
+				"&resists=1&then=pow"},
 		{"no note of what an earlier fill lacked", url.Values{
 			"best": {"maxwis"}, "resists": {"1"}, "lacks": {"fire"}},
 			"build?best=maxwis&resists=1"},
@@ -445,8 +528,13 @@ func testBuildFill(t *testing.T) {
 			`<option value="any" selected="selected">any way</option>`,
 			`<input type="checkbox" name="leave" value="rare" id="leave-rare" />`,
 			`<input type="checkbox" name="resists" value="1" id="resists" />`,
+			`<input type="number" name="cap" id="cap" class="cap" value="" step="1" min="-9999" max="9999" />`,
 			`<option value="fire">Fire resist</option>`,
 			`<button type="submit" name="fill" value="1" id="fill">Fill</button>`},
+		"best=sf_spir&cap=12": {
+			`<option value="sf_spir" selected="selected">Spell Focus Spirit</option>`,
+			`<input type="number" name="cap" id="cap" class="cap" value="12" step="1" min="-9999" max="9999" />`,
+			`best=sf_spir&amp;cap=12" rel="nofollow">`},
 		"best=maxwis&resists=1&lacks=cold&lacks=fire&a.head=cap": {
 			`<input type="checkbox" name="resists" value="1" id="resists" checked="checked" />`,
 			"so the one it made lacks fire and cold resist.",
@@ -472,5 +560,27 @@ func testBuildFill(t *testing.T) {
 		"lacks fire") {
 		t.Errorf("buildHandler() check failed: a fill that didn't need the " +
 			"essential resists noted one it lacked")
+	}
+
+	// a cap left out, as the link from that fill says, and only then
+	was := maxWays
+	maxWays = 50
+	code, loc := postBuild(url.Values{"race": {"Human"}, "best": {"sf_spir"},
+		"then": {"mv"}, "cap": {"12"}, "resists": {"1"}, "fill": {"1"}})
+	maxWays = was
+	if code != http.StatusSeeOther || !strings.Contains(loc,
+		"a.label=Best+Spell+Focus+Spirit&") || !strings.HasSuffix(loc,
+		"&best=sf_spir&cap=12&capout=1&race=Human&resists=1&then=mv") {
+		t.Errorf("buildHandler() POST fill a cap left out check failed: %d %q",
+			code, loc)
+	}
+	note := "so it left the cap out."
+	if body := page("best=sf_spir&cap=12&resists=1&capout=1"); !strings.Contains(
+		body, note) {
+		t.Errorf("buildHandler() check failed: no note of a cap left out")
+	}
+	if body := page("best=sf_spir&capout=1"); strings.Contains(body, note) {
+		t.Errorf("buildHandler() check failed: a note of a cap left out, " +
+			"with no cap")
 	}
 }

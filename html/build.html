@@ -40,6 +40,7 @@
 					{{range .BestStats}}<option value="{{.Abbr}}"{{if eq .Abbr $.Best}} selected="selected"{{end}}>{{.Disp}}</option>
 					{{end}}
 				</select>
+				<label for="cap">capped at </label><input type="number" name="cap" id="cap" class="cap" value="{{.Cap}}" step="1" min="-9999" max="9999" />
 				<label for="then">then </label><select name="then" id="then"><option value=""></option>
 					{{range .BestStats}}<option value="{{.Abbr}}"{{if eq .Abbr $.Then}} selected="selected"{{end}}>{{.Disp}}</option>
 					{{end}}
@@ -63,7 +64,8 @@
 				<button type="submit" name="fill" value="1" id="fill">Fill</button>
 			</p>
 			{{if .Lacks}}<p class="warn">No set the fill can make has at least 1% fire, cold and acid resist, so the one it made lacks {{.Lacks}} resist.</p>
-			{{end}}<p class="note">A fill uses only items the character can use. Leave the class, alignment or sex blank, and it uses only items that suit them all. Leave the race blank, and it fills a set for any race but yuan-ti, with nothing on the tail.</p>
+			{{end}}{{if .CapOut}}<p class="warn">That cap, with the essential resists, would take the fill too much working out, so it left the cap out. A lower cap, or a fill without the essential resists, can keep it.</p>
+			{{end}}<p class="note">A cap counts the first stat only up to it (for a save, down to it), so the rest goes to the second. A fill uses only items the character can use. Leave the class, alignment or sex blank, and it uses only items that suit them all. Leave the race blank, and it fills a set for any race but yuan-ti, with nothing on the tail.</p>
 		</div>
 		<table class="sets{{len .Sets}}">
 			<thead>

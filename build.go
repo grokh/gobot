@@ -493,15 +493,12 @@ const tailRace = "Yuan-Ti"
 var tailRaceBare = []string{"ear1", "ear2", "legs", "feet"}
 
 // bareSlots are the slots a character of race has nothing to wear an item
-// on, by key: the tail, unless it's a yuan-ti, and a yuan-ti's tailRaceBare.
-// For a race left blank, they're every race's, so that what a fill puts in a
-// set suits every race. The designer warns of neither (see wears).
+// on, by key: a yuan-ti's tailRaceBare, and for any other race the tail. A
+// race left blank has the body every other race has, by the owner's choice,
+// though the designer warns of neither (see wears).
 func bareSlots(race string) []string {
-	switch race {
-	case tailRace:
+	if race == tailRace {
 		return tailRaceBare
-	case "":
-		return append([]string{"tail"}, tailRaceBare...)
 	}
 	return []string{"tail"}
 }

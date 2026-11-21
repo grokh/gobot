@@ -21,13 +21,12 @@ import (
 // A fill uses only items the character can use with no warning at all, not
 // even a maybe, and none a player can't have: those Kegor marks out of the
 // game (load code !) or no take (load code X, or NOTAKE). A part of the
-// character the page leaves blank stands for every class, race, alignment or
-// sex the page offers, so a set suits them all: the designer can't tell which
-// of them the game lets go together, so it never picks one. With the race
-// blank, that leaves empty the tail, which only yuan-ti have, and the ears,
-// legs and feet, which yuan-ti don't wear anything on. Players wear two
-// of the same ring, earring or bracer, as their logs show, so a pair's two
-// slots can hold the same item.
+// character the page leaves blank stands for every class, alignment or sex
+// the page offers, and a race left blank for every race but yuan-ti, by the
+// owner's choice, so a set suits them all (see standsFor): the designer
+// can't tell which of them the game lets go together, so it never picks
+// one. Players wear two of the same ring, earring or bracer, as their logs
+// show, so a pair's two slots can hold the same item.
 //
 // Asked for the essential resists, a fill makes the set the best one with at
 // least 1% of each of them, counting what it keeps, which can mean an item
@@ -274,15 +273,33 @@ func usersOf(it *buildItem) users {
 	return u
 }
 
-// suitedBy is who a fill's items must suit for the character c: each part c
-// leaves blank stands for everything the page offers for it. An illithid has
-// no sex for an item to suit.
+// standsFor is what part p of the character stands for with chosen as its
+// value: that value, or if it's blank, everything the page offers for it,
+// but for the race, every race but yuan-ti, whose body differs (see
+// bareSlots), as the owner chose.
+func standsFor(p int, chosen string) []string {
+	if chosen != "" {
+		return []string{chosen}
+	}
+	var c buildChar
+	race := charParts[p].get(&c) == &c.race
+	var values []string
+	for _, v := range charParts[p].values() {
+		if !race || v != tailRace {
+			values = append(values, v)
+		}
+	}
+	return values
+}
+
+// suitedBy is who a fill's items must suit for the character c: what each
+// of its parts stands for. An illithid has no sex for an item to suit.
 func suitedBy(c buildChar) users {
 	var need users
 	for p, part := range charParts {
-		chosen := *part.get(&c)
+		stands := standsFor(p, *part.get(&c))
 		for i, v := range part.values() {
-			if chosen == "" || chosen == v {
+			if hasWord(stands, v) {
 				need[p] |= 1 << i
 			}
 		}

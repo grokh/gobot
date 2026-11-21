@@ -63,7 +63,7 @@
 				<button type="submit" name="fill" value="1" id="fill">Fill</button>
 			</p>
 			{{if .Lacks}}<p class="warn">No set the fill can make has at least 1% fire, cold and acid resist, so the one it made lacks {{.Lacks}} resist.</p>
-			{{end}}<p class="note">A fill uses only items the character can use. Leave the class, race, alignment or sex blank, and it uses only items that suit them all. With the race blank, it leaves the tail, ears, legs and feet empty: only yuan-ti have a tail, and yuan-ti wear nothing on the rest.</p>
+			{{end}}<p class="note">A fill uses only items the character can use. Leave the class, alignment or sex blank, and it uses only items that suit them all. Leave the race blank, and it fills a set for any race but yuan-ti, with nothing on the tail.</p>
 		</div>
 		<table class="sets{{len .Sets}}">
 			<thead>

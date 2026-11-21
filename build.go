@@ -653,13 +653,15 @@ type buildSet struct {
 func (s buildSet) empty() bool { return s.label == "" && len(s.names) == 0 }
 
 // build is a whole build: the character, the sets the page shows, what the
-// page's Fill (best.go) is asked for, and the essentials the set it last
-// filled lacks, if it needs them, which only the link from that fill tells.
+// page's Fill (best.go) is asked for, the essentials the set it last filled
+// lacks, if it needs them, and whether that fill left its cap out, which only
+// the link from that fill tells.
 type build struct {
-	char  buildChar
-	sets  []buildSet
-	best  bestOpts
-	lacks []string
+	char   buildChar
+	sets   []buildSet
+	best   bestOpts
+	lacks  []string
+	capOut bool
 }
 
 // setKey is the letter that names the nth set in links, a to d.
@@ -695,10 +697,10 @@ func field(s string, max int) string {
 }
 
 // readBuild reads a build from a form or a link: the character, what a fill
-// is asked for and the essentials it lacked, then each set's label and the
-// name in each of its slots, from a.label, a.head, b.head and so on. The
-// page shows as many sets as sets asks, at least minSets, and at least
-// enough for the last set with anything in it.
+// is asked for, the essentials it lacked and whether it left its cap out,
+// then each set's label and the name in each of its slots, from a.label,
+// a.head, b.head and so on. The page shows as many sets as sets asks, at
+// least minSets, and at least enough for the last set with anything in it.
 func readBuild(v url.Values) build {
 	b := build{char: readChar(v), best: readBest(v)}
 	for _, e := range essentials {
@@ -706,6 +708,7 @@ func readBuild(v url.Values) build {
 			b.lacks = append(b.lacks, e)
 		}
 	}
+	b.capOut = b.best.capped && v.Get("capout") != ""
 	all := make([]buildSet, maxSets)
 	last := -1
 	for n := range all {
@@ -728,8 +731,8 @@ func readBuild(v url.Values) build {
 
 // values is the build as link values, which readBuild reads back: only
 // what's filled in, what a fill is asked for unless it's the default, the
-// essentials the set it filled lacks, and sets only when it shows more sets
-// than it would without it.
+// essentials the set it filled lacks, whether it left its cap out, and sets
+// only when it shows more sets than it would without it.
 func (b build) values() url.Values {
 	v := url.Values{}
 	for k, val := range map[string]string{"class": b.char.class,
@@ -741,6 +744,9 @@ func (b build) values() url.Values {
 	b.best.addValues(v)
 	for _, e := range b.lacks {
 		v.Add("lacks", e)
+	}
+	if b.capOut {
+		v.Set("capout", "1")
 	}
 	last := -1
 	for n, s := range b.sets {
@@ -800,9 +806,10 @@ func (b *build) target(to string) int {
 // into the first empty set, clear one, which takes the last set away if the
 // page shows more than minSets, or fill one with the best items for a stat.
 // Any equipment list pasted in goes into the set pasteTo names, or the first
-// empty one. Only a fill's own link notes the essentials its set lacks.
+// empty one. Only a fill's own link notes the essentials its set lacks, or a
+// cap it left out.
 func (b *build) act(db *sql.DB, v url.Values) error {
-	b.lacks = nil
+	b.lacks, b.capOut = nil, false
 	switch {
 	case v.Get("fill") != "":
 		if err := b.fill(db, v); err != nil {
@@ -1215,9 +1222,10 @@ type BuildPage struct {
 	PasteDefault            string   // the first empty one, or new
 	// what a fill is asked for, and what the page offers
 	Best, Then, Hands   string
+	Cap                 string // the stat's cap, or "" for none
 	BestStats, HandWays []Option
 	LeaveOuts           []Check
-	Resists             bool
+	Resists, CapOut     bool   // CapOut: the fill left the cap out
 	Lacks               string // the essentials the set it filled lacks
 }
 
@@ -1235,7 +1243,10 @@ func (b build) page(db *sql.DB) (BuildPage, error) {
 		Align: b.char.align, Sex: b.char.sex, Aligns: aligns, Sexes: sexes,
 		Cols: len(b.sets) + 1, CanAdd: len(b.sets) < maxSets,
 		Best: b.best.stat, Then: b.best.then, Hands: b.best.hands,
-		Resists: b.best.resists, Lacks: andList(b.lacks),
+		Resists: b.best.resists, Lacks: andList(b.lacks), CapOut: b.capOut,
+	}
+	if b.best.capped {
+		p.Cap = strconv.Itoa(b.best.capAt)
 	}
 	for _, c := range buildClasses {
 		p.Classes = append(p.Classes, c.name)

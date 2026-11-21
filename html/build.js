@@ -305,6 +305,16 @@
 		send(null, el);
 	});
 
+	// Enter in the cap's box fills, as the Fill button does, not as the
+	// form's first button, Update, would
+	document.addEventListener('keydown', function (e) {
+		var fill = document.getElementById('fill');
+		if (e.key === 'Enter' && e.target.id === 'cap' && fill) {
+			e.preventDefault();
+			fill.click();
+		}
+	});
+
 	document.addEventListener('submit', function (e) {
 		if (bypass || e.target !== form()) {
 			bypass = false;

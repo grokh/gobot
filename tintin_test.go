@@ -66,6 +66,7 @@ func Test_Tintin(t *testing.T) {
 		{name: "katumi.tin", path: filepath.Join(src, "katumi.tin"),
 			everyTell: true, online: true, uptime: true, daily: true,
 			chars: true, botLog: true, alert: true, stamped: true,
+			chatLog: "logs/tells.log", bareLog: true,
 			login: []string{fakeAcct, fakeSecret, fakeChar}, tick: "who"},
 	}
 	if path := os.Getenv("TORILMUD_TIN"); path != "" {
@@ -73,7 +74,8 @@ func Test_Tintin(t *testing.T) {
 		// adds, and names its account itself.
 		scripts = append(scripts, tinScript{name: "torilmud.tin",
 			path: path, deps: []string{"gags.tin", "ynndchiarhlizz.tin"},
-			assoc: true, botLog: true, start: "play ynndchiarhlizz;login",
+			assoc: true, botLog: true, chatLog: "chat.log",
+			start: "play ynndchiarhlizz;login",
 			login: []string{"", fakeSecret, "Ynndchiarhlizz"}, tick: "l"})
 	}
 	for _, s := range scripts {
@@ -98,7 +100,9 @@ func Test_Tintin(t *testing.T) {
 // logs/bot.log when it starts, connects, logs in, drops and quits, and the
 // logins that go wrong, alert whether it sends an alert when it stops
 // logging in, and stamped whether its session log has the time each line
-// came. start is the command that logs in when tintin starts, for a script
+// came. chatLog is the log in its folder that tells go to, and bareLog
+// whether a line that came right behind the prompt goes there without it.
+// start is the command that logs in when tintin starts, for a script
 // that leaves that to another file, and so doesn't note that it started.
 // login is what the script answers the MUD's login prompts with: the
 // account ("" for any), the password and the character. tick is a line its
@@ -107,10 +111,37 @@ type tinScript struct {
 	name, path                              string
 	deps                                    []string
 	assoc, everyTell, online, uptime, daily bool
-	chars, botLog, alert, stamped           bool
-	start, tick                             string
+	chars, botLog, alert, stamped, bareLog  bool
+	start, tick, chatLog                    string
 	login                                   []string
 }
+
+// The prompts the driver puts lines right behind, as tintin gets a line
+// that comes within PACKET PATCH's time of the prompt, or with it: the
+// usual one, and one from a fight.
+const (
+	plainPrompt = "< P: std > "
+	fightPrompt = "< T: Katumi TC: few scratches E: mage EC: few wounds " +
+		"P: std > "
+)
+
+// behindPrompt are the lines the driver shows right behind a prompt, less
+// the prompt: a tell, the echo of a reply, and for a script that answers
+// stat on ASSOC, an ASSOC line. No other line the driver shows asks for
+// the ruby, or for the sword on ASSOC, so their answers come from these.
+func (s tinScript) behindPrompt() []string {
+	lines := []string{"Yog tells you 'stat ruby'",
+		"You tell Yog 'the echo of a reply'"}
+	if s.assoc {
+		lines = append(lines, "Yog ASSOC: 'stat black longsword'")
+	}
+	return lines
+}
+
+// quotingEcho is the echo of a reply that quotes another trigger's words,
+// which still has to be logged.
+const quotingEcho = "You tell Yog 'That character doesn't exist! Please " +
+	"try again.'"
 
 // driverUptime is the uptime the driver shows, as a time check's answer.
 const driverUptime = "58:10:26"
@@ -299,14 +330,16 @@ func (s tinScript) tells(t *testing.T, tt, bin, work string) {
 	replies := readIfThere(t, filepath.Join(run, "replies.log"))
 	botLog := readIfThere(t, filepath.Join(run, "logs", "bot.log"))
 
-	want := []string{"t Yog " + stilettoShort}
+	// the second is the answer to the tell that came right behind a prompt
+	want := []string{"t Yog " + stilettoShort, "t Yog " + rubyShort}
 	if s.everyTell {
 		// the link to the rest gets through tintin whole
 		want = append(want, "t Yog ...and 4 more: "+torileqURL+
 			"?fstat=hit+ge+1")
 	}
 	if s.assoc {
-		want = append(want, "acc "+stilettoShort)
+		// and the second here the answer to the ASSOC line behind a prompt
+		want = append(want, "acc "+stilettoShort, "acc "+swordShort)
 	}
 	for _, w := range want {
 		if !strings.Contains(replies, w+"\n") {
@@ -344,6 +377,22 @@ func (s tinScript) tells(t *testing.T, tt, bin, work string) {
 		!strings.Contains(replies, "acc a plain dagger 1 (WIELD) * 1D4 1/0\n")) {
 		t.Errorf("%d answers on ASSOC for the plain daggers, want 1, the "+
 			"first\nreplies:\n%s", n, replies)
+	}
+	// Each line that came right behind a prompt is in the log, without the
+	// prompt where the script leaves it out, and so is the echo that quotes
+	// another trigger. katumi.tin dates each line, so its line has " - " in
+	// front.
+	if s.chatLog != "" {
+		chat := readIfThere(t, filepath.Join(run, s.chatLog))
+		for _, line := range append(s.behindPrompt(), quotingEcho) {
+			if s.bareLog {
+				line = " - " + line + "\n"
+			}
+			if !strings.Contains(chat, line) {
+				t.Errorf("%s has no %q\n%s:\n%s", s.chatLog, line,
+					s.chatLog, chat)
+			}
+		}
 	}
 	if s.online {
 		checkOnline(t, filepath.Join(run, "toril.db"), screen)
@@ -411,7 +460,17 @@ func (s tinScript) driver() string {
 	lines = append(lines,
 		"#showme {Yog tells you 'That character doesn't exist! "+
 			"Please try again.'}",
-		"#showme {Yog tells you 'x ASSOC: 'stat infernal stiletto'}")
+		"#showme {Yog tells you 'x ASSOC: 'stat infernal stiletto'}",
+		"#showme {"+quotingEcho+"}")
+	// Lines right behind the prompt, on the same line: a tell and an ASSOC
+	// line still have to be answered, and all of them logged.
+	for i, line := range s.behindPrompt() {
+		prompt := plainPrompt
+		if i%2 == 1 {
+			prompt = fightPrompt
+		}
+		lines = append(lines, "#showme {"+prompt+line+"}")
+	}
 	// who <name>'s answers, for a script that adds chars from them
 	if s.chars {
 		for _, w := range whoLines {

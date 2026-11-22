@@ -167,10 +167,18 @@
 
 #nop Tells run at priority 4, ahead of every other trigger at the default 5.
 #nop tintin fires only the first action that matches a line, so a tell
-#nop quoting another trigger's words would go to that trigger instead.
-#act {^%w tells you '%2'$} {
+#nop quoting another trigger's words would go to that trigger instead. The
+#nop echo of a reply runs at 4 as well, so it gets into tells.log whatever
+#nop the reply says.
+#nop A tell, or the echo of a reply, can come right behind the prompt, on
+#nop the same line. tintin holds a prompt for PACKET PATCH's 0.05 seconds
+#nop and puts what comes in that time on its line, and a reply goes out
+#nop before tintin has read the prompt after the tell, so its echo is often
+#nop back by then. So both patterns let one prompt come first, written with
+#nop %! so that it takes no number, and tells.log gets the line without it.
+#act {^%!{(?:<[^<>]*> )?}%w tells you '%2'$} {
 	#format {time} {%t} {%F %T};
-	#line log {logs/tells.log} {$time - %0};
+	#line log {logs/tells.log} {$time - %1 tells you '%2'};
 
 	#var {chat} {%2};
 	#nop Prevent script hacking;
@@ -182,10 +190,10 @@
 		#if {"$cmd" != "%d"} {$cmd};
 	};
 } {4}
-#act {^You tell %w '%2'$} {
+#act {^%!{(?:<[^<>]*> )?}You tell %w '%2'$} {
 	#format {time} {%t} {%F %T};
-	#line log {logs/tells.log} {$time - %0};
-}
+	#line log {logs/tells.log} {$time - You tell %1 '%2'};
+} {4}
 #act {No-one by that name here...$} {
 	#format {time} {%t} {%F %T};
 	#line log {logs/tells.log} {$time - %0};
